@@ -155,7 +155,7 @@ export function createAppResources(args: AppResourcesArgs) {
           services: [{ name: apiService.metadata.name, port: 3001 }],
         },
       ],
-      tls: { certResolver: "letsencrypt" },
+      tls: { secretName: "wildcard-tls" },
     },
   });
 

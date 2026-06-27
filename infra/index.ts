@@ -40,8 +40,9 @@ const helm = createHelmReleases({
   minioRootPassword,
 });
 
-// --- Let's Encrypt ClusterIssuer ---
-const letsencryptIssuer = new k8s.apiextensions.CustomResource("letsencrypt-prod", {
+// --- Let's Encrypt ClusterIssuers ---
+// HTTP-01 for individual custom domains
+const letsencryptProd = new k8s.apiextensions.CustomResource("letsencrypt-prod", {
   apiVersion: "cert-manager.io/v1",
   kind: "ClusterIssuer",
   metadata: { name: "letsencrypt-prod" },
@@ -49,11 +50,49 @@ const letsencryptIssuer = new k8s.apiextensions.CustomResource("letsencrypt-prod
     acme: {
       server: "https://acme-v02.api.letsencrypt.org/directory",
       email: config.require("acmeEmail"),
-      privateKeySecretRef: { name: "letsencrypt-prod-key" },
-      solvers: [{ http01: { ingress: { class: "traefik" } } }],
+      privateKeySecretRef: { name: "letsencrypt-prod-account-key" },
+      solvers: [{ http01: { ingress: { ingressClassName: "traefik" } } }],
     },
   },
 }, { dependsOn: [helm.certManager] });
+
+// DNS-01 for wildcard platform subdomain (uses existing Hostinger webhook)
+const letsencryptDns = new k8s.apiextensions.CustomResource("letsencrypt-dns", {
+  apiVersion: "cert-manager.io/v1",
+  kind: "ClusterIssuer",
+  metadata: { name: "letsencrypt-dns" },
+  spec: {
+    acme: {
+      email: config.require("acmeEmail"),
+      server: "https://acme-v02.api.letsencrypt.org/directory",
+      privateKeySecretRef: { name: "letsencrypt-dns-account-key" },
+      solvers: [{
+        dns01: {
+          webhook: {
+            groupName: `acme.${platformDomain}`,
+            solverName: "hostinger",
+            config: {
+              zoneDomain: platformDomain,
+              ttl: 60,
+            },
+          },
+        },
+      }],
+    },
+  },
+}, { dependsOn: [helm.certManager] });
+
+// Wildcard cert for platform subdomains
+const wildcardCert = new k8s.apiextensions.CustomResource("wildcard-cert", {
+  apiVersion: "cert-manager.io/v1",
+  kind: "Certificate",
+  metadata: { name: `wildcard-${platformDomain.replace(/\./g, "-")}`, namespace: platformNs.metadata.name },
+  spec: {
+    secretName: "wildcard-tls",
+    issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
+    dnsNames: [platformDomain, `*.${platformDomain}`],
+  },
+}, { dependsOn: [letsencryptDns] });
 
 // --- Connection strings ---
 const databaseUrl = pulumi.interpolate`postgres://postgres:${postgresPassword}@postgresql-primary.${dataNs.metadata.name}.svc.cluster.local:5432/storehub`;
