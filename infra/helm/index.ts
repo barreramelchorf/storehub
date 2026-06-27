@@ -9,12 +9,17 @@ export interface HelmReleasesArgs {
 }
 
 export function createHelmReleases(args: HelmReleasesArgs) {
+  // Using Bitnami charts with explicit image override to bitnamilegacy registry
+  // since Bitnami moved free images there as of Sept 2025
+  const imageRegistry = "docker.io/bitnamilegacy";
+
   const postgresql = new k8s.helm.v3.Chart("postgresql", {
     chart: "postgresql",
     version: "16.2.1",
     fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
     namespace: args.dataNamespace,
     values: {
+      global: { imageRegistry },
       auth: {
         postgresPassword: args.postgresPassword,
         database: "storehub",
@@ -32,6 +37,7 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
     namespace: args.dataNamespace,
     values: {
+      global: { imageRegistry },
       auth: { password: args.redisPassword },
       architecture: "standalone",
       master: {
@@ -47,6 +53,7 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
     namespace: args.dataNamespace,
     values: {
+      global: { imageRegistry },
       auth: {
         rootUser: "storehub",
         rootPassword: args.minioRootPassword,
@@ -59,17 +66,13 @@ export function createHelmReleases(args: HelmReleasesArgs) {
 
   const certManager = new k8s.helm.v3.Chart("cert-manager", {
     chart: "cert-manager",
-    version: "1.16.2",
+    version: "v1.15.3",
     fetchOpts: { repo: "https://charts.jetstack.io" },
     namespace: "cert-manager",
     values: {
       installCRDs: true,
       resources: { requests: { memory: "64Mi", cpu: "25m" }, limits: { memory: "128Mi", cpu: "100m" } },
     },
-    transformations: [(obj: any) => {
-      // Ensure cert-manager namespace exists
-      if (obj.kind === "Namespace") return;
-    }],
   });
 
   return { postgresql, redis, minio, certManager };
