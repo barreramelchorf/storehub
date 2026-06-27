@@ -1,0 +1,15 @@
+config:
+  storehub-infra:platformDomain: storehub.local
+  storehub-infra:apiImage: storehub-api:latest
+  storehub-infra:webImage: storehub-web:latest
+  storehub-infra:migrateImage: storehub-migrate:latest
+  storehub-infra:apiReplicas: "1"
+  storehub-infra:webReplicas: "1"
+  storehub-infra:postgresPassword:
+    secure: AAABAFakeEncryptedValueForDev==
+  storehub-infra:redisPassword:
+    secure: AAABAFakeEncryptedValueForDev==
+  storehub-infra:jwtSecret:
+    secure: AAABAFakeEncryptedValueForDev==
+  storehub-infra:minioRootPassword:
+    secure: AAABAFakeEncryptedValueForDev==

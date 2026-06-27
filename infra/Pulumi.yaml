@@ -1,0 +1,7 @@
+name: storehub-infra
+runtime: nodejs
+description: StoreHub Kubernetes infrastructure
+
+config:
+  kubernetes:context:
+    default: minikube

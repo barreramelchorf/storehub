@@ -1,0 +1,11 @@
+FROM node:20-alpine
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY packages/db/package.json packages/db/
+RUN pnpm install --frozen-lockfile --filter @storehub/db
+
+COPY packages/db ./packages/db
+
+CMD ["pnpm", "--filter", "@storehub/db", "migrate"]
