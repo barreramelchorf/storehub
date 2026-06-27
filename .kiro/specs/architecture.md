@@ -53,7 +53,7 @@ atiende a múltiples tenants, aislados por `tenant_id` en base de datos con Row-
 | Validación | Zod | Schemas compartidos con frontend |
 | Auth | JWT (jose) + bcrypt | Sin dependencias externas, extensible a OAuth |
 | File upload | Multipart via Fastify | PDFs e imágenes |
-| Queue | BullMQ (Redis) | Jobs async: procesamiento de imágenes, emails |
+| Queue | BullMQ (Redis) | Jobs async: procesamiento de imágenes, emails future notifications |
 
 ### Base de datos
 | Decisión | Tecnología | Justificación |
@@ -68,7 +68,7 @@ atiende a múltiples tenants, aislados por `tenant_id` en base de datos con Row-
 | Contenedores | Docker | Build reproducible |
 | Orquestación | Kubernetes (cluster propio) | Ya disponible |
 | IaC | **Pulumi TypeScript** | Definido como requisito |
-| Ingress | ingress-nginx | Wildcard TLS + custom domains |
+| Ingress | **Traefik v3** | Wildcard TLS + custom domains dinámicos sin reinicio (ingress-nginx retirado marzo 2026) |
 | TLS | cert-manager + Let's Encrypt | Certificados automáticos |
 | BD en cluster | Helm chart (Bitnami PostgreSQL) via Pulumi | |
 | Redis en cluster | Helm chart (Bitnami Redis) via Pulumi | |
@@ -115,9 +115,14 @@ Cada request HTTP llega con un `Host` header. El API middleware resuelve el tena
 - Drizzle ORM nunca emite queries sin el contexto de tenant activo.
 
 ### Custom domains
-- El admin registra el dominio en el panel → se guarda en `tenants.custom_domain`.
-- cert-manager provee TLS automático via HTTP-01 challenge.
-- ingress-nginx recarga la configuración dinámicamente.
+Flujo de dos pasos — la parte de infraestructura se automatiza, el DNS es responsabilidad del cliente:
+
+1. Admin registra `misupertienda.com` en el panel → se guarda en `tenants.custom_domain`.
+2. El sistema crea automáticamente un `IngressRoute` de Traefik + cert-manager emite el certificado TLS via HTTP-01 challenge.
+3. El sistema muestra al admin: *"Apunta un registro A de `misupertienda.com` a `IP_DEL_CLUSTER`"*.
+4. Una vez que el DNS propaga y el certificado está listo, el dominio se activa automáticamente.
+
+El cliente debe realizar el paso de DNS manualmente — ningún sistema puede hacerlo por él.
 
 ---
 
@@ -221,13 +226,15 @@ new k8s.helm.v3.Release("redis", { /* Bitnami Redis */ });
 new k8s.helm.v3.Release("minio", { /* Bitnami MinIO */ });
 ```
 
-### Ingress
+### Ingress (Traefik v3)
 ```yaml
-# Wildcard para subdominios
-host: "*.dominio-plataforma.com"
+# Wildcard para subdominios — definido en Pulumi
+IngressRoute: host(`*.dominio-plataforma.com`)
 
-# Custom domains: se crean/eliminan dinámicamente via Pulumi o kubectl
+# Custom domains — creados dinámicamente por la API al registrar un dominio
+IngressRoute: host(`misupertienda.com`)
 ```
+Traefik recarga la configuración sin reinicio al detectar nuevos IngressRoutes.
 
 ### Secrets
 - Secrets de Kubernetes para: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `MINIO_*`.
@@ -276,7 +283,15 @@ El branding (colores, logo) se aplica vía CSS variables en Next.js:
 
 ---
 
-## 9. Decisiones pendientes (a resolver en implementación)
+## 10. Patrón de operaciones asíncronas (Worker)
+
+Las operaciones que toman tiempo (resize de imágenes, procesamiento de PDFs) no bloquean al usuario:
+
+1. El cliente sube el archivo → la API guarda el archivo raw en MinIO y encola el job → responde inmediatamente con `{ status: "processing", id: "..." }`.
+2. El Worker procesa el job (resize, optimización, etc.) y actualiza el estado en BD a `ready`.
+3. El frontend hace polling ligero (`GET /api/admin/products/:id`) o espera un refresco manual para ver el resultado final.
+
+No se implementan WebSockets en v1 — el polling es suficiente para la frecuencia de estas operaciones. (a resolver en implementación)
 
 | Decisión | Opciones | Recomendación |
 |----------|----------|---------------|
