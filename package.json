@@ -9,6 +9,12 @@
     "db:migrate": "pnpm --filter @storehub/db migrate",
     "db:seed": "pnpm --filter @storehub/db seed"
   },
+  "pnpm": {
+    "overrides": {
+      "drizzle-orm": "0.38.3",
+      "postgres": "3.4.5"
+    }
+  },
   "devDependencies": {
     "turbo": "2.3.3",
     "typescript": "5.7.3",

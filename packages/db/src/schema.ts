@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, boolean, integer, numeric, jsonb, timestamp, pgEnum, unique, index } from 'drizzle-orm/pg-core'
+import { relations } from 'drizzle-orm'
 
 // Enums
 export const giroEnum = pgEnum('giro_type', ['cafeteria', 'electronics', 'bakery', 'restaurant', 'other'])
@@ -137,3 +138,12 @@ export const auditLog = pgTable('audit_log', {
   index('audit_log_tenant_idx').on(t.tenantId),
   index('audit_log_created_idx').on(t.createdAt),
 ])
+
+// Relations
+export const usersRelations = relations(users, ({ one }) => ({
+  role: one(roles, { fields: [users.roleId], references: [roles.id] }),
+}))
+
+export const rolesRelations = relations(roles, ({ many }) => ({
+  users: many(users),
+}))
