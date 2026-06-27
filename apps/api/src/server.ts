@@ -6,29 +6,40 @@ import rateLimit from '@fastify/rate-limit'
 import cookie from '@fastify/cookie'
 import { healthRoutes } from './routes/health.js'
 import { authRoutes } from './routes/auth.js'
+import { categoryRoutes } from './routes/categories.js'
+import { productRoutes } from './routes/products.js'
+import { saleRoutes } from './routes/sales.js'
+import { analyticsRoutes } from './routes/analytics.js'
+import { documentRoutes } from './routes/documents.js'
+import { publicRoutes } from './routes/public.js'
 import { resolveTenant } from './middleware/tenant.js'
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
 
 await app.register(cors, { origin: true, credentials: true })
 await app.register(helmet)
-await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }) // 10MB
+await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } })
 await app.register(cookie)
 await app.register(rateLimit, { max: 100, timeWindow: '1 minute' })
 
-// Global error handler
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)
   reply.code(error.statusCode ?? 500).send({ error: error.message })
 })
 
-// Public routes
+// Public routes (no tenant needed)
 await app.register(healthRoutes)
 
-// Routes requiring tenant resolution
+// All tenant-scoped routes
 await app.register(async (tenantApp) => {
   tenantApp.addHook('preHandler', resolveTenant)
   await tenantApp.register(authRoutes)
+  await tenantApp.register(publicRoutes)
+  await tenantApp.register(categoryRoutes)
+  await tenantApp.register(productRoutes)
+  await tenantApp.register(saleRoutes)
+  await tenantApp.register(analyticsRoutes)
+  await tenantApp.register(documentRoutes)
 })
 
 const port = Number(process.env.PORT ?? 3001)
