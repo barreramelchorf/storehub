@@ -82,9 +82,12 @@ Los permisos de cada rol predefinido pueden ser ajustados por el `admin` del ten
 Permisos granulares disponibles:
 - `sales.create` — Registrar ventas
 - `sales.view` — Ver historial de ventas
+- `sales.override_price` — Modificar precio de un producto en una venta
+- `sales.backdate` — Registrar ventas con fecha pasada (quedan pendientes de aprobación)
 - `inventory.view` — Ver inventario
 - `inventory.manage` — Crear/editar/eliminar productos y categorías
 - `analytics.view` — Ver analytics
+- `audit.view` — Ver log de auditoría
 - `settings.manage` — Configurar el tenant
 - `users.manage` — Gestionar usuarios del tenant
 - `documents.manage` — Subir/gestionar PDFs
@@ -93,14 +96,24 @@ Permisos granulares disponibles:
 - CRUD de categorías: nombre, descripción, imagen, orden de aparición.
 - CRUD de productos: nombre, descripción, precio, categoría, imágenes, stock, disponibilidad.
 - Control de stock: cantidad actual, alerta de stock mínimo configurable por producto.
-- Estado de producto: activo / inactivo (no aparece en tienda pública si inactivo).
+- Cada producto tiene dos flags independientes:
+  - `active` — existe en el sistema y puede usarse en el POS.
+  - `visible` — aparece en la tienda pública. Un producto puede ser activo pero no visible
+    (ej. un topping que solo se usa como componente interno, no se vende individualmente).
 
 ### RF-12 Punto de venta (POS)
 - Interfaz para registrar ventas desde el panel admin (optimizada para uso en pantalla táctil/escritorio).
 - Flujo: buscar/seleccionar productos → ajustar cantidades → registrar venta.
 - Registro de método de pago: efectivo, tarjeta, transferencia, otro.
 - Descuento por venta (porcentaje o monto fijo).
+- Propina: campo opcional de monto fijo de propina por venta.
+- Override de precio por ítem: el cajero puede modificar el precio de un producto en la venta,
+  ingresando el nuevo precio y una razón obligatoria. Requiere permiso `sales.override_price`.
+  La diferencia queda registrada en el log de auditoría.
 - Al registrar venta, el stock se descuenta automáticamente.
+- Ventas con fecha pasada: un empleado con permiso `sales.backdate` puede registrar una venta
+  con fecha anterior al día actual. Estas ventas quedan en estado `pending_approval` y no
+  afectan analytics hasta ser aprobadas por el admin.
 - Impresión / exportación de ticket (opcional, fase 2).
 
 ### RF-13 Analytics
@@ -126,9 +139,27 @@ Permisos granulares disponibles:
 - Gestión de dominio personalizado (agregar/verificar dominio).
 - Configuración de tipo de giro.
 
----
+### RF-16 Aprobación de ventas con fecha pasada
+- Las ventas backdated quedan en estado `pending_approval` y aparecen en una bandeja
+  de aprobación visible solo para admin y manager.
+- El admin/manager puede aprobar o rechazar cada venta, con campo de nota opcional.
+- Solo las ventas en estado `approved` se contabilizan en analytics e historial de ventas.
+- Las ventas rechazadas quedan registradas pero marcadas como `rejected` (no se borran).
 
-## 4. Requisitos no funcionales
+### RF-17 Auditoría
+- Tabla de log de auditoría que registra eventos sensibles del tenant.
+- Eventos auditados en v1:
+  - Override de precio en venta (precio original, precio cobrado, razón, usuario)
+  - Venta backdated creada / aprobada / rechazada
+  - Producto creado, editado o eliminado
+  - Cambios en configuración del tenant
+  - Creación, edición o desactivación de usuarios y roles
+- Sección "Auditoría" en el panel admin (requiere permiso `audit.view`):
+  - Listado paginado de eventos con filtros por: tipo de evento, usuario, rango de fechas.
+  - Vista de detalle de cada evento (antes / después cuando aplica).
+- Los registros de auditoría son de solo lectura — no se pueden editar ni eliminar.
+
+---
 
 ### RNF-01 Responsividad
 - Tienda pública y panel admin deben ser completamente funcionales en móvil y escritorio.

@@ -137,14 +137,30 @@ roles   (id, tenant_id, name, permissions JSONB, is_default BOOLEAN)
 -- Catálogo
 categories (id, tenant_id, name, description, image_url, sort_order, active)
 products   (id, tenant_id, category_id, name, description, price, images JSONB,
-            stock, min_stock, active, created_at)
+            stock, min_stock, active, visible, created_at)
+--          active: existe en el sistema / visible: aparece en tienda pública
 
 -- Ventas
-sales      (id, tenant_id, user_id, total, discount, payment_method, notes, created_at)
-sale_items (id, sale_id, product_id, quantity, unit_price, subtotal)
+sales      (id, tenant_id, user_id, total, discount, tip, payment_method, notes,
+            status, -- approved | pending_approval | rejected
+            sale_date, -- fecha real de la venta (puede ser pasada)
+            created_at)
+sale_items (id, sale_id, product_id, quantity,
+            unit_price,         -- precio cobrado
+            original_price,     -- precio base del producto al momento de la venta
+            override_reason,    -- NULL si no hubo override
+            subtotal)
+
+-- Aprobación de ventas backdated
+sale_approvals (id, sale_id, reviewed_by, status, note, created_at)
 
 -- Documentos PDF
 documents  (id, tenant_id, name, slug, file_path, active, created_at)
+
+-- Auditoría
+audit_log  (id, tenant_id, user_id, event_type, entity_type, entity_id,
+            payload JSONB, -- { before: {...}, after: {...} }
+            created_at)
 
 -- Configuración del tenant (almacenada en tenants.config JSONB)
 -- {
