@@ -32,19 +32,22 @@ minikube start --memory=4096 --cpus=4
 minikube addons enable storage-provisioner
 minikube addons enable metrics-server
 
-# Install Traefik (if not already in cluster)
-helm repo add traefik https://traefik.github.io/charts
-helm install traefik traefik/traefik -n kube-system
-
-# Install cert-manager
-helm repo add jetstack https://charts.jetstack.io
-helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true
+# Install Traefik — already included in k3s, skip if using k3s
+# Install cert-manager — managed by Pulumi (helm/index.ts)
 
 # Build images locally (use minikube docker env)
 eval $(minikube docker-env)
 docker build -f docker/api.Dockerfile --target production -t storehub-api:latest .
 docker build -f docker/web.Dockerfile --target production -t storehub-web:latest .
 docker build -f docker/migrate.Dockerfile -t storehub-migrate:latest .
+
+# Or push to GitHub Container Registry
+docker build -f docker/api.Dockerfile --target production -t ghcr.io/barreramelchorf/storehub-api:latest .
+docker build -f docker/web.Dockerfile --target production -t ghcr.io/barreramelchorf/storehub-web:latest .
+docker build -f docker/migrate.Dockerfile -t ghcr.io/barreramelchorf/storehub-migrate:latest .
+docker push ghcr.io/barreramelchorf/storehub-api:latest
+docker push ghcr.io/barreramelchorf/storehub-web:latest
+docker push ghcr.io/barreramelchorf/storehub-migrate:latest
 
 # Deploy with Pulumi
 cd infra

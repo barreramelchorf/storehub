@@ -28,16 +28,35 @@ const platformNs = new k8s.core.v1.Namespace("platform", {
   metadata: { name: "platform" },
 });
 
-// --- Helm Releases (data layer) ---
+const certManagerNs = new k8s.core.v1.Namespace("cert-manager", {
+  metadata: { name: "cert-manager" },
+});
+
+// --- Helm Charts (data layer + cert-manager) ---
 const helm = createHelmReleases({
-  namespace: dataNs.metadata.name,
+  dataNamespace: dataNs.metadata.name,
   postgresPassword,
   redisPassword,
   minioRootPassword,
 });
 
+// --- Let's Encrypt ClusterIssuer ---
+const letsencryptIssuer = new k8s.apiextensions.CustomResource("letsencrypt-prod", {
+  apiVersion: "cert-manager.io/v1",
+  kind: "ClusterIssuer",
+  metadata: { name: "letsencrypt-prod" },
+  spec: {
+    acme: {
+      server: "https://acme-v02.api.letsencrypt.org/directory",
+      email: config.require("acmeEmail"),
+      privateKeySecretRef: { name: "letsencrypt-prod-key" },
+      solvers: [{ http01: { ingress: { class: "traefik" } } }],
+    },
+  },
+}, { dependsOn: [helm.certManager] });
+
 // --- Connection strings ---
-const databaseUrl = pulumi.interpolate`postgres://postgres:${postgresPassword}@postgresql.${dataNs.metadata.name}.svc.cluster.local:5432/storehub`;
+const databaseUrl = pulumi.interpolate`postgres://postgres:${postgresPassword}@postgresql-primary.${dataNs.metadata.name}.svc.cluster.local:5432/storehub`;
 const redisUrl = pulumi.interpolate`redis://:${redisPassword}@redis-master.${dataNs.metadata.name}.svc.cluster.local:6379`;
 const minioEndpoint = pulumi.interpolate`minio.${dataNs.metadata.name}.svc.cluster.local`;
 

@@ -2,18 +2,18 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 
 export interface HelmReleasesArgs {
-  namespace: pulumi.Input<string>;
+  dataNamespace: pulumi.Input<string>;
   postgresPassword: pulumi.Input<string>;
   redisPassword: pulumi.Input<string>;
   minioRootPassword: pulumi.Input<string>;
 }
 
 export function createHelmReleases(args: HelmReleasesArgs) {
-  const postgresql = new k8s.helm.v3.Release("postgresql", {
+  const postgresql = new k8s.helm.v3.Chart("postgresql", {
     chart: "postgresql",
     version: "16.2.1",
-    repositoryOpts: { repo: "https://charts.bitnami.com/bitnami" },
-    namespace: args.namespace,
+    fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
+    namespace: args.dataNamespace,
     values: {
       auth: {
         postgresPassword: args.postgresPassword,
@@ -26,11 +26,11 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     },
   });
 
-  const redis = new k8s.helm.v3.Release("redis", {
+  const redis = new k8s.helm.v3.Chart("redis", {
     chart: "redis",
     version: "20.3.0",
-    repositoryOpts: { repo: "https://charts.bitnami.com/bitnami" },
-    namespace: args.namespace,
+    fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
+    namespace: args.dataNamespace,
     values: {
       auth: { password: args.redisPassword },
       architecture: "standalone",
@@ -41,11 +41,11 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     },
   });
 
-  const minio = new k8s.helm.v3.Release("minio", {
+  const minio = new k8s.helm.v3.Chart("minio", {
     chart: "minio",
     version: "14.8.3",
-    repositoryOpts: { repo: "https://charts.bitnami.com/bitnami" },
-    namespace: args.namespace,
+    fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
+    namespace: args.dataNamespace,
     values: {
       auth: {
         rootUser: "storehub",
@@ -57,5 +57,20 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     },
   });
 
-  return { postgresql, redis, minio };
+  const certManager = new k8s.helm.v3.Chart("cert-manager", {
+    chart: "cert-manager",
+    version: "1.16.2",
+    fetchOpts: { repo: "https://charts.jetstack.io" },
+    namespace: "cert-manager",
+    values: {
+      installCRDs: true,
+      resources: { requests: { memory: "64Mi", cpu: "25m" }, limits: { memory: "128Mi", cpu: "100m" } },
+    },
+    transformations: [(obj: any) => {
+      // Ensure cert-manager namespace exists
+      if (obj.kind === "Namespace") return;
+    }],
+  });
+
+  return { postgresql, redis, minio, certManager };
 }
