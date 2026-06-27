@@ -1,1 +1,8 @@
-node_modules/\n.env\n.env.local\ndist/\n.turbo/\n*.log
+node_modules/
+.env
+.env.local
+dist/
+.next/
+.turbo/
+*.log
+pnpm-lock.yaml
