@@ -1,10 +1,21 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 
 interface CartItem { productId: string; name: string; price: number; quantity: number }
+
+const CART_KEY = 'storehub-cart'
+
+function loadCart(): CartItem[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(CART_KEY) ?? '[]') } catch { return [] }
+}
+
+function saveCart(cart: CartItem[]) {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart))
+}
 
 export default function POSPage() {
   const token = useAuthStore(s => s.token)!
@@ -14,6 +25,11 @@ export default function POSPage() {
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<string>('cash')
   const [search, setSearch] = useState('')
+
+  // Load cart from localStorage on mount
+  useEffect(() => { setCart(loadCart()) }, [])
+  // Persist cart on change
+  useEffect(() => { saveCart(cart) }, [cart])
 
   const { data } = useQuery({ queryKey: ['products', search], queryFn: () => api(`/api/admin/products?search=${search}`, { token }) })
 
@@ -28,6 +44,12 @@ export default function POSPage() {
       if (existing) return prev.map(i => i.productId === p.id ? { ...i, quantity: i.quantity + 1 } : i)
       return [...prev, { productId: p.id, name: p.name, price: Number(p.price), quantity: 1 }]
     })
+  }
+
+  const removeFromCart = (productId: string) => setCart(prev => prev.filter(i => i.productId !== productId))
+  const updateQty = (productId: string, qty: number) => {
+    if (qty <= 0) return removeFromCart(productId)
+    setCart(prev => prev.map(i => i.productId === productId ? { ...i, quantity: qty } : i))
   }
 
   const total = cart.reduce((s, i) => s + i.price * i.quantity, 0) - discount + tip
@@ -58,11 +80,22 @@ export default function POSPage() {
         <h2 className="font-bold mb-3">Venta</h2>
         <div className="flex-1 overflow-y-auto space-y-2">
           {cart.map(item => (
-            <div key={item.productId} className="flex justify-between items-center text-sm">
-              <span>{item.name} x{item.quantity}</span>
-              <span>${(item.price * item.quantity).toFixed(2)}</span>
+            <div key={item.productId} className="flex justify-between items-center text-sm border-b pb-1">
+              <div className="flex-1">
+                <p className="truncate">{item.name}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <button onClick={() => updateQty(item.productId, item.quantity - 1)} className="w-6 h-6 bg-gray-200 rounded text-xs">-</button>
+                  <span className="text-xs w-6 text-center">{item.quantity}</span>
+                  <button onClick={() => updateQty(item.productId, item.quantity + 1)} className="w-6 h-6 bg-gray-200 rounded text-xs">+</button>
+                </div>
+              </div>
+              <div className="text-right">
+                <p>${(item.price * item.quantity).toFixed(2)}</p>
+                <button onClick={() => removeFromCart(item.productId)} className="text-red-400 text-xs">✕</button>
+              </div>
             </div>
           ))}
+          {cart.length === 0 && <p className="text-gray-400 text-sm text-center">Carrito vacío</p>}
         </div>
         <div className="border-t pt-3 mt-3 space-y-2">
           <div className="flex gap-2">
@@ -77,6 +110,7 @@ export default function POSPage() {
             {saleMutation.isPending ? 'Procesando...' : 'Registrar venta'}
           </button>
           {saleMutation.isError && <p className="text-red-500 text-xs">{(saleMutation.error as Error).message}</p>}
+          {saleMutation.isSuccess && <p className="text-green-500 text-xs">✓ Venta registrada</p>}
         </div>
       </div>
     </div>
