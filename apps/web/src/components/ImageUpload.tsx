@@ -17,7 +17,10 @@ export function ImageUpload({ productId, onUploaded }: { productId: string; onUp
       formData.append('file', file)
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/products/${productId}/image`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'x-tenant-slug': window.location.hostname.split('.')[0] === 'localhost' ? 'demo-cafe' : window.location.hostname.split('.')[0],
+        },
         body: formData,
       })
       if (!res.ok) throw new Error('Upload failed')

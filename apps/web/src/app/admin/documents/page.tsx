@@ -23,7 +23,7 @@ export default function DocumentsPage() {
       formData.append('name', name || file.name)
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/documents`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': window.location.hostname.split('.')[0] === 'localhost' ? 'demo-cafe' : window.location.hostname.split('.')[0] },
         body: formData,
       })
       if (!res.ok) { const b = await res.json(); throw new Error(b.error) }
