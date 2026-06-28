@@ -17,6 +17,7 @@ export default function POSPage() {
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [search, setSearch] = useState('')
+  const [saleDate, setSaleDate] = useState('')
 
   useEffect(() => { setCart(loadCart()) }, [])
   useEffect(() => { saveCart(cart) }, [cart])
@@ -25,7 +26,7 @@ export default function POSPage() {
 
   const saleMutation = useMutation({
     mutationFn: (body: any) => api('/api/admin/sales', { method: 'POST', body: JSON.stringify(body), token }),
-    onSuccess: () => { setCart([]); setDiscount(0); setTip(0); queryClient.invalidateQueries({ queryKey: ['products'] }) },
+    onSuccess: () => { setCart([]); setDiscount(0); setTip(0); setSaleDate(''); queryClient.invalidateQueries({ queryKey: ['products'] }) },
   })
 
   const addToCart = (p: any) => {
@@ -96,6 +97,9 @@ export default function POSPage() {
               <option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option>
             </select>
           </div>
+          <div><label className="label">Fecha (dejar vacío = hoy)</label>
+            <input type="date" value={saleDate} onChange={e => setSaleDate(e.target.value)} className="input" />
+          </div>
           <div className="flex justify-between text-sm text-[var(--color-text)]"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
           {discount > 0 && <div className="flex justify-between text-sm text-green-600"><span>Descuento</span><span>-${discount.toFixed(2)}</span></div>}
           {tip > 0 && <div className="flex justify-between text-sm text-[var(--color-text)]"><span>Propina</span><span>+${tip.toFixed(2)}</span></div>}
@@ -103,7 +107,7 @@ export default function POSPage() {
             <span>Total</span><span>${total.toFixed(2)}</span>
           </div>
           <p className="text-xs text-[var(--color-text)] text-right">{cart.reduce((s, i) => s + i.quantity, 0)} producto(s)</p>
-          <button onClick={() => saleMutation.mutate({ items: cart.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.price })), paymentMethod, discount, tip })}
+          <button onClick={() => saleMutation.mutate({ items: cart.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.price })), paymentMethod, discount, tip, ...(saleDate && { saleDate: new Date(saleDate).toISOString() }) })}
             disabled={!cart.length || saleMutation.isPending} className="btn-primary w-full py-3 text-base">
             {saleMutation.isPending ? 'Procesando...' : 'Cobrar'}
           </button>

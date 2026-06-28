@@ -12,6 +12,9 @@ import { saleRoutes } from './routes/sales.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { documentRoutes } from './routes/documents.js'
 import { uploadRoutes } from './routes/upload.js'
+import { userRoutes } from './routes/users.js'
+import { auditRoutes } from './routes/audit.js'
+import { settingsRoutes } from './routes/settings.js'
 import { publicRoutes } from './routes/public.js'
 import { resolveTenant } from './middleware/tenant.js'
 
@@ -42,6 +45,9 @@ await app.register(async (tenantApp) => {
   await tenantApp.register(analyticsRoutes)
   await tenantApp.register(documentRoutes)
   await tenantApp.register(uploadRoutes)
+  await tenantApp.register(userRoutes)
+  await tenantApp.register(auditRoutes)
+  await tenantApp.register(settingsRoutes)
 })
 
 const port = Number(process.env.PORT ?? 3001)

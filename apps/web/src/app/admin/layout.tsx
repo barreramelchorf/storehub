@@ -9,7 +9,10 @@ const nav = [
   { href: '/admin/pos', label: 'Punto de Venta', icon: '🛒' },
   { href: '/admin/inventory', label: 'Inventario', icon: '📦' },
   { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
+  { href: '/admin/approvals', label: 'Aprobaciones', icon: '✅' },
   { href: '/admin/documents', label: 'Documentos', icon: '📄' },
+  { href: '/admin/users', label: 'Usuarios', icon: '👤' },
+  { href: '/admin/audit', label: 'Auditoría', icon: '🔍' },
   { href: '/admin/settings', label: 'Configuración', icon: '⚙️' },
 ]
 
