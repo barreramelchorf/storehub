@@ -1,0 +1,3 @@
+config:
+  cert-manager:acmeEmail: barreramelchorf@gmail.com
+  cert-manager:platformDomain: barreramelchorf.top

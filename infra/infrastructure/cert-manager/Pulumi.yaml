@@ -1,0 +1,3 @@
+name: cert-manager
+runtime: nodejs
+main: index.ts
