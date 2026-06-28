@@ -1,6 +1,5 @@
 config:
   storehub-infra:platformDomain: storehub.local
-  storehub-infra:acmeEmail: barreramelchorf@gmail.com
   storehub-infra:apiImage: ghcr.io/barreramelchorf/storehub-api:latest
   storehub-infra:webImage: ghcr.io/barreramelchorf/storehub-web:latest
   storehub-infra:migrateImage: ghcr.io/barreramelchorf/storehub-migrate:latest

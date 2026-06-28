@@ -9,8 +9,7 @@ export interface HelmReleasesArgs {
 }
 
 export function createHelmReleases(args: HelmReleasesArgs) {
-  // Using Bitnami charts with explicit image override to bitnamilegacy registry
-  // since Bitnami moved free images there as of Sept 2025
+  // Bitnami moved free images to bitnamilegacy as of Sept 2025
   const imageRegistry = "docker.io/bitnamilegacy";
 
   const postgresql = new k8s.helm.v3.Chart("postgresql", {
@@ -64,16 +63,5 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     },
   });
 
-  const certManager = new k8s.helm.v3.Chart("cert-manager", {
-    chart: "cert-manager",
-    version: "v1.15.3",
-    fetchOpts: { repo: "https://charts.jetstack.io" },
-    namespace: "cert-manager",
-    values: {
-      installCRDs: true,
-      resources: { requests: { memory: "64Mi", cpu: "25m" }, limits: { memory: "128Mi", cpu: "100m" } },
-    },
-  });
-
-  return { postgresql, redis, minio, certManager };
+  return { postgresql, redis, minio };
 }

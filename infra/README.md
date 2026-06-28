@@ -5,17 +5,40 @@ Pulumi TypeScript project that deploys the full StoreHub stack to Kubernetes.
 ## Architecture
 
 ```
-Namespace: data
+infra/
+├── shared/                    # Cluster-level infra (deploy first, once)
+│   └── cert-manager/          # cert-manager + ClusterIssuers
+│       ├── Pulumi.yaml
+│       ├── Pulumi.dev.yaml
+│       └── index.ts
+└── (app root)                 # StoreHub app stack
+    ├── Pulumi.yaml
+    ├── Pulumi.dev.yaml
+    ├── index.ts               # Entrypoint
+    ├── helm/index.ts          # PostgreSQL, Redis, MinIO
+    └── k8s/index.ts           # Deployments, Services, IngressRoute, HPA
+```
+
+Deploy order:
+1. `cd infra/shared/cert-manager && pulumi up` — only once per cluster
+2. `cd infra && pulumi up` — app-specific resources
+
+```
+Namespace: cert-manager (shared)
+└── cert-manager + ClusterIssuers (letsencrypt-prod, letsencrypt-dns)
+
+Namespace: data (app)
 ├── PostgreSQL 16 (Bitnami Helm)
 ├── Redis 7 (Bitnami Helm)
 └── MinIO (Bitnami Helm)
 
-Namespace: platform
+Namespace: platform (app)
 ├── API Deployment + Service + HPA
 ├── Web Deployment + Service
-├── DB Migration Job (runs before API starts)
-├── Secrets & ConfigMap
-└── Traefik IngressRoute (wildcard subdomain)
+├── DB Migration Job
+├── Wildcard Certificate (references cluster-level ClusterIssuer)
+├── Traefik IngressRoute
+└── Secrets & ConfigMap
 ```
 
 ## Prerequisites
