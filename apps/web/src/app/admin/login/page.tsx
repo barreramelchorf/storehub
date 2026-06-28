@@ -26,6 +26,12 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm space-y-4">
         <h1 className="text-xl font-bold text-center">Iniciar sesión</h1>
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        {process.env.NEXT_PUBLIC_SHOW_DEV_CREDENTIALS === 'true' && (
+          <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
+            <p className="font-medium">Dev credentials:</p>
+            <p>admin@demo-cafe.com / password123</p>
+          </div>
+        )}
         <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border rounded p-2" required />
         <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className="w-full border rounded p-2" required />
         <button type="submit" className="w-full bg-primary text-white rounded p-2 font-medium">Entrar</button>
