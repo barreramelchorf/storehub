@@ -156,33 +156,36 @@ export function createAppResources(args: AppResourcesArgs) {
     },
   });
 
-  // --- Traefik IngressRoute (wildcard subdomains) ---
-  const tlsConfig = args.tlsSecretName
-    ? { secretName: args.tlsSecretName }
-    : {};
+  // --- Traefik IngressRoute (only when Traefik is available — not in minikube/dev) ---
+  let ingressRoute: k8s.apiextensions.CustomResource | undefined;
+  if (pulumi.getStack() !== "dev") {
+    const tlsConfig = args.tlsSecretName
+      ? { secretName: args.tlsSecretName }
+      : {};
 
-  const ingressRoute = new k8s.apiextensions.CustomResource("ingress-route", {
-    apiVersion: "traefik.io/v1alpha1",
-    kind: "IngressRoute",
-    metadata: { namespace: args.namespace },
-    spec: {
-      entryPoints: ["websecure"],
-      routes: [
-        {
-          match: `HostRegexp(\`{subdomain:[a-z0-9-]+}.${args.platformDomain}\`)`,
-          kind: "Rule",
-          services: [{ name: webService.metadata.name, port: 3000 }],
-        },
-        {
-          match: `HostRegexp(\`{subdomain:[a-z0-9-]+}.${args.platformDomain}\`) && PathPrefix(\`/api\`)`,
-          kind: "Rule",
-          priority: 100,
-          services: [{ name: apiService.metadata.name, port: 3001 }],
-        },
-      ],
-      ...(args.tlsSecretName && { tls: { secretName: args.tlsSecretName } }),
-    },
-  });
+    ingressRoute = new k8s.apiextensions.CustomResource("ingress-route", {
+      apiVersion: "traefik.io/v1alpha1",
+      kind: "IngressRoute",
+      metadata: { namespace: args.namespace },
+      spec: {
+        entryPoints: ["websecure"],
+        routes: [
+          {
+            match: `HostRegexp(\`{subdomain:[a-z0-9-]+}.${args.platformDomain}\`)`,
+            kind: "Rule",
+            services: [{ name: webService.metadata.name, port: 3000 }],
+          },
+          {
+            match: `HostRegexp(\`{subdomain:[a-z0-9-]+}.${args.platformDomain}\`) && PathPrefix(\`/api\`)`,
+            kind: "Rule",
+            priority: 100,
+            services: [{ name: apiService.metadata.name, port: 3001 }],
+          },
+        ],
+        ...(args.tlsSecretName && { tls: { secretName: args.tlsSecretName } }),
+      },
+    });
+  }
 
   // --- ServiceAccount + RBAC for API to create Ingresses dynamically (custom domains) ---
   const sa = new k8s.core.v1.ServiceAccount("storehub-api", {

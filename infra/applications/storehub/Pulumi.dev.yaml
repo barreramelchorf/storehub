@@ -1,7 +1,7 @@
 config:
   storehub:platformDomain: storehub.local
   storehub:version: "v0.1.0"
-  storehub:migrationsVersion: "v0.1.0"
+  storehub:migrationsVersion: "v0.1.2"
   storehub:apiReplicas: "1"
   storehub:webReplicas: "1"
   storehub:postgresPassword:
