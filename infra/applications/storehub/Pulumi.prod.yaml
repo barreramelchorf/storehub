@@ -1,7 +1,7 @@
 config:
   storehub:platformDomain: barreramelchorf.top
-  storehub:version: v0.2.0
-  storehub:migrationsVersion: v0.2.0
+  storehub:version: v0.3.0
+  storehub:migrationsVersion: v0.3.0
   storehub:apiReplicas: "2"
   storehub:webReplicas: "2"
   kubernetes:context: default
@@ -16,3 +16,6 @@ config:
   storehub:ghcrToken:
     secure: AAABAPFqkCdR87u7q5Cgg9ye1BL7ITQr5LmLjSgEbmBv4GvXyt58IK4hCkOQ4XMYOjbrgwi9XJKIoXb5YDaQGE3LfEzE9TUl
   storehub:nextPublicApiUrl: ""
+  storehub:platformApiKey:
+    secure: AAABAJFesnVESzYSTWrzxE5UmBmJ4V4xfAcOlsRVPkwMRGzo6fp+dUI9BhpnnGdjfwUOhMyqEVyYkgbsgQJpdBoish22DPetrPpJCbIZqQU=
+  storehub:defaultTenantSlug: xalli

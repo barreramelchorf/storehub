@@ -20,6 +20,7 @@ export interface AppResourcesArgs {
   ghcrToken: pulumi.Input<string>;
   nextPublicApiUrl?: string;
   platformApiKey: pulumi.Input<string>;
+  defaultTenantSlug?: string;
 }
 
 export function createAppResources(args: AppResourcesArgs) {
@@ -55,6 +56,7 @@ export function createAppResources(args: AppResourcesArgs) {
       MINIO_USE_SSL: "false",
       LOG_LEVEL: "info",
       PLATFORM_API_KEY: args.platformApiKey,
+      DEFAULT_TENANT_SLUG: args.defaultTenantSlug ?? "",
       PORT: "3001",
     },
   });

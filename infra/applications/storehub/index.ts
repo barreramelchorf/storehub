@@ -61,7 +61,8 @@ const app = createAppResources({
   tlsSecretName: stack === "prod" ? "wildcard-tls" : undefined,
   ghcrToken,
   nextPublicApiUrl: config.get("nextPublicApiUrl") ?? "",
-  platformApiKey: config.requireSecret("platformApiKey") ?? "",
+  platformApiKey: config.requireSecret("platformApiKey"),
+  defaultTenantSlug: config.get("defaultTenantSlug") ?? "" ?? "",
 });
 
 // --- Exports ---
