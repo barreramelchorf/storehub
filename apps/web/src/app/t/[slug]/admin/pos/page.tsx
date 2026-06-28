@@ -56,7 +56,7 @@ export default function POSPage() {
   const total = subtotal - discount + tip
   const itemCount = cart.reduce((s, i) => s + i.quantity, 0)
 
-  const ProductsGrid = () => (
+  const productsGrid = (
     <div className="flex flex-col h-full">
       <input placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} className="input mb-4" />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto flex-1">
@@ -74,7 +74,7 @@ export default function POSPage() {
     </div>
   )
 
-  const CartPanel = () => (
+  const cartPanel = (
     <div className="flex flex-col h-full">
       <h2 className="font-semibold text-[var(--color-text-dark)] mb-4">Resumen de venta</h2>
       <div className="flex-1 overflow-y-auto space-y-3">
@@ -135,10 +135,10 @@ export default function POSPage() {
       <div className="hidden md:flex gap-6 h-[calc(100vh-6rem)]">
         <div className="flex-1 flex flex-col">
           <h1 className="text-2xl font-bold text-[var(--color-text-dark)] mb-4">Punto de Venta</h1>
-          <ProductsGrid />
+          {productsGrid}
         </div>
         <div className="w-96 card p-6 flex flex-col">
-          <CartPanel />
+          {cartPanel}
         </div>
       </div>
 
@@ -147,13 +147,13 @@ export default function POSPage() {
         {mobileView === 'products' && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <h1 className="text-xl font-bold text-[var(--color-text-dark)] mb-3">Punto de Venta</h1>
-            <ProductsGrid />
+            {productsGrid}
           </div>
         )}
         {mobileView === 'cart' && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <button onClick={() => setMobileView('products')} className="btn-secondary mb-3 self-start">← Productos</button>
-            <CartPanel />
+            {cartPanel}
           </div>
         )}
 
