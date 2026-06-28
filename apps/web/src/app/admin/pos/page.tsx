@@ -20,6 +20,13 @@ export default function POSPage() {
   const [saleDate, setSaleDate] = useState('')
   const [mobileView, setMobileView] = useState<'products' | 'cart'>('products')
 
+  // Pre-fill today's date using tenant timezone (not user's system timezone)
+  useEffect(() => {
+    const tz = process.env.NEXT_PUBLIC_TIMEZONE ?? 'America/Mexico_City'
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: tz }) // en-CA gives YYYY-MM-DD
+    setSaleDate(today)
+  }, [])
+
   useEffect(() => { setCart(loadCart()) }, [])
   useEffect(() => { saveCart(cart) }, [cart])
 
