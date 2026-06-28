@@ -5,12 +5,12 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 
 const nav = [
-  { href: '/admin', label: 'Dashboard' },
-  { href: '/admin/pos', label: 'Punto de Venta' },
-  { href: '/admin/inventory', label: 'Inventario' },
-  { href: '/admin/analytics', label: 'Analytics' },
-  { href: '/admin/documents', label: 'Documentos' },
-  { href: '/admin/settings', label: 'Configuración' },
+  { href: '/admin', label: 'Dashboard', icon: '📊' },
+  { href: '/admin/pos', label: 'Punto de Venta', icon: '🛒' },
+  { href: '/admin/inventory', label: 'Inventario', icon: '📦' },
+  { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
+  { href: '/admin/documents', label: 'Documentos', icon: '📄' },
+  { href: '/admin/settings', label: 'Configuración', icon: '⚙️' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -18,28 +18,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const setToken = useAuthStore(s => s.setToken)
   const router = useRouter()
   const pathname = usePathname()
-
-  // Don't protect the login page
   const isLoginPage = pathname === '/admin/login'
 
-  useEffect(() => {
-    if (!token && !isLoginPage) router.push('/admin/login')
-  }, [token, isLoginPage, router])
-
-  // Show login page without sidebar
+  useEffect(() => { if (!token && !isLoginPage) router.push('/admin/login') }, [token, isLoginPage, router])
   if (isLoginPage) return <>{children}</>
-
-  // Show nothing while redirecting
   if (!token) return null
 
   return (
-    <div className="min-h-screen flex">
-      <aside className="w-56 bg-gray-900 text-white p-4 space-y-2 hidden md:block">
-        <h2 className="text-lg font-bold mb-4">StoreHub</h2>
-        {nav.map(n => <Link key={n.href} href={n.href} className="block py-2 px-3 rounded hover:bg-gray-700 text-sm">{n.label}</Link>)}
-        <button onClick={() => setToken(null)} className="block py-2 px-3 rounded hover:bg-gray-700 text-sm text-red-300 mt-8">Cerrar sesión</button>
+    <div className="min-h-screen flex bg-[var(--color-surface)]">
+      <aside className="w-60 bg-[var(--color-secondary)] text-white p-5 hidden md:flex flex-col">
+        <h2 className="text-lg font-bold mb-8 tracking-tight">StoreHub</h2>
+        <nav className="flex-1 space-y-1">
+          {nav.map(n => (
+            <Link key={n.href} href={n.href}
+              className={`flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm transition-colors ${pathname === n.href ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'}`}>
+              <span>{n.icon}</span>{n.label}
+            </Link>
+          ))}
+        </nav>
+        <button onClick={() => setToken(null)} className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 transition-colors mt-4">
+          🚪 Cerrar sesión
+        </button>
       </aside>
-      <main className="flex-1 p-6 bg-gray-50">{children}</main>
+      <main className="flex-1 p-8 overflow-auto">{children}</main>
     </div>
   )
 }

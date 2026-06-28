@@ -22,20 +22,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-bold text-center">Iniciar sesión</h1>
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-        {process.env.NEXT_PUBLIC_SHOW_DEV_CREDENTIALS === 'true' && (
-          <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
-            <p className="font-medium">Dev credentials:</p>
-            <p>admin@demo-cafe.com / password123</p>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface)]">
+      <div className="w-full max-w-sm">
+        <h1 className="text-2xl font-bold text-[var(--color-text-dark)] text-center mb-2">StoreHub</h1>
+        <p className="text-sm text-[var(--color-text)] text-center mb-8">Inicia sesión en tu panel</p>
+        <form onSubmit={handleSubmit} className="card p-8 space-y-4">
+          {error && <p className="text-red-500 text-sm text-center bg-red-50 rounded-lg py-2">{error}</p>}
+          <div>
+            <label className="label">Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input" required />
           </div>
-        )}
-        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border rounded p-2" required />
-        <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className="w-full border rounded p-2" required />
-        <button type="submit" className="w-full bg-primary text-white rounded p-2 font-medium">Entrar</button>
-      </form>
+          <div>
+            <label className="label">Contraseña</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="input" required />
+          </div>
+          <button type="submit" className="btn-primary w-full">Entrar</button>
+          {process.env.NEXT_PUBLIC_SHOW_DEV_CREDENTIALS === 'true' && (
+            <p className="text-xs text-[var(--color-text)] text-center opacity-50">admin@demo-cafe.com / password123</p>
+          )}
+        </form>
+      </div>
     </div>
   )
 }
