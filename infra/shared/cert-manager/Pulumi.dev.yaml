@@ -1,3 +1,0 @@
-config:
-  shared-cert-manager:acmeEmail: barreramelchorf@gmail.com
-  shared-cert-manager:platformDomain: barreramelchorf.top

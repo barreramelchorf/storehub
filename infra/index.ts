@@ -1,84 +1,33 @@
 import * as pulumi from "@pulumi/pulumi";
-import * as k8s from "@pulumi/kubernetes";
-import { createHelmReleases } from "./helm";
-import { createAppResources } from "./k8s";
+import { deployCertManager } from "./stacks/cert-manager";
+import { deployApp } from "./stacks/app";
 
-const config = new pulumi.Config();
+/**
+ * Single Pulumi project, multiple stacks:
+ *
+ *   pulumi stack select cert-manager && pulumi up   → deploys cert-manager + ClusterIssuers
+ *   pulumi stack select dev && pulumi up            → deploys StoreHub app (dev)
+ *   pulumi stack select staging && pulumi up        → deploys StoreHub app (staging)
+ *   pulumi stack select prod && pulumi up           → deploys StoreHub app (prod)
+ *
+ * One package.json, one node_modules — no duplication.
+ */
 const stack = pulumi.getStack();
 
-// --- Config values ---
-const platformDomain = config.require("platformDomain");
-const apiImage = config.require("apiImage");
-const webImage = config.require("webImage");
-const migrateImage = config.require("migrateImage");
-const apiReplicas = config.getNumber("apiReplicas") ?? 1;
-const webReplicas = config.getNumber("webReplicas") ?? 1;
+let outputs: Record<string, any> = {};
 
-// --- Secrets ---
-const postgresPassword = config.requireSecret("postgresPassword");
-const redisPassword = config.requireSecret("redisPassword");
-const jwtSecret = config.requireSecret("jwtSecret");
-const minioRootPassword = config.requireSecret("minioRootPassword");
-
-// --- Namespaces ---
-const dataNs = new k8s.core.v1.Namespace("data", {
-  metadata: { name: `storehub-data-${stack}` },
-});
-
-const platformNs = new k8s.core.v1.Namespace("platform", {
-  metadata: { name: `storehub-${stack}` },
-});
-
-// --- Helm Charts (app-specific data layer) ---
-const helm = createHelmReleases({
-  dataNamespace: dataNs.metadata.name,
-  postgresPassword,
-  redisPassword,
-  minioRootPassword,
-});
-
-// --- Wildcard Certificate (only for prod — staging uses parent wildcard) ---
-if (stack === "prod") {
-  new k8s.apiextensions.CustomResource("wildcard-cert", {
-    apiVersion: "cert-manager.io/v1",
-    kind: "Certificate",
-    metadata: {
-      name: `wildcard-${platformDomain.replace(/\./g, "-")}`,
-      namespace: platformNs.metadata.name,
-    },
-    spec: {
-      secretName: "wildcard-tls",
-      issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
-      dnsNames: [platformDomain, `*.${platformDomain}`],
-    },
-  });
+if (stack === "cert-manager") {
+  const result = deployCertManager();
+  outputs = { certManagerNamespace: result.namespace };
+} else {
+  const result = deployApp();
+  outputs = {
+    apiServiceName: result.apiServiceName,
+    webServiceName: result.webServiceName,
+    platformNamespace: result.platformNamespace,
+    dataNamespace: result.dataNamespace,
+  };
 }
 
-// --- Connection strings ---
-const databaseUrl = pulumi.interpolate`postgres://postgres:${postgresPassword}@postgresql-primary.${dataNs.metadata.name}.svc.cluster.local:5432/storehub`;
-const redisUrl = pulumi.interpolate`redis://:${redisPassword}@redis-master.${dataNs.metadata.name}.svc.cluster.local:6379`;
-const minioEndpoint = pulumi.interpolate`minio.${dataNs.metadata.name}.svc.cluster.local`;
-
-// --- App Resources (platform layer) ---
-const app = createAppResources({
-  namespace: platformNs.metadata.name,
-  apiImage,
-  webImage,
-  migrateImage,
-  apiReplicas,
-  webReplicas,
-  platformDomain,
-  databaseUrl,
-  redisUrl,
-  jwtSecret,
-  minioEndpoint,
-  minioAccessKey: "storehub",
-  minioSecretKey: minioRootPassword,
-  tlsSecretName: stack === "prod" ? "wildcard-tls" : undefined,
-});
-
-// --- Exports ---
-export const apiServiceName = app.apiService.metadata.name;
-export const webServiceName = app.webService.metadata.name;
-export const platformNamespace = platformNs.metadata.name;
-export const dataNamespace = dataNs.metadata.name;
+// Pulumi picks up top-level exports
+module.exports = outputs;

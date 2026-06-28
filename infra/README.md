@@ -6,39 +6,51 @@ Pulumi TypeScript project that deploys the full StoreHub stack to Kubernetes.
 
 ```
 infra/
-├── shared/                    # Cluster-level infra (deploy first, once)
-│   └── cert-manager/          # cert-manager + ClusterIssuers
-│       ├── Pulumi.yaml
-│       ├── Pulumi.dev.yaml
-│       └── index.ts
-└── (app root)                 # StoreHub app stack
-    ├── Pulumi.yaml
-    ├── Pulumi.dev.yaml
-    ├── index.ts               # Entrypoint
-    ├── helm/index.ts          # PostgreSQL, Redis, MinIO
-    └── k8s/index.ts           # Deployments, Services, IngressRoute, HPA
+├── package.json               # Single dependency source (no duplication)
+├── tsconfig.json
+├── Pulumi.yaml                # Project definition
+├── Pulumi.cert-manager.yaml   # Stack config: cert-manager
+├── Pulumi.dev.yaml            # Stack config: app dev
+├── index.ts                   # Dispatcher (routes to correct stack)
+├── stacks/
+│   ├── cert-manager.ts        # cert-manager + ClusterIssuers
+│   └── app.ts                 # StoreHub app (data + platform)
+├── helm/index.ts              # PostgreSQL, Redis, MinIO
+└── k8s/index.ts               # Deployments, Services, IngressRoute, HPA, RBAC
 ```
 
-Deploy order:
-1. `cd infra/shared/cert-manager && pulumi up` — only once per cluster
-2. `cd infra && pulumi up` — app-specific resources
+### Deploy order
+
+```bash
+cd infra
+
+# 1. Deploy cluster-level infra (once)
+pulumi stack select cert-manager
+pulumi up
+
+# 2. Deploy app
+pulumi stack select dev    # or staging, prod
+pulumi up
+```
+
+Each stack has its own state in Pulumi Cloud but shares the same codebase and dependencies.
 
 ```
-Namespace: cert-manager (shared)
+Stack: cert-manager
 └── cert-manager + ClusterIssuers (letsencrypt-prod, letsencrypt-dns)
 
-Namespace: data (app)
-├── PostgreSQL 16 (Bitnami Helm)
-├── Redis 7 (Bitnami Helm)
-└── MinIO (Bitnami Helm)
-
-Namespace: platform (app)
-├── API Deployment + Service + HPA
-├── Web Deployment + Service
-├── DB Migration Job
-├── Wildcard Certificate (references cluster-level ClusterIssuer)
-├── Traefik IngressRoute
-└── Secrets & ConfigMap
+Stack: dev / staging / prod
+├── Namespace: storehub-data-{stack}
+│   ├── PostgreSQL 16
+│   ├── Redis 7
+│   └── MinIO
+└── Namespace: storehub-{stack}
+    ├── API Deployment + Service + HPA + ServiceAccount
+    ├── Web Deployment + Service
+    ├── DB Migration Job
+    ├── Traefik IngressRoute
+    ├── Wildcard Certificate (prod only)
+    └── Secrets & ConfigMap
 ```
 
 ## Prerequisites

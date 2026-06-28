@@ -1,7 +1,0 @@
-name: shared-cert-manager
-runtime: nodejs
-description: Cluster-level cert-manager (shared across all apps)
-
-config:
-  kubernetes:context:
-    default: minikube
