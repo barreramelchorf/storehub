@@ -1,33 +1,37 @@
 'use client'
 import { useAuthStore, useHydrated } from '@/lib/store'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-const nav = [
-  { href: '/admin', label: 'Dashboard', icon: '📊' },
-  { href: '/admin/pos', label: 'Punto de Venta', icon: '🛒' },
-  { href: '/admin/inventory', label: 'Inventario', icon: '📦' },
-  { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
-  { href: '/admin/approvals', label: 'Aprobaciones', icon: '✅' },
-  { href: '/admin/documents', label: 'Documentos', icon: '📄' },
-  { href: '/admin/users', label: 'Usuarios', icon: '👤' },
-  { href: '/admin/audit', label: 'Auditoría', icon: '🔍' },
-  { href: '/admin/settings', label: 'Configuración', icon: '⚙️' },
-]
-
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function TenantAdminLayout({ children }: { children: React.ReactNode }) {
   const token = useAuthStore(s => s.token)
   const setToken = useAuthStore(s => s.setToken)
   const router = useRouter()
   const pathname = usePathname()
-  const isLoginPage = pathname === '/admin/login'
+  const params = useParams()
+  const slug = params.slug as string
   const hydrated = useHydrated()
   const [menuOpen, setMenuOpen] = useState(false)
 
+  const base = `/t/${slug}/admin`
+  const isLoginPage = pathname === `${base}/login`
+
+  const nav = [
+    { href: base, label: 'Dashboard', icon: '📊' },
+    { href: `${base}/pos`, label: 'Punto de Venta', icon: '🛒' },
+    { href: `${base}/inventory`, label: 'Inventario', icon: '📦' },
+    { href: `${base}/analytics`, label: 'Analytics', icon: '📈' },
+    { href: `${base}/approvals`, label: 'Aprobaciones', icon: '✅' },
+    { href: `${base}/documents`, label: 'Documentos', icon: '📄' },
+    { href: `${base}/users`, label: 'Usuarios', icon: '👤' },
+    { href: `${base}/audit`, label: 'Auditoría', icon: '🔍' },
+    { href: `${base}/settings`, label: 'Configuración', icon: '⚙️' },
+  ]
+
   useEffect(() => {
-    if (hydrated && !token && !isLoginPage) router.push('/admin/login')
-  }, [token, isLoginPage, router, hydrated])
+    if (hydrated && !token && !isLoginPage) router.push(`${base}/login`)
+  }, [token, isLoginPage, router, hydrated, base])
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
 
@@ -36,18 +40,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen flex bg-[var(--color-surface)]">
-      {/* Mobile header */}
       <div className="fixed top-0 left-0 right-0 h-14 bg-[var(--color-secondary)] flex items-center px-4 z-40 md:hidden">
         <button onClick={() => setMenuOpen(!menuOpen)} className="text-white text-2xl">☰</button>
-        <span className="text-white font-bold ml-3">StoreHub</span>
+        <span className="text-white font-bold ml-3">{slug}</span>
       </div>
-
-      {/* Overlay */}
       {menuOpen && <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setMenuOpen(false)} />}
-
-      {/* Sidebar */}
       <aside className={`fixed md:static top-0 left-0 h-full md:min-h-screen w-60 bg-[var(--color-secondary)] text-white p-5 flex flex-col z-50 transition-transform md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <h2 className="text-lg font-bold mb-8 tracking-tight">StoreHub</h2>
+        <h2 className="text-lg font-bold mb-8 tracking-tight">{slug}</h2>
         <nav className="flex-1 space-y-1">
           {nav.map(n => (
             <Link key={n.href} href={n.href}
@@ -56,7 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
           ))}
         </nav>
-        <button onClick={() => setToken(null)} className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 transition-colors mt-4">
+        <button onClick={() => { setToken(null); router.push(`${base}/login`) }} className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 transition-colors mt-4">
           🚪 Cerrar sesión
         </button>
       </aside>
