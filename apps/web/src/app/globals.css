@@ -33,7 +33,7 @@ body {
     @apply text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded text-xs transition-colors;
   }
   .input {
-    @apply w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all;
+    @apply w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-[var(--color-primary)] transition-all;
   }
   .label {
     @apply text-xs font-medium text-[var(--color-text)] uppercase tracking-wide mb-1 block;

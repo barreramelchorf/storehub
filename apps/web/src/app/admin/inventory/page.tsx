@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
+import { ImageUpload } from '@/components/ImageUpload'
 
 export default function InventoryPage() {
   const token = useAuthStore(s => s.token)!
@@ -109,12 +110,16 @@ export default function InventoryPage() {
               <tbody>
                 {products?.items?.map((p: any) => (
                   <tr key={p.id} className="border-t">
-                    <td className="p-3">{p.name}</td>
+                    <td className="p-3 flex items-center gap-2">
+                      {p.images?.[0] ? <img src={p.images[0]} className="w-8 h-8 rounded object-cover" /> : <span className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-xs">📦</span>}
+                      {p.name}
+                    </td>
                     <td className="p-3 text-center text-xs text-gray-500">{getCategoryName(p.categoryId)}</td>
                     <td className="p-3 text-center">${Number(p.price).toFixed(2)}</td>
                     <td className="p-3 text-center">{p.stock}</td>
                     <td className="p-3 text-center">{p.stock <= p.minStock ? <span className="text-red-500 text-xs">⚠️ Bajo</span> : <span className="text-green-500 text-xs">OK</span>}</td>
-                    <td className="p-3 text-center space-x-2">
+                    <td className="p-3 text-center space-x-1">
+                      <ImageUpload productId={p.id} onUploaded={() => queryClient.invalidateQueries({ queryKey: ['products'] })} />
                       <button onClick={() => startEdit(p)} className="text-blue-500 text-xs hover:underline">Editar</button>
                       <button onClick={() => { if(confirm('¿Eliminar?')) deleteMutation.mutate(p.id) }} className="text-red-500 text-xs hover:underline">Eliminar</button>
                     </td>

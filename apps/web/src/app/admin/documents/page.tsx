@@ -43,13 +43,19 @@ export default function DocumentsPage() {
 
       <div className="bg-white rounded-lg shadow p-4 mb-4">
         <h2 className="font-medium mb-3">Subir PDF</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input type="file" accept=".pdf" ref={fileRef} className="border rounded p-2 text-sm" />
-          <input placeholder="Nombre" value={name} onChange={e => setName(e.target.value)} className="border rounded p-2 text-sm" />
-          <input placeholder="Slug (ej: menu)" value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} className="border rounded p-2 text-sm" required />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div>
+            <label className="label">Archivo PDF</label>
+            <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary w-full text-left truncate">
+              {fileRef.current?.files?.[0]?.name ?? 'Seleccionar archivo...'}
+            </button>
+            <input type="file" accept=".pdf" ref={fileRef} className="hidden" onChange={() => setName(fileRef.current?.files?.[0]?.name ?? '')} />
+          </div>
+          <div><label className="label">Nombre</label><input placeholder="Nombre" value={name} onChange={e => setName(e.target.value)} className="input" /></div>
+          <div><label className="label">Slug</label><input placeholder="ej: menu" value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} className="input" required /></div>
         </div>
-        <button onClick={() => uploadMutation.mutate()} disabled={!slug || uploadMutation.isPending} className="mt-3 bg-primary text-white px-4 py-2 rounded text-sm disabled:opacity-50">
-          {uploadMutation.isPending ? 'Subiendo...' : 'Subir'}
+        <button onClick={() => uploadMutation.mutate()} disabled={!slug || uploadMutation.isPending} className="btn-primary mt-3">
+          {uploadMutation.isPending ? 'Subiendo...' : 'Subir documento'}
         </button>
         {uploadMutation.isError && <p className="text-red-500 text-xs mt-2">{(uploadMutation.error as Error).message}</p>}
         {uploadMutation.isSuccess && <p className="text-green-500 text-xs mt-2">✓ Subido</p>}
