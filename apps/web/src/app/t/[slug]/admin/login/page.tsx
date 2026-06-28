@@ -1,13 +1,13 @@
 'use client'
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { api } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
   const params = useParams()
   const slug = params.slug as string
@@ -16,11 +16,19 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
-      const { accessToken } = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }), headers: { 'x-tenant-slug': slug } })
-      setToken(accessToken)
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-slug': slug },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Login failed')
+      setToken(data.accessToken)
       router.push(`/t/${slug}/admin`)
     } catch (err: any) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
   return (
@@ -32,7 +40,7 @@ export default function LoginPage() {
           {error && <p className="text-red-500 text-sm text-center bg-red-50 rounded-lg py-2">{error}</p>}
           <div><label className="label">Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input" required /></div>
           <div><label className="label">Contraseña</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} className="input" required /></div>
-          <button type="submit" className="btn-primary w-full">Entrar</button>
+          <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Entrando...' : 'Entrar'}</button>
         </form>
       </div>
     </div>
