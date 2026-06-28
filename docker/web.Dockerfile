@@ -1,5 +1,5 @@
 # --- Base ---
-FROM node:20-alpine AS base
+FROM --platform=linux/amd64 node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 WORKDIR /app
 
@@ -25,7 +25,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN pnpm --filter @storehub/web build
 
 # --- Production (standalone) ---
-FROM node:20-alpine AS production
+FROM --platform=linux/amd64 node:20-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 

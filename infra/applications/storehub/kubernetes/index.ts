@@ -3,6 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 
 export interface AppResourcesArgs {
   namespace: pulumi.Input<string>;
+  dataNamespace: pulumi.Input<string>;
   apiImage: string;
   webImage: string;
   migrateImage: string;
@@ -72,11 +73,12 @@ export function createAppResources(args: AppResourcesArgs) {
           initContainers: [{
             name: "wait-for-postgres",
             image: "busybox:1.36",
-            command: ["sh", "-c", `until nc -z postgresql.storehub-data-dev.svc.cluster.local 5432; do echo 'waiting for postgres...'; sleep 3; done`],
+            command: ["sh", "-c", pulumi.interpolate`until nc -z postgresql.${args.dataNamespace}.svc.cluster.local 5432; do echo 'waiting for postgres...'; sleep 3; done`],
           }],
           containers: [{
             name: "migrate",
             image: args.migrateImage,
+            imagePullPolicy: "Always",
             envFrom,
             env: [{ name: "RUN_SEED", value: pulumi.getStack() !== "prod" ? "true" : "false" }],
           }],
@@ -100,6 +102,7 @@ export function createAppResources(args: AppResourcesArgs) {
           containers: [{
             name: "api",
             image: args.apiImage,
+            imagePullPolicy: "Always",
             ports: [{ containerPort: 3001 }],
             envFrom,
             livenessProbe: { httpGet: { path: "/health", port: 3001 }, initialDelaySeconds: 10, periodSeconds: 30 },
@@ -133,6 +136,7 @@ export function createAppResources(args: AppResourcesArgs) {
           containers: [{
             name: "web",
             image: args.webImage,
+            imagePullPolicy: "Always",
             ports: [{ containerPort: 3000 }],
             env: [
               { name: "API_URL", value: pulumi.interpolate`http://${apiService.metadata.name}:3001` },

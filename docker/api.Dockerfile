@@ -1,5 +1,5 @@
 # --- Base ---
-FROM node:20-alpine AS base
+FROM --platform=linux/amd64 node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY . .
 RUN pnpm --filter @storehub/api build
 
 # --- Production ---
-FROM node:20-alpine AS production
+FROM --platform=linux/amd64 node:20-alpine AS production
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 WORKDIR /app
 ENV NODE_ENV=production

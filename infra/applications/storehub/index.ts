@@ -64,6 +64,7 @@ const minioEndpoint = pulumi.interpolate`minio.${dataNs.metadata.name}.svc.clust
 // --- App Resources ---
 const app = createAppResources({
   namespace: platformNs.metadata.name,
+  dataNamespace: dataNs.metadata.name,
   apiImage, webImage, migrateImage,
   apiReplicas, webReplicas, platformDomain,
   databaseUrl, redisUrl, jwtSecret,
