@@ -8,11 +8,15 @@ const stack = pulumi.getStack();
 
 // --- Config ---
 const platformDomain = config.require("platformDomain");
-const apiImage = config.require("apiImage");
-const webImage = config.require("webImage");
-const migrateImage = config.require("migrateImage");
+const version = config.require("version");
+const migrationsVersion = config.require("migrationsVersion");
 const apiReplicas = config.getNumber("apiReplicas") ?? 1;
 const webReplicas = config.getNumber("webReplicas") ?? 1;
+
+// Image refs built from version tags
+const apiImage = `ghcr.io/barreramelchorf/storehub-api:${version}`;
+const webImage = `ghcr.io/barreramelchorf/storehub-web:${version}`;
+const migrateImage = `ghcr.io/barreramelchorf/storehub-migrate:${migrationsVersion}`;
 
 // --- Secrets ---
 const postgresPassword = config.requireSecret("postgresPassword");

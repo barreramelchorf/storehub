@@ -1,17 +1,16 @@
 config:
   storehub:platformDomain: storehub.local
-  storehub:apiImage: ghcr.io/barreramelchorf/storehub-api:latest
-  storehub:webImage: ghcr.io/barreramelchorf/storehub-web:latest
-  storehub:migrateImage: ghcr.io/barreramelchorf/storehub-migrate:latest
+  storehub:version: "v0.1.0"
+  storehub:migrationsVersion: "v0.1.0"
   storehub:apiReplicas: "1"
   storehub:webReplicas: "1"
   storehub:postgresPassword:
-    secure: AAABAAM8i50i1R59mcA++XdaSY/zArn5luExfJgMks9IM+sjLwnxMP1fL2q4ZA==
+    secure: AAABALNET/XBMFbbRehOl0Ph0ALVoSgcPPqcyFLfCZYnwQog4duVDHCn+35N1Q==
   storehub:redisPassword:
-    secure: AAABANImOdf8428ZDdFDJnjRLeFQs7KtoTCpAN0wZDARg2SJSNP4eKEQRg==
+    secure: AAABANE8mYtfbUIdV/zZWVzPrNaDJiMicUyuypL3khwlBVwoeF/MATW7ZA==
   storehub:jwtSecret:
-    secure: AAABAONayzEybZtc2fE1IIytcf2UIkBYY7SbU7Z60UP4piZ98XyeDiI9pqqiYrA=
+    secure: AAABAGpaJZEAhGIBUzlW02ytLX4tnNiMZvw6ubzUlV5xYYBBSKk324AnXDr44zg=
   storehub:minioRootPassword:
-    secure: AAABADI6EDYMgS7L0iImyuH2rZucCqWqZ2gAoHvDlGOWXn/gWsD421Xsqg==
+    secure: AAABAKexI0mf89QC7E+P7dAHrHcjbkt8fu3IGRCBk18jYwOCK0Co0ZE4vQ==
   storehub:ghcrToken:
-    secure: AAABAF4yPkD/EHxs69DciWDrG1UrU1AIF71/WuaDuYmLjHRwOnns2OpvGQeu+nqOALanXO56Z3G/kpymKvpHsupEKUcbHVsm
+    secure: AAABAKeVLoopQgBsgJr3L3Zwb6lKpaODL5UKZcFIF4Vfp8cee1KtuWv90ANdwXKcaiWhBpOVBS5MPfzofRbIMWysJPNaeYdB

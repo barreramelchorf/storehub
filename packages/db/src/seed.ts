@@ -4,7 +4,13 @@ import bcrypt from 'bcryptjs'
 async function seed() {
   console.log('🌱 Seeding...')
 
-  // Demo tenant
+  // Demo tenant (idempotent - skip if exists)
+  const existing = await db.query.tenants.findFirst({ where: (t, { eq }) => eq(t.slug, 'demo-cafe') })
+  if (existing) {
+    console.log('✅ Seed already applied, skipping')
+    process.exit(0)
+  }
+
   const [tenant] = await db.insert(tenants).values({
     slug: 'demo-cafe',
     name: 'Café Demo',
