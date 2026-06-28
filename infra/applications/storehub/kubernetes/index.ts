@@ -53,6 +53,7 @@ export function createAppResources(args: AppResourcesArgs) {
       MINIO_ENDPOINT: args.minioEndpoint,
       MINIO_PORT: "9000",
       MINIO_BUCKET: "storehub",
+      MINIO_PUBLIC_URL: `https://${args.platformDomain}`,
       MINIO_USE_SSL: "false",
       LOG_LEVEL: "info",
       PLATFORM_API_KEY: args.platformApiKey,

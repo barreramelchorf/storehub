@@ -4,9 +4,9 @@ import { asc } from 'drizzle-orm'
 
 export async function publicRoutes(app: FastifyInstance) {
   app.get('/api/public/products', async (request) => {
-    const { category, search, page = '1', pageSize = '20' } = request.query as Record<string, string>
+    const { category, search, page = '1', pageSize = '200' } = request.query as Record<string, string>
     const tenantId = request.tenant.id
-    const limit = Math.min(Number(pageSize), 100)
+    const limit = Math.min(Number(pageSize), 500)
     const offset = (Number(page) - 1) * limit
 
     const items = await db.query.products.findMany({
