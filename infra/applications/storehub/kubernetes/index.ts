@@ -163,7 +163,8 @@ export function createAppResources(args: AppResourcesArgs) {
     },
   });
 
-  // --- Ingress (standard k8s, works with Traefik + cert-manager) ---
+  // --- Ingress (standard k8s, works with Traefik + cert-manager HTTP-01) ---
+  const host = `storehub.${args.platformDomain}`;
   const ingress = new k8s.networking.v1.Ingress("ingress", {
     metadata: {
       namespace: args.namespace,
@@ -175,11 +176,11 @@ export function createAppResources(args: AppResourcesArgs) {
     spec: {
       ingressClassName: "traefik",
       tls: [{
-        hosts: [`*.${args.platformDomain}`],
-        secretName: "storehub-wildcard-tls",
+        hosts: [host],
+        secretName: "storehub-tls",
       }],
       rules: [{
-        host: `*.${args.platformDomain}`,
+        host,
         http: {
           paths: [
             {

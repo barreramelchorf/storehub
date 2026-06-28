@@ -42,19 +42,8 @@ const helm = createHelmReleases({
   minioRootPassword,
 });
 
-// --- Wildcard Certificate (prod only) ---
-if (stack === "prod") {
-  new k8s.apiextensions.CustomResource("wildcard-cert", {
-    apiVersion: "cert-manager.io/v1",
-    kind: "Certificate",
-    metadata: { name: `wildcard-${platformDomain.replace(/\./g, "-")}`, namespace: platformNs.metadata.name },
-    spec: {
-      secretName: "wildcard-tls",
-      issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
-      dnsNames: [platformDomain, `*.${platformDomain}`],
-    },
-  });
-}
+// Certs issued per-host via HTTP-01 (cert-manager annotation on Ingress)
+// Wildcard not possible without DNS-01 webhook for Hostinger
 
 // --- Connection strings ---
 const databaseUrl = pulumi.interpolate`postgres://postgres:${postgresPassword}@postgresql.${dataNs.metadata.name}.svc.cluster.local:5432/storehub`;
