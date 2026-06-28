@@ -56,6 +56,7 @@ services:
       MINIO_SECRET_KEY: storehub123
       MINIO_BUCKET: storehub
       JWT_SECRET: dev-secret-change-in-production
+      PLATFORM_DOMAIN: localhost
       PORT: "3001"
     ports:
       - "3001:3001"
@@ -63,9 +64,19 @@ services:
       - ./apps/api:/app/apps/api
       - ./packages:/app/packages
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
+        condition: service_healthy
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/migrate.Dockerfile
+    environment:
+      DATABASE_URL: postgres://storehub:storehub@postgres:5432/storehub
+    depends_on:
+      postgres:
         condition: service_healthy
 
   web:

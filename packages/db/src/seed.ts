@@ -1,5 +1,5 @@
 import { db, tenants, roles, users, categories, products } from './index'
-import { hashSync } from '../../../node_modules/bcryptjs/index.js'
+import bcrypt from 'bcryptjs'
 
 async function seed() {
   console.log('🌱 Seeding...')
@@ -46,7 +46,7 @@ async function seed() {
   await db.insert(users).values({
     tenantId: tenant.id,
     email: 'admin@demo-cafe.com',
-    passwordHash: hashSync('password123', 10),
+    passwordHash: bcrypt.hashSync('password123', 10),
     roleId: adminRole.id,
   })
 
