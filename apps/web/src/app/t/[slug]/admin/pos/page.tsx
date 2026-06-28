@@ -59,13 +59,13 @@ export default function POSPage() {
   const productsGrid = (
     <div className="flex flex-col h-full">
       <input placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} className="input mb-4" />
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto flex-1">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto flex-1">
         {data?.items?.map((p: any) => (
           <button key={p.id} onClick={() => addToCart(p)} disabled={p.stock <= 0}
             className="card p-0 text-left hover:border-[var(--color-primary)] hover:shadow-md transition-all disabled:opacity-40 overflow-hidden">
             {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-20 md:h-24 object-cover" /> : <div className="w-full h-20 md:h-24 bg-gray-100 flex items-center justify-center text-2xl">📦</div>}
             <div className="p-2 md:p-3">
-              <p className="font-medium text-xs md:text-sm text-[var(--color-text-dark)] truncate">{p.name}</p>
+              <p className="font-medium text-xs md:text-sm text-[var(--color-text-dark)] line-clamp-2">{p.name}</p>
               <p className="text-[var(--color-primary)] font-bold text-sm">${Number(p.price).toFixed(2)}</p>
             </div>
           </button>
