@@ -70,6 +70,7 @@ const app = createAppResources({
   minioEndpoint, minioAccessKey: "storehub", minioSecretKey: minioRootPassword,
   tlsSecretName: stack === "prod" ? "wildcard-tls" : undefined,
   ghcrToken,
+  nextPublicApiUrl: config.get("nextPublicApiUrl") ?? "",
 });
 
 // --- Exports ---

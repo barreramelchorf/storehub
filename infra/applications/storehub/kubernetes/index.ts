@@ -17,6 +17,7 @@ export interface AppResourcesArgs {
   minioSecretKey: pulumi.Input<string>;
   tlsSecretName?: string; // Only set in prod
   ghcrToken: pulumi.Input<string>;
+  nextPublicApiUrl?: string;
 }
 
 export function createAppResources(args: AppResourcesArgs) {
@@ -135,7 +136,7 @@ export function createAppResources(args: AppResourcesArgs) {
             ports: [{ containerPort: 3000 }],
             env: [
               { name: "API_URL", value: pulumi.interpolate`http://${apiService.metadata.name}:3001` },
-              { name: "NEXT_PUBLIC_API_URL", value: `/api` },
+              { name: "NEXT_PUBLIC_API_URL", value: args.nextPublicApiUrl ?? "" },
               { name: "HOSTNAME", value: "0.0.0.0" },
             ],
             livenessProbe: { httpGet: { path: "/admin/login", port: 3000 }, initialDelaySeconds: 15, periodSeconds: 30 },

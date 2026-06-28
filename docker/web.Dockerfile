@@ -19,7 +19,7 @@ COPY --from=deps /app/packages/schemas/node_modules ./packages/schemas/node_modu
 COPY --from=deps /app/packages/types/node_modules ./packages/types/node_modules
 COPY . .
 
-ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ARG NEXT_PUBLIC_API_URL=__NEXT_PUBLIC_API_URL_PLACEHOLDER__
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN pnpm --filter @storehub/web build
@@ -31,10 +31,12 @@ ENV NODE_ENV=production
 
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
+COPY docker/web-entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 3000
 USER node
-CMD ["node", "apps/web/server.js"]
+CMD ["/app/entrypoint.sh"]
 
 # --- Dev (hot-reload) ---
 FROM base AS dev

@@ -1,0 +1,18 @@
+config:
+  storehub:platformDomain: barreramelchorf.top
+  storehub:version: v0.1.0
+  storehub:migrationsVersion: v0.1.2
+  storehub:apiReplicas: "2"
+  storehub:webReplicas: "2"
+  kubernetes:context: default
+  storehub:postgresPassword:
+    secure: AAABAKawfyX2bL+U3ys6sSKxgGuyWwagr9GVmok2w8JOzCwasM9bd72Yufh5qJOb17IcGK+C2bP/R5HHv/Jeew==
+  storehub:redisPassword:
+    secure: AAABAKNKNZvSbvUQb1Vlp37foOw4WzccvXPUpCA1RhghH34S42tXRk/6WacFAcoDlbs6+xgPwRWNV5FyrS8sdQ==
+  storehub:jwtSecret:
+    secure: AAABAD61VVyeb0XMbjeHsclU1+h3Z82fLvUEmtlS0S6mOtNmMyTf8sV5MLh208ERj/saOJIQ2irslXZxjhCrRGL0coX1XpF3WzCDfdz7JjAPu5MgWNxt1kbcNpPvWNE/
+  storehub:minioRootPassword:
+    secure: AAABAP8WgeVIzpwG4p8ydWvCr1L0Du5GiP9nAjw5V4fBUJsf7OHJCWuWzGb6jHqdBOt+zDAt/giDk93zoJ6a9A==
+  storehub:ghcrToken:
+    secure: AAABAPFqkCdR87u7q5Cgg9ye1BL7ITQr5LmLjSgEbmBv4GvXyt58IK4hCkOQ4XMYOjbrgwi9XJKIoXb5YDaQGE3LfEzE9TUl
+  storehub:nextPublicApiUrl: ""
