@@ -106,6 +106,7 @@ export default function POSPage() {
             <option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option>
           </select>
           <p className="text-xl font-bold text-right">Total: ${total.toFixed(2)}</p>
+          <p className="text-xs text-gray-500 text-right">{cart.reduce((s, i) => s + i.quantity, 0)} producto(s)</p>
           <button onClick={handleSale} disabled={!cart.length || saleMutation.isPending} className="w-full bg-primary text-white rounded p-2 font-medium disabled:opacity-50">
             {saleMutation.isPending ? 'Procesando...' : 'Registrar venta'}
           </button>
