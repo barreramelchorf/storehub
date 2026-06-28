@@ -19,6 +19,7 @@ const postgresPassword = config.requireSecret("postgresPassword");
 const redisPassword = config.requireSecret("redisPassword");
 const jwtSecret = config.requireSecret("jwtSecret");
 const minioRootPassword = config.requireSecret("minioRootPassword");
+const ghcrToken = config.requireSecret("ghcrToken");
 
 // --- Namespaces ---
 const dataNs = new k8s.core.v1.Namespace("data", {
@@ -64,6 +65,7 @@ const app = createAppResources({
   databaseUrl, redisUrl, jwtSecret,
   minioEndpoint, minioAccessKey: "storehub", minioSecretKey: minioRootPassword,
   tlsSecretName: stack === "prod" ? "wildcard-tls" : undefined,
+  ghcrToken,
 });
 
 // --- Exports ---

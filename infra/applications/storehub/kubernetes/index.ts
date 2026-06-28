@@ -16,9 +16,19 @@ export interface AppResourcesArgs {
   minioAccessKey: pulumi.Input<string>;
   minioSecretKey: pulumi.Input<string>;
   tlsSecretName?: string; // Only set in prod
+  ghcrToken: pulumi.Input<string>;
 }
 
 export function createAppResources(args: AppResourcesArgs) {
+  // --- Image Pull Secret (ghcr.io) ---
+  const ghcrSecret = new k8s.core.v1.Secret("ghcr-secret", {
+    metadata: { namespace: args.namespace, name: "ghcr-secret" },
+    type: "kubernetes.io/dockerconfigjson",
+    stringData: {
+      ".dockerconfigjson": pulumi.interpolate`{"auths":{"ghcr.io":{"username":"barreramelchorf","password":"${args.ghcrToken}"}}}`,
+    },
+  });
+
   // --- Secrets ---
   const appSecret = new k8s.core.v1.Secret("app-secrets", {
     metadata: { namespace: args.namespace },
