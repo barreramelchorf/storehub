@@ -77,6 +77,7 @@ export function createAppResources(args: AppResourcesArgs) {
             name: "migrate",
             image: args.migrateImage,
             envFrom,
+            env: [{ name: "RUN_SEED", value: pulumi.getStack() !== "prod" ? "true" : "false" }],
           }],
           imagePullSecrets: [{ name: "ghcr-secret" }],
         },
@@ -135,6 +136,7 @@ export function createAppResources(args: AppResourcesArgs) {
             env: [
               { name: "API_URL", value: pulumi.interpolate`http://${apiService.metadata.name}:3001` },
               { name: "NEXT_PUBLIC_API_URL", value: `/api` },
+              { name: "HOSTNAME", value: "0.0.0.0" },
             ],
             livenessProbe: { httpGet: { path: "/admin/login", port: 3000 }, initialDelaySeconds: 15, periodSeconds: 30 },
             readinessProbe: { httpGet: { path: "/admin/login", port: 3000 }, initialDelaySeconds: 10, periodSeconds: 10 },

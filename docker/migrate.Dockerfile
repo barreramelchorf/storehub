@@ -8,4 +8,4 @@ RUN pnpm install --frozen-lockfile --filter @storehub/db
 
 COPY packages/db ./packages/db
 
-CMD ["pnpm", "--filter", "@storehub/db", "migrate"]
+CMD sh -c "pnpm --filter @storehub/db migrate && if [ \"$RUN_SEED\" = 'true' ]; then npx tsx packages/db/src/seed.ts; fi"

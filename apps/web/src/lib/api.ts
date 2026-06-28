@@ -13,6 +13,7 @@ export async function api<T = any>(path: string, opts: FetchOptions = {}): Promi
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
       ...(isServer && host && { 'x-forwarded-host': host }),
+      ...(!isServer && { 'x-tenant-slug': window.location.hostname.split('.')[0] === 'localhost' ? 'demo-cafe' : window.location.hostname.split('.')[0] }),
       ...headers,
     },
     credentials: 'include',
