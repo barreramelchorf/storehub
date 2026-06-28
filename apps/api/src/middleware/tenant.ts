@@ -8,8 +8,10 @@ declare module 'fastify' {
 }
 
 export async function resolveTenant(request: FastifyRequest, reply: FastifyReply) {
-  // Allow override via header for development/testing (when no proper subdomain routing)
-  const tenantSlug = request.headers['x-tenant-slug'] as string | undefined
+  // x-tenant-slug override is ONLY allowed in non-production environments
+  const allowSlugOverride = process.env.NODE_ENV !== 'production'
+  const tenantSlug = allowSlugOverride ? (request.headers['x-tenant-slug'] as string | undefined) : undefined
+
   const rawHost = (request.headers['x-forwarded-host'] as string) ?? request.hostname
   const host = rawHost.toLowerCase().split(':')[0]
   const platformDomain = process.env.PLATFORM_DOMAIN ?? 'localhost'
