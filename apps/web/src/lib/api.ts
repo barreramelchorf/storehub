@@ -24,7 +24,12 @@ export async function api<T = any>(path: string, opts: FetchOptions = {}): Promi
       ...(token && { Authorization: `Bearer ${token}` }),
       ...(isServer && host && { 'x-forwarded-host': host }),
       ...(isServer && host && { 'x-tenant-slug': resolveSlug(host) }),
-      ...(!isServer && { 'x-tenant-slug': window.location.hostname.split('.')[0] === 'localhost' ? (process.env.NEXT_PUBLIC_DEFAULT_TENANT ?? 'demo-cafe') : window.location.hostname.split('.')[0] }),
+      ...(!isServer && (() => {
+        const parts = window.location.hostname.split('.')
+        // Only send slug if it's a real tenant subdomain (more than 2 parts and not 'storehub' or 'www')
+        const slug = parts.length > 2 && !['storehub', 'www'].includes(parts[0]) ? parts[0] : undefined
+        return slug ? { 'x-tenant-slug': slug } : {}
+      })()),
       ...headers,
     },
     credentials: 'include',
