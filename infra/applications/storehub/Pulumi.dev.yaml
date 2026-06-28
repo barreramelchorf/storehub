@@ -1,0 +1,15 @@
+config:
+  storehub:platformDomain: storehub.local
+  storehub:apiImage: ghcr.io/barreramelchorf/storehub-api:latest
+  storehub:webImage: ghcr.io/barreramelchorf/storehub-web:latest
+  storehub:migrateImage: ghcr.io/barreramelchorf/storehub-migrate:latest
+  storehub:apiReplicas: "1"
+  storehub:webReplicas: "1"
+  storehub:postgresPassword:
+    secure: AAABAFakeEncryptedValueForDev==
+  storehub:redisPassword:
+    secure: AAABAFakeEncryptedValueForDev==
+  storehub:jwtSecret:
+    secure: AAABAFakeEncryptedValueForDev==
+  storehub:minioRootPassword:
+    secure: AAABAFakeEncryptedValueForDev==

@@ -6,40 +6,47 @@ Pulumi TypeScript project that deploys the full StoreHub stack to Kubernetes.
 
 ```
 infra/
-├── package.json               # Single dependency source (no duplication)
-├── tsconfig.json
-├── Pulumi.yaml                # Project definition
-├── Pulumi.cert-manager.yaml   # Stack config: cert-manager
-├── Pulumi.dev.yaml            # Stack config: app dev
-├── index.ts                   # Dispatcher (routes to correct stack)
-├── stacks/
-│   ├── cert-manager.ts        # cert-manager + ClusterIssuers
-│   └── app.ts                 # StoreHub app (data + platform)
-├── helm/index.ts              # PostgreSQL, Redis, MinIO
-└── k8s/index.ts               # Deployments, Services, IngressRoute, HPA, RBAC
+├── package.json                          # Single deps (shared by all stacks)
+├── tsconfig.json                         # Single TS config
+├── helm/index.ts                         # Reusable: PostgreSQL, Redis, MinIO charts
+├── k8s/index.ts                          # Reusable: Deployments, Services, RBAC, IngressRoute
+├── infrastructure/                       # Cluster-level stacks
+│   └── cert-manager/
+│       ├── Pulumi.yaml                   # Project: cert-manager
+│       ├── Pulumi.production.yaml        # Stack config
+│       └── index.ts                      # cert-manager + ClusterIssuers
+└── applications/                         # App stacks
+    └── storehub/
+        ├── Pulumi.yaml                   # Project: storehub
+        ├── Pulumi.dev.yaml              # Stack config: dev
+        └── index.ts                      # App resources (imports from ../../helm, ../../k8s)
 ```
 
 ### Deploy order
 
 ```bash
 cd infra
+npm install  # once — installs deps for all stacks
 
-# 1. Deploy cluster-level infra (once)
-pulumi stack select cert-manager
+# 1. Cluster-level infra (once per cluster)
+cd infrastructure/cert-manager
+pulumi stack select production
 pulumi up
 
-# 2. Deploy app
-pulumi stack select dev    # or staging, prod
+# 2. App stack
+cd ../../applications/storehub
+pulumi stack select dev       # or staging, prod
 pulumi up
 ```
 
-Each stack has its own state in Pulumi Cloud but shares the same codebase and dependencies.
+Each stack is an independent Pulumi project with its own state in Pulumi Cloud,
+but they all share the same `node_modules` from `infra/`.
 
 ```
-Stack: cert-manager
-└── cert-manager + ClusterIssuers (letsencrypt-prod, letsencrypt-dns)
+Stack: cert-manager/production
+└── cert-manager namespace + Helm chart + ClusterIssuers
 
-Stack: dev / staging / prod
+Stack: storehub/dev (or staging, prod)
 ├── Namespace: storehub-data-{stack}
 │   ├── PostgreSQL 16
 │   ├── Redis 7
