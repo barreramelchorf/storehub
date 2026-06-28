@@ -10,7 +10,7 @@ export default function InventoryPage() {
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<'products' | 'categories'>('products')
   const [modal, setModal] = useState<{ type: 'product' | 'category'; id: string | null } | null>(null)
-  const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '' })
+  const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true })
   const [catForm, setCatForm] = useState({ name: '', description: '' })
 
   const { data: products } = useQuery({ queryKey: ['products'], queryFn: () => api('/api/admin/products?pageSize=100', { token }) })
@@ -42,8 +42,8 @@ export default function InventoryPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
   })
 
-  const openNewProduct = () => { setForm({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '' }); setModal({ type: 'product', id: null }) }
-  const openEditProduct = (p: any) => { setForm({ name: p.name, price: String(Number(p.price)), stock: String(p.stock), minStock: String(p.minStock), categoryId: p.categoryId, description: p.description ?? '' }); setModal({ type: 'product', id: p.id }) }
+  const openNewProduct = () => { setForm({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true }); setModal({ type: 'product', id: null }) }
+  const openEditProduct = (p: any) => { setForm({ name: p.name, price: String(Number(p.price)), stock: String(p.stock), minStock: String(p.minStock), categoryId: p.categoryId, description: p.description ?? '', active: p.active, visible: p.visible }); setModal({ type: 'product', id: p.id }) }
   const openNewCategory = () => { setCatForm({ name: '', description: '' }); setModal({ type: 'category', id: null }) }
   const openEditCategory = (c: any) => { setCatForm({ name: c.name, description: c.description ?? '' }); setModal({ type: 'category', id: c.id }) }
 
@@ -125,7 +125,7 @@ export default function InventoryPage() {
             {modal.type === 'product' && (
               <>
                 <h2 className="text-lg font-bold text-[var(--color-text-dark)]">{modal.id ? 'Editar producto' : 'Nuevo producto'}</h2>
-                <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate({ ...form, price: Number(form.price), stock: Number(form.stock), minStock: Number(form.minStock) }) }} className="space-y-3">
+                <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate({ ...form, price: Number(form.price), stock: Number(form.stock), minStock: Number(form.minStock), active: form.active, visible: form.visible }) }} className="space-y-3">
                   <div><label className="label">Nombre</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input" required /></div>
                   <div className="grid grid-cols-2 gap-3">
                     <div><label className="label">Precio</label><input type="number" step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="input" required /></div>
@@ -141,6 +141,19 @@ export default function InventoryPage() {
                     <div><label className="label">Stock mínimo</label><input type="number" value={form.minStock} onChange={e => setForm(f => ({ ...f, minStock: e.target.value }))} className="input" /></div>
                   </div>
                   <div><label className="label">Descripción</label><input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="input" /></div>
+
+                  <div className="flex gap-6 pt-1">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                      <span className="text-[var(--color-text-dark)]">Activo</span>
+                      <span className="text-xs text-[var(--color-text)]">(disponible en POS)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={form.visible} onChange={e => setForm(f => ({ ...f, visible: e.target.checked }))} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                      <span className="text-[var(--color-text-dark)]">Visible</span>
+                      <span className="text-xs text-[var(--color-text)]">(aparece en tienda pública)</span>
+                    </label>
+                  </div>
 
                   {modal.id && (
                     <div>
