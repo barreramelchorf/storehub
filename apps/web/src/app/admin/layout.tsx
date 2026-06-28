@@ -1,5 +1,5 @@
 'use client'
-import { useAuthStore } from '@/lib/store'
+import { useAuthStore, useHydrated } from '@/lib/store'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import Link from 'next/link'
@@ -19,10 +19,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
   const pathname = usePathname()
   const isLoginPage = pathname === '/admin/login'
+  const hydrated = useHydrated()
 
-  useEffect(() => { if (!token && !isLoginPage) router.push('/admin/login') }, [token, isLoginPage, router])
+  useEffect(() => {
+    if (hydrated && !token && !isLoginPage) router.push('/admin/login')
+  }, [token, isLoginPage, router, hydrated])
+
   if (isLoginPage) return <>{children}</>
-  if (!token) return null
+  if (!hydrated || !token) return null
 
   return (
     <div className="min-h-screen flex bg-[var(--color-surface)]">
