@@ -1,11 +1,20 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const SERVER_API_URL = process.env.API_URL ?? 'http://localhost:3001'
+const CLIENT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
-type FetchOptions = RequestInit & { token?: string }
+type FetchOptions = RequestInit & { token?: string; host?: string }
 
 export async function api<T = any>(path: string, opts: FetchOptions = {}): Promise<T> {
-  const { token, headers, ...rest } = opts
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }), ...headers },
+  const { token, headers, host, ...rest } = opts
+  const isServer = typeof window === 'undefined'
+  const url = isServer ? `${SERVER_API_URL}${path}` : `${CLIENT_API_URL}${path}`
+
+  const res = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...(isServer && host && { 'x-forwarded-host': host }),
+      ...headers,
+    },
     credentials: 'include',
     ...rest,
   })

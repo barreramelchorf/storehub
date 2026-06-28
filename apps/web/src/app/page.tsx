@@ -1,12 +1,17 @@
 import { api } from '@/lib/api'
+import { headers } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 
 export default async function StorePage() {
+  const headersList = headers()
+  const host = headersList.get('host') ?? 'localhost'
+
+  const opts = { host }
   const [{ items: products }, categories, info] = await Promise.all([
-    api('/api/public/products'),
-    api('/api/public/categories'),
-    api('/api/public/info'),
+    api('/api/public/products', opts),
+    api('/api/public/categories', opts),
+    api('/api/public/info', opts),
   ])
 
   return (
