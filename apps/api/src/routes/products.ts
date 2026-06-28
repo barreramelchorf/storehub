@@ -9,15 +9,19 @@ export async function productRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
   app.get('/api/admin/products', { preHandler: requirePermission('inventory.view') }, async (request) => {
-    const { page = '1', pageSize = '20', category } = request.query as Record<string, string>
+    const { page = '1', pageSize = '20', category, search } = request.query as Record<string, string>
     const limit = Math.min(Number(pageSize), 100)
     const offset = (Number(page) - 1) * limit
 
-    const where = category
-      ? (p: any, { eq, and }: any) => and(eq(p.tenantId, request.tenant.id), eq(p.categoryId, category))
-      : (p: any, { eq }: any) => eq(p.tenantId, request.tenant.id)
-
-    const items = await db.query.products.findMany({ where, limit, offset, orderBy: (p) => [asc(p.name)] })
+    const items = await db.query.products.findMany({
+      where: (p, { eq, and, ilike }) => {
+        const conditions = [eq(p.tenantId, request.tenant.id)]
+        if (category) conditions.push(eq(p.categoryId, category))
+        if (search) conditions.push(ilike(p.name, `%${search}%`))
+        return and(...conditions)
+      },
+      limit, offset, orderBy: (p) => [asc(p.name)]
+    })
     return { items, page: Number(page), pageSize: limit }
   })
 
