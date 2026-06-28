@@ -1,6 +1,6 @@
 'use client'
 import { useAuthStore } from '@/lib/store'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import Link from 'next/link'
 
@@ -17,8 +17,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const token = useAuthStore(s => s.token)
   const setToken = useAuthStore(s => s.setToken)
   const router = useRouter()
+  const pathname = usePathname()
 
-  useEffect(() => { if (!token) router.push('/admin/login') }, [token, router])
+  // Don't protect the login page
+  const isLoginPage = pathname === '/admin/login'
+
+  useEffect(() => {
+    if (!token && !isLoginPage) router.push('/admin/login')
+  }, [token, isLoginPage, router])
+
+  // Show login page without sidebar
+  if (isLoginPage) return <>{children}</>
+
+  // Show nothing while redirecting
   if (!token) return null
 
   return (
