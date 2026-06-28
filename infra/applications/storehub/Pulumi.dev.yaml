@@ -6,10 +6,10 @@ config:
   storehub:apiReplicas: "1"
   storehub:webReplicas: "1"
   storehub:postgresPassword:
-    secure: AAABAFakeEncryptedValueForDev==
+    secure: AAABAAM8i50i1R59mcA++XdaSY/zArn5luExfJgMks9IM+sjLwnxMP1fL2q4ZA==
   storehub:redisPassword:
-    secure: AAABAFakeEncryptedValueForDev==
+    secure: AAABANImOdf8428ZDdFDJnjRLeFQs7KtoTCpAN0wZDARg2SJSNP4eKEQRg==
   storehub:jwtSecret:
-    secure: AAABAFakeEncryptedValueForDev==
+    secure: AAABAONayzEybZtc2fE1IIytcf2UIkBYY7SbU7Z60UP4piZ98XyeDiI9pqqiYrA=
   storehub:minioRootPassword:
-    secure: AAABAFakeEncryptedValueForDev==
+    secure: AAABADI6EDYMgS7L0iImyuH2rZucCqWqZ2gAoHvDlGOWXn/gWsD421Xsqg==

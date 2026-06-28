@@ -10,7 +10,9 @@ export interface HelmReleasesArgs {
 
 export function createHelmReleases(args: HelmReleasesArgs) {
   // Bitnami moved free images to bitnamilegacy as of Sept 2025
-  const imageRegistry = "docker.io/bitnamilegacy";
+  // Use per-image registry to avoid double-prefixing
+  const imageRegistry = "docker.io";
+  const imageRepository = (name: string) => `bitnamilegacy/${name}`;
 
   const postgresql = new k8s.helm.v3.Chart("postgresql", {
     chart: "postgresql",
@@ -18,7 +20,7 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
     namespace: args.dataNamespace,
     values: {
-      global: { imageRegistry },
+      image: { registry: imageRegistry, repository: imageRepository("postgresql") },
       auth: {
         postgresPassword: args.postgresPassword,
         database: "storehub",
@@ -36,7 +38,7 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
     namespace: args.dataNamespace,
     values: {
-      global: { imageRegistry },
+      image: { registry: imageRegistry, repository: imageRepository("redis") },
       auth: { password: args.redisPassword },
       architecture: "standalone",
       master: {
@@ -52,7 +54,7 @@ export function createHelmReleases(args: HelmReleasesArgs) {
     fetchOpts: { repo: "https://charts.bitnami.com/bitnami" },
     namespace: args.dataNamespace,
     values: {
-      global: { imageRegistry },
+      image: { registry: imageRegistry, repository: imageRepository("minio") },
       auth: {
         rootUser: "storehub",
         rootPassword: args.minioRootPassword,

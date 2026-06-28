@@ -29,23 +29,24 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/schemas/node_modules ./packages/schemas/node_modules
 COPY --from=deps /app/packages/types/node_modules ./packages/types/node_modules
-COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/packages/db/src ./packages/db/src
-COPY --from=build /app/packages/schemas/src ./packages/schemas/src
-COPY --from=build /app/packages/types/src ./packages/types/src
-COPY --from=build /app/packages/db/migrations ./packages/db/migrations
+COPY apps/api/src ./apps/api/src
 COPY apps/api/package.json apps/api/
+COPY packages/db/src ./packages/db/src
 COPY packages/db/package.json packages/db/
+COPY packages/db/migrations ./packages/db/migrations
+COPY packages/schemas/src ./packages/schemas/src
 COPY packages/schemas/package.json packages/schemas/
+COPY packages/types/src ./packages/types/src
 COPY packages/types/package.json packages/types/
 COPY package.json pnpm-workspace.yaml ./
 
 EXPOSE 3001
 USER node
-CMD ["node", "apps/api/dist/server.js"]
+CMD ["npx", "tsx", "apps/api/src/server.ts"]
 
 # --- Dev (hot-reload) ---
 FROM base AS dev

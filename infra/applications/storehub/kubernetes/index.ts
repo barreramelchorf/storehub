@@ -54,15 +54,21 @@ export function createAppResources(args: AppResourcesArgs) {
   const migrateJob = new k8s.batch.v1.Job("db-migrate", {
     metadata: { namespace: args.namespace },
     spec: {
-      backoffLimit: 3,
+      backoffLimit: 5,
       template: {
         spec: {
           restartPolicy: "OnFailure",
+          initContainers: [{
+            name: "wait-for-postgres",
+            image: "busybox:1.36",
+            command: ["sh", "-c", `until nc -z postgresql.storehub-data-dev.svc.cluster.local 5432; do echo 'waiting for postgres...'; sleep 3; done`],
+          }],
           containers: [{
             name: "migrate",
             image: args.migrateImage,
             envFrom,
           }],
+          imagePullSecrets: [{ name: "ghcr-secret" }],
         },
       },
     },
@@ -88,6 +94,7 @@ export function createAppResources(args: AppResourcesArgs) {
             readinessProbe: { httpGet: { path: "/health", port: 3001 }, initialDelaySeconds: 5, periodSeconds: 10 },
             resources: { requests: { memory: "128Mi", cpu: "100m" }, limits: { memory: "256Mi", cpu: "500m" } },
           }],
+          imagePullSecrets: [{ name: "ghcr-secret" }],
         },
       },
     },
@@ -119,10 +126,11 @@ export function createAppResources(args: AppResourcesArgs) {
               { name: "API_URL", value: pulumi.interpolate`http://${apiService.metadata.name}:3001` },
               { name: "NEXT_PUBLIC_API_URL", value: `/api` },
             ],
-            livenessProbe: { httpGet: { path: "/", port: 3000 }, initialDelaySeconds: 10, periodSeconds: 30 },
-            readinessProbe: { httpGet: { path: "/", port: 3000 }, initialDelaySeconds: 5, periodSeconds: 10 },
+            livenessProbe: { httpGet: { path: "/admin/login", port: 3000 }, initialDelaySeconds: 15, periodSeconds: 30 },
+            readinessProbe: { httpGet: { path: "/admin/login", port: 3000 }, initialDelaySeconds: 10, periodSeconds: 10 },
             resources: { requests: { memory: "128Mi", cpu: "100m" }, limits: { memory: "256Mi", cpu: "500m" } },
           }],
+          imagePullSecrets: [{ name: "ghcr-secret" }],
         },
       },
     },

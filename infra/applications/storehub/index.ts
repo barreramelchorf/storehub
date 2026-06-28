@@ -52,7 +52,7 @@ if (stack === "prod") {
 }
 
 // --- Connection strings ---
-const databaseUrl = pulumi.interpolate`postgres://postgres:${postgresPassword}@postgresql-primary.${dataNs.metadata.name}.svc.cluster.local:5432/storehub`;
+const databaseUrl = pulumi.interpolate`postgres://postgres:${postgresPassword}@postgresql.${dataNs.metadata.name}.svc.cluster.local:5432/storehub`;
 const redisUrl = pulumi.interpolate`redis://:${redisPassword}@redis-master.${dataNs.metadata.name}.svc.cluster.local:6379`;
 const minioEndpoint = pulumi.interpolate`minio.${dataNs.metadata.name}.svc.cluster.local`;
 
