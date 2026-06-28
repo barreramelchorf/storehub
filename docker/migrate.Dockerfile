@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 node:20-alpine
+FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 WORKDIR /app
 

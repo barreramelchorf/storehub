@@ -118,6 +118,7 @@ export function createAppResources(args: AppResourcesArgs) {
   const apiService = new k8s.core.v1.Service("api-svc", {
     metadata: { namespace: args.namespace },
     spec: {
+      type: "ClusterIP",
       selector: apiLabels,
       ports: [{ port: 3001, targetPort: 3001 }],
     },
@@ -156,6 +157,7 @@ export function createAppResources(args: AppResourcesArgs) {
   const webService = new k8s.core.v1.Service("web-svc", {
     metadata: { namespace: args.namespace },
     spec: {
+      type: "ClusterIP",
       selector: webLabels,
       ports: [{ port: 3000, targetPort: 3000 }],
     },
