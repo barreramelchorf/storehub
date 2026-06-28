@@ -8,17 +8,14 @@ declare module 'fastify' {
 }
 
 export async function resolveTenant(request: FastifyRequest, reply: FastifyReply) {
-  const allowSlugOverride = process.env.NODE_ENV !== 'production'
-  const tenantSlug = allowSlugOverride ? (request.headers['x-tenant-slug'] as string | undefined) : undefined
+  // x-tenant-slug is always accepted (needed for /t/:slug public pages server-side rendering)
+  // Security is enforced by JWT on admin routes, not by tenant resolution
+  const tenantSlug = request.headers['x-tenant-slug'] as string | undefined
 
   const rawHost = (request.headers['x-forwarded-host'] as string) ?? request.hostname
   const host = rawHost.toLowerCase().split(':')[0]
   const platformDomain = process.env.PLATFORM_DOMAIN ?? 'localhost'
 
-  // 1. Dev override
-  // 2. Extract slug from subdomain
-  // 3. Look up by custom_domain
-  // 4. Fall back to DEFAULT_TENANT_SLUG
   let slug = tenantSlug ?? null
 
   if (!slug && host.endsWith(`.${platformDomain}`)) {
