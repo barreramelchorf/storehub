@@ -163,36 +163,40 @@ export function createAppResources(args: AppResourcesArgs) {
     },
   });
 
-  // --- Traefik IngressRoute (only when Traefik is available — not in minikube/dev) ---
-  let ingressRoute: k8s.apiextensions.CustomResource | undefined;
-  if (pulumi.getStack() !== "dev") {
-    const tlsConfig = args.tlsSecretName
-      ? { secretName: args.tlsSecretName }
-      : {};
-
-    ingressRoute = new k8s.apiextensions.CustomResource("ingress-route", {
-      apiVersion: "traefik.io/v1alpha1",
-      kind: "IngressRoute",
-      metadata: { namespace: args.namespace },
-      spec: {
-        entryPoints: ["websecure"],
-        routes: [
-          {
-            match: `HostRegexp(\`{subdomain:[a-z0-9-]+}.${args.platformDomain}\`)`,
-            kind: "Rule",
-            services: [{ name: webService.metadata.name, port: 3000 }],
-          },
-          {
-            match: `HostRegexp(\`{subdomain:[a-z0-9-]+}.${args.platformDomain}\`) && PathPrefix(\`/api\`)`,
-            kind: "Rule",
-            priority: 100,
-            services: [{ name: apiService.metadata.name, port: 3001 }],
-          },
-        ],
-        ...(args.tlsSecretName && { tls: { secretName: args.tlsSecretName } }),
+  // --- Ingress (standard k8s, works with Traefik + cert-manager) ---
+  const ingress = new k8s.networking.v1.Ingress("ingress", {
+    metadata: {
+      namespace: args.namespace,
+      annotations: {
+        "kubernetes.io/ingress.class": "traefik",
+        "cert-manager.io/cluster-issuer": "letsencrypt-prod",
       },
-    });
-  }
+    },
+    spec: {
+      ingressClassName: "traefik",
+      tls: [{
+        hosts: [`*.${args.platformDomain}`],
+        secretName: "storehub-wildcard-tls",
+      }],
+      rules: [{
+        host: `*.${args.platformDomain}`,
+        http: {
+          paths: [
+            {
+              path: "/api",
+              pathType: "Prefix",
+              backend: { service: { name: apiService.metadata.name, port: { number: 3001 } } },
+            },
+            {
+              path: "/",
+              pathType: "Prefix",
+              backend: { service: { name: webService.metadata.name, port: { number: 3000 } } },
+            },
+          ],
+        },
+      }],
+    },
+  });
 
   // --- ServiceAccount + RBAC for API to create Ingresses dynamically (custom domains) ---
   const sa = new k8s.core.v1.ServiceAccount("storehub-api", {
@@ -225,5 +229,5 @@ export function createAppResources(args: AppResourcesArgs) {
     },
   });
 
-  return { apiDeployment, apiService, webDeployment, webService, ingressRoute, migrateJob, apiHpa };
+  return { apiDeployment, apiService, webDeployment, webService, ingress, migrateJob, apiHpa };
 }
