@@ -59,14 +59,14 @@ export default function POSPage() {
   const productsGrid = (
     <div className="flex flex-col h-full">
       <input placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} className="input mb-4" />
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto flex-1">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto flex-1">
         {data?.items?.map((p: any) => (
           <button key={p.id} onClick={() => addToCart(p)} disabled={p.stock <= 0}
             className="card text-left hover:border-[var(--color-primary)] hover:shadow-md transition-all disabled:opacity-40 overflow-hidden flex flex-col">
-            {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-16 lg:h-20 object-cover" /> : <div className="w-full h-16 lg:h-20 bg-gray-100 flex items-center justify-center text-xl">📦</div>}
-            <div className="p-2">
-              <p className="font-medium text-xs text-[var(--color-text-dark)] line-clamp-2 min-h-[2rem]">{p.name}</p>
-              <p className="text-[var(--color-primary)] font-bold text-xs mt-0.5">${Number(p.price).toFixed(2)}</p>
+            {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-24 object-cover" /> : <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-2xl">📦</div>}
+            <div className="p-3">
+              <p className="font-medium text-sm text-[var(--color-text-dark)] line-clamp-2">{p.name}</p>
+              <p className="text-[var(--color-primary)] font-bold text-sm mt-1">${Number(p.price).toFixed(2)}</p>
             </div>
           </button>
         ))}
@@ -132,7 +132,7 @@ export default function POSPage() {
   return (
     <>
       {/* Desktop layout */}
-      <div className="hidden md:flex gap-6 h-[calc(100vh-6rem)]">
+      <div className="hidden lg:flex gap-6 h-[calc(100vh-6rem)]">
         <div className="flex-1 flex flex-col">
           <h1 className="text-2xl font-bold text-[var(--color-text-dark)] mb-4">Punto de Venta</h1>
           {productsGrid}
@@ -143,7 +143,7 @@ export default function POSPage() {
       </div>
 
       {/* Mobile layout */}
-      <div className="md:hidden flex flex-col h-[calc(100vh-7rem)]">
+      <div className="lg:hidden flex flex-col h-[calc(100vh-7rem)]">
         {mobileView === 'products' && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <h1 className="text-xl font-bold text-[var(--color-text-dark)] mb-3">Punto de Venta</h1>
