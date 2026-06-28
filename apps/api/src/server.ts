@@ -15,6 +15,7 @@ import { uploadRoutes } from './routes/upload.js'
 import { userRoutes } from './routes/users.js'
 import { auditRoutes } from './routes/audit.js'
 import { settingsRoutes } from './routes/settings.js'
+import { platformRoutes } from "./routes/platform.js"
 import { publicRoutes } from './routes/public.js'
 import { resolveTenant } from './middleware/tenant.js'
 
@@ -38,6 +39,14 @@ await app.register(healthRoutes)
 await app.register(async (tenantApp) => {
   tenantApp.addHook('preHandler', resolveTenant)
   await tenantApp.register(authRoutes)
+})
+
+// Platform routes (no tenant needed, API key auth)
+await app.register(platformRoutes)
+
+// Tenant-scoped routes
+await app.register(async (tenantApp) => {
+  tenantApp.addHook("preHandler", resolveTenant)
   await tenantApp.register(publicRoutes)
   await tenantApp.register(categoryRoutes)
   await tenantApp.register(productRoutes)

@@ -19,6 +19,7 @@ export interface AppResourcesArgs {
   tlsSecretName?: string; // Only set in prod
   ghcrToken: pulumi.Input<string>;
   nextPublicApiUrl?: string;
+  platformApiKey: pulumi.Input<string>;
 }
 
 export function createAppResources(args: AppResourcesArgs) {
@@ -53,6 +54,7 @@ export function createAppResources(args: AppResourcesArgs) {
       MINIO_BUCKET: "storehub",
       MINIO_USE_SSL: "false",
       LOG_LEVEL: "info",
+      PLATFORM_API_KEY: args.platformApiKey,
       PORT: "3001",
     },
   });
