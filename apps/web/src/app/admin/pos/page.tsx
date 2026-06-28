@@ -13,6 +13,7 @@ export default function POSPage() {
   const token = useAuthStore(s => s.token)!
   const queryClient = useQueryClient()
   const [cart, setCart] = useState<CartItem[]>([])
+  const [cartLoaded, setCartLoaded] = useState(false)
   const [discount, setDiscount] = useState(0)
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
@@ -27,8 +28,8 @@ export default function POSPage() {
     setSaleDate(today)
   }, [])
 
-  useEffect(() => { setCart(loadCart()) }, [])
-  useEffect(() => { saveCart(cart) }, [cart])
+  useEffect(() => { setCart(loadCart()); setCartLoaded(true) }, [])
+  useEffect(() => { if (cartLoaded) saveCart(cart) }, [cart, cartLoaded])
 
   const { data } = useQuery({ queryKey: ['products', search], queryFn: () => api(`/api/admin/products?search=${search}`, { token }) })
 
