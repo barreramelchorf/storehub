@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
-import { createHelmReleases } from "../../helm";
-import { createAppResources } from "../../k8s";
+import { createHelmReleases } from "./helm";
+import { createAppResources } from "./kubernetes";
 
 const config = new pulumi.Config();
 const stack = pulumi.getStack();
