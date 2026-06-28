@@ -1,7 +1,7 @@
 'use client'
 import { useAuthStore, useHydrated } from '@/lib/store'
 import { useRouter, usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 const nav = [
@@ -23,17 +23,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const isLoginPage = pathname === '/admin/login'
   const hydrated = useHydrated()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     if (hydrated && !token && !isLoginPage) router.push('/admin/login')
   }, [token, isLoginPage, router, hydrated])
+
+  useEffect(() => { setMenuOpen(false) }, [pathname])
 
   if (isLoginPage) return <>{children}</>
   if (!hydrated || !token) return null
 
   return (
     <div className="min-h-screen flex bg-[var(--color-surface)]">
-      <aside className="w-60 bg-[var(--color-secondary)] text-white p-5 hidden md:flex flex-col">
+      {/* Mobile header */}
+      <div className="fixed top-0 left-0 right-0 h-14 bg-[var(--color-secondary)] flex items-center px-4 z-40 md:hidden">
+        <button onClick={() => setMenuOpen(!menuOpen)} className="text-white text-2xl">☰</button>
+        <span className="text-white font-bold ml-3">StoreHub</span>
+      </div>
+
+      {/* Overlay */}
+      {menuOpen && <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setMenuOpen(false)} />}
+
+      {/* Sidebar */}
+      <aside className={`fixed md:static top-0 left-0 h-full w-60 bg-[var(--color-secondary)] text-white p-5 flex flex-col z-50 transition-transform md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <h2 className="text-lg font-bold mb-8 tracking-tight">StoreHub</h2>
         <nav className="flex-1 space-y-1">
           {nav.map(n => (
@@ -47,7 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           🚪 Cerrar sesión
         </button>
       </aside>
-      <main className="flex-1 p-8 overflow-auto">{children}</main>
+      <main className="flex-1 p-6 md:p-8 overflow-auto pt-20 md:pt-8">{children}</main>
     </div>
   )
 }
