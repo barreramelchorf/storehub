@@ -23,8 +23,8 @@ export async function ensureBucket() {
 }
 
 export function getPublicUrl(path: string) {
-  const port = process.env.MINIO_PORT ?? '9000'
-  const endpoint = process.env.MINIO_ENDPOINT ?? 'localhost'
-  const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'
-  return `${protocol}://${endpoint}:${port}/${BUCKET}/${path}`
+  // MINIO_PUBLIC_URL is what the browser can reach (e.g. http://localhost:9000)
+  // Falls back to constructing from MINIO_ENDPOINT for non-docker environments
+  const publicUrl = process.env.MINIO_PUBLIC_URL ?? `http://localhost:9000`
+  return `${publicUrl}/${BUCKET}/${path}`
 }

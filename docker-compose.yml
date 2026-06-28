@@ -55,6 +55,7 @@ services:
       MINIO_ACCESS_KEY: storehub
       MINIO_SECRET_KEY: storehub123
       MINIO_BUCKET: storehub
+      MINIO_PUBLIC_URL: http://localhost:9000
       JWT_SECRET: dev-secret-change-in-production
       PLATFORM_DOMAIN: localhost
       PORT: "3001"
