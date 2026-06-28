@@ -4,6 +4,7 @@ import { createHelmReleases } from "./helm";
 import { createAppResources } from "./k8s";
 
 const config = new pulumi.Config();
+const stack = pulumi.getStack();
 
 // --- Config values ---
 const platformDomain = config.require("platformDomain");
@@ -21,11 +22,11 @@ const minioRootPassword = config.requireSecret("minioRootPassword");
 
 // --- Namespaces ---
 const dataNs = new k8s.core.v1.Namespace("data", {
-  metadata: { name: "data" },
+  metadata: { name: `storehub-data-${stack}` },
 });
 
 const platformNs = new k8s.core.v1.Namespace("platform", {
-  metadata: { name: "platform" },
+  metadata: { name: `storehub-${stack}` },
 });
 
 // --- Helm Charts (app-specific data layer) ---
@@ -36,20 +37,22 @@ const helm = createHelmReleases({
   minioRootPassword,
 });
 
-// --- Wildcard Certificate (app-specific, uses cluster-level ClusterIssuer) ---
-const wildcardCert = new k8s.apiextensions.CustomResource("wildcard-cert", {
-  apiVersion: "cert-manager.io/v1",
-  kind: "Certificate",
-  metadata: {
-    name: `wildcard-${platformDomain.replace(/\./g, "-")}`,
-    namespace: platformNs.metadata.name,
-  },
-  spec: {
-    secretName: "wildcard-tls",
-    issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
-    dnsNames: [platformDomain, `*.${platformDomain}`],
-  },
-});
+// --- Wildcard Certificate (only for prod — staging uses parent wildcard) ---
+if (stack === "prod") {
+  new k8s.apiextensions.CustomResource("wildcard-cert", {
+    apiVersion: "cert-manager.io/v1",
+    kind: "Certificate",
+    metadata: {
+      name: `wildcard-${platformDomain.replace(/\./g, "-")}`,
+      namespace: platformNs.metadata.name,
+    },
+    spec: {
+      secretName: "wildcard-tls",
+      issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
+      dnsNames: [platformDomain, `*.${platformDomain}`],
+    },
+  });
+}
 
 // --- Connection strings ---
 const databaseUrl = pulumi.interpolate`postgres://postgres:${postgresPassword}@postgresql-primary.${dataNs.metadata.name}.svc.cluster.local:5432/storehub`;
@@ -71,6 +74,7 @@ const app = createAppResources({
   minioEndpoint,
   minioAccessKey: "storehub",
   minioSecretKey: minioRootPassword,
+  tlsSecretName: stack === "prod" ? "wildcard-tls" : undefined,
 });
 
 // --- Exports ---

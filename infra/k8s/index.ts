@@ -15,6 +15,7 @@ export interface AppResourcesArgs {
   minioEndpoint: pulumi.Input<string>;
   minioAccessKey: pulumi.Input<string>;
   minioSecretKey: pulumi.Input<string>;
+  tlsSecretName?: string; // Only set in prod
 }
 
 export function createAppResources(args: AppResourcesArgs) {
@@ -77,6 +78,7 @@ export function createAppResources(args: AppResourcesArgs) {
       template: {
         metadata: { labels: apiLabels },
         spec: {
+          serviceAccountName: "storehub-api",
           containers: [{
             name: "api",
             image: args.apiImage,
@@ -134,7 +136,11 @@ export function createAppResources(args: AppResourcesArgs) {
     },
   });
 
-  // --- Traefik IngressRoute (wildcard for tenant subdomains) ---
+  // --- Traefik IngressRoute (wildcard subdomains) ---
+  const tlsConfig = args.tlsSecretName
+    ? { secretName: args.tlsSecretName }
+    : {};
+
   const ingressRoute = new k8s.apiextensions.CustomResource("ingress-route", {
     apiVersion: "traefik.io/v1alpha1",
     kind: "IngressRoute",
@@ -146,7 +152,6 @@ export function createAppResources(args: AppResourcesArgs) {
           match: `HostRegexp(\`{subdomain:[a-z0-9-]+}.${args.platformDomain}\`)`,
           kind: "Rule",
           services: [{ name: webService.metadata.name, port: 3000 }],
-          middlewares: [],
         },
         {
           match: `HostRegexp(\`{subdomain:[a-z0-9-]+}.${args.platformDomain}\`) && PathPrefix(\`/api\`)`,
@@ -155,8 +160,28 @@ export function createAppResources(args: AppResourcesArgs) {
           services: [{ name: apiService.metadata.name, port: 3001 }],
         },
       ],
-      tls: { secretName: "wildcard-tls" },
+      ...(args.tlsSecretName && { tls: { secretName: args.tlsSecretName } }),
     },
+  });
+
+  // --- ServiceAccount + RBAC for API to create Ingresses dynamically (custom domains) ---
+  const sa = new k8s.core.v1.ServiceAccount("storehub-api", {
+    metadata: { name: "storehub-api", namespace: args.namespace },
+  });
+
+  const role = new k8s.rbac.v1.Role("api-ingress-manager", {
+    metadata: { namespace: args.namespace },
+    rules: [{
+      apiGroups: ["networking.k8s.io"],
+      resources: ["ingresses"],
+      verbs: ["get", "list", "create", "update", "delete"],
+    }],
+  });
+
+  const roleBinding = new k8s.rbac.v1.RoleBinding("api-ingress-manager-binding", {
+    metadata: { namespace: args.namespace },
+    subjects: [{ kind: "ServiceAccount", name: sa.metadata.name, namespace: args.namespace }],
+    roleRef: { kind: "Role", name: role.metadata.name, apiGroup: "rbac.authorization.k8s.io" },
   });
 
   // --- HPA for API ---
