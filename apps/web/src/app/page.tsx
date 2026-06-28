@@ -1,5 +1,7 @@
 import { api } from '@/lib/api'
 
+export const dynamic = 'force-dynamic'
+
 export default async function StorePage() {
   const [{ items: products }, categories, info] = await Promise.all([
     api('/api/public/products'),
