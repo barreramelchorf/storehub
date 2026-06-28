@@ -5,4 +5,3 @@ dist/
 .next/
 .turbo/
 *.log
-pnpm-lock.yaml
