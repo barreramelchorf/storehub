@@ -6,7 +6,7 @@ export default function LandingPage() {
       <h1 className="text-4xl font-bold text-[var(--color-text-dark)] mb-4">StoreHub</h1>
       <p className="text-[var(--color-text)] text-center max-w-md mb-8">Plataforma de gestión de tiendas — punto de venta, inventario y tienda pública.</p>
       <div className="flex gap-4">
-        <Link href="/admin/login" className="btn-primary">Admin Panel</Link>
+        <Link href="/platform/login" className="btn-primary">Platform Admin</Link>
       </div>
     </main>
   )
