@@ -23,6 +23,7 @@ export interface AppResourcesArgs {
   containers: { api: { resources: any }; web: { resources: any }; migrate: { resources: any } };
   hpa: { minReplicas: number; maxReplicas: number; cpuTarget: number };
   defaultTenantSlug?: string;
+  ingressHost?: string;
 }
 
 export function createAppResources(args: AppResourcesArgs) {
@@ -171,7 +172,7 @@ export function createAppResources(args: AppResourcesArgs) {
   });
 
   // --- Ingress (standard k8s, works with Traefik + cert-manager HTTP-01) ---
-  const host = `storehub.${args.platformDomain}`;
+  const host = args.ingressHost ?? `storehub.${args.platformDomain}`;
   const ingress = new k8s.networking.v1.Ingress("ingress", {
     metadata: {
       namespace: args.namespace,
@@ -184,7 +185,7 @@ export function createAppResources(args: AppResourcesArgs) {
       ingressClassName: "traefik",
       tls: [{
         hosts: [host],
-        secretName: "storehub-tls",
+        secretName: `storehub-tls-${pulumi.getStack()}`,
       }],
       rules: [{
         host,

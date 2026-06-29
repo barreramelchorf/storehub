@@ -63,6 +63,7 @@ const app = createAppResources({
   nextPublicApiUrl: config.get("nextPublicApiUrl") ?? "",
   platformApiKey: config.requireSecret("platformApiKey"),
   defaultTenantSlug: config.get("defaultTenantSlug") ?? "",
+  ingressHost: config.get("ingressHost"),
   containers: config.requireObject("containers") as any,
   hpa: config.requireObject("hpa") as any,
 });
