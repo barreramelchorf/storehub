@@ -2,6 +2,7 @@
 import { useAuthStore, useHydrated } from '@/lib/store'
 import { useRouter, usePathname, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { startProactiveRefresh } from '@/lib/auth'
 import Link from 'next/link'
 
 export default function TenantAdminLayout({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,11 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   useEffect(() => {
     if (hydrated && !token && !isLoginPage) router.push(`${base}/login`)
   }, [token, isLoginPage, router, hydrated, base])
+
+  // Proactive token refresh (checks every 60s, refreshes if expiring in <2min)
+  useEffect(() => {
+    if (token) return startProactiveRefresh()
+  }, [token])
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
 

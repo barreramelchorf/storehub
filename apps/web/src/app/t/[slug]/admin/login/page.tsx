@@ -10,6 +10,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const params = useParams()
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+  const expired = searchParams.get('expired') === '1'
   const slug = params.slug as string
   const setToken = useAuthStore(s => s.setToken)
 
@@ -38,6 +40,7 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-[var(--color-text-dark)] text-center mb-2">{slug}</h1>
         <p className="text-sm text-[var(--color-text)] text-center mb-8">Inicia sesión en tu panel</p>
         <form onSubmit={handleSubmit} className="card p-8 space-y-4">
+          {expired && <p className="text-amber-600 text-sm text-center bg-amber-50 rounded-lg py-2">Tu sesión ha expirado. Inicia sesión de nuevo.</p>}
           {error && <p className="text-red-500 text-sm text-center bg-red-50 rounded-lg py-2">{error}</p>}
           <div><label className="label">Usuario o Email</label><input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} className="input" required /></div>
           <div><label className="label">Contraseña</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} className="input" required /></div>
