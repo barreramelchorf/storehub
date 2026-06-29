@@ -161,7 +161,7 @@ export default function InventoryPage() {
                       <label className="label">Imagen</label>
                       <div className="flex items-center gap-3">
                         {currentProduct?.images?.[0] && <img src={currentProduct.images[0]} className="w-16 h-16 rounded-lg object-cover" />}
-                        <ImageUpload productId={modal.id} onUploaded={() => queryClient.invalidateQueries({ queryKey: ['products'] })} />
+                        <ImageUpload productId={modal.id} token={token} onUploaded={() => queryClient.invalidateQueries({ queryKey: ['products'] })} />
                       </div>
                     </div>
                   )}
