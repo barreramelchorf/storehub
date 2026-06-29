@@ -8,7 +8,7 @@ import { useParams } from 'next/navigation'
 export default function DocumentsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
-  const [slug, setSlug] = useState('')
+  const [docSlug, setDocSlug] = useState('')
   const [name, setName] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -20,7 +20,7 @@ export default function DocumentsPage() {
       if (!file) throw new Error('Selecciona un archivo')
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('slug', slug)
+      formData.append('slug', docSlug)
       formData.append('name', name || file.name)
       const res = await fetch(`/api/admin/documents`, {
         method: 'POST',
@@ -30,7 +30,7 @@ export default function DocumentsPage() {
       if (!res.ok) { const b = await res.json(); throw new Error(b.error) }
       return res.json()
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['documents'] }); setSlug(''); setName(''); if(fileRef.current) fileRef.current.value = '' },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['documents'] }); setDocSlug(''); setName(''); if(fileRef.current) fileRef.current.value = '' },
   })
 
   const deleteMutation = useMutation({
@@ -53,9 +53,9 @@ export default function DocumentsPage() {
             <input type="file" accept=".pdf" ref={fileRef} className="hidden" onChange={() => setName(fileRef.current?.files?.[0]?.name ?? '')} />
           </div>
           <div><label className="label">Nombre</label><input placeholder="Nombre" value={name} onChange={e => setName(e.target.value)} className="input" /></div>
-          <div><label className="label">Slug</label><input placeholder="ej: menu" value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} className="input" required /></div>
+          <div><label className="label">Slug</label><input placeholder="ej: menu" value={docSlug} onChange={e => setDocSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} className="input" required /></div>
         </div>
-        <button onClick={() => uploadMutation.mutate()} disabled={!slug || uploadMutation.isPending} className="btn-primary mt-3">
+        <button onClick={() => uploadMutation.mutate()} disabled={!docSlug || uploadMutation.isPending} className="btn-primary mt-3">
           {uploadMutation.isPending ? 'Subiendo...' : 'Subir documento'}
         </button>
         {uploadMutation.isError && <p className="text-red-500 text-xs mt-2">{(uploadMutation.error as Error).message}</p>}

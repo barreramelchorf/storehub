@@ -17,10 +17,10 @@ export async function documentRoutes(app: FastifyInstance) {
     if (!data) return reply.code(400).send({ error: 'File required' })
 
     const fields = data.fields as Record<string, any>
-    const name = fields?.name?.value ?? data.filename
-    const slug = fields?.slug?.value
+    const name = fields?.name?.value ?? fields?.name ?? data.filename
+    const slug = fields?.slug?.value ?? fields?.slug
 
-    if (!slug) return reply.code(400).send({ error: 'Slug is required' })
+    if (!slug) return reply.code(400).send({ error: `Slug is required. Received fields: ${Object.keys(fields || {}).join(', ')}` })
 
     const meta = documentSchema.safeParse({ name, slug, active: true })
     if (!meta.success) return reply.code(400).send({ error: meta.error.issues.map((i: any) => i.message).join(', ') })
