@@ -10,10 +10,16 @@ export default function AnalyticsPage() {
 
   const getRange = () => {
     const now = new Date()
-    const from = new Date()
-    if (period === 'day') from.setDate(now.getDate() - 1)
-    else if (period === 'week') from.setDate(now.getDate() - 7)
-    else from.setMonth(now.getMonth() - 1)
+    let from: Date
+    if (period === 'day') {
+      from = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    } else if (period === 'week') {
+      from = new Date(now)
+      from.setDate(now.getDate() - now.getDay()) // start of week (Sunday)
+      from.setHours(0, 0, 0, 0)
+    } else {
+      from = new Date(now.getFullYear(), now.getMonth(), 1) // start of month
+    }
     return { from: from.toISOString(), to: now.toISOString() }
   }
 

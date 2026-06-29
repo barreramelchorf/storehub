@@ -10,7 +10,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
   app.get('/api/admin/analytics', { preHandler: requirePermission('analytics.view') }, async (request) => {
     const { from, to } = request.query as { from?: string; to?: string }
     const tenantId = request.tenant.id
-    const dateFrom = from ? new Date(from) : new Date(Date.now() - 30 * 86400000)
+    const dateFrom = from ? new Date(from) : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     const dateTo = to ? new Date(to) : new Date()
 
     const salesData = await db.select({
