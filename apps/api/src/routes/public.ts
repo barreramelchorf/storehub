@@ -39,7 +39,15 @@ export async function publicRoutes(app: FastifyInstance) {
       where: (d, { eq, and }) => and(eq(d.tenantId, request.tenant.id), eq(d.slug, slug), eq(d.active, true)),
     })
     if (!doc) return reply.code(404).send({ error: 'Document not found' })
-    // TODO: Return presigned MinIO URL or redirect
-    return reply.redirect(`/storage/${doc.filePath}`)
+    return reply.redirect(doc.filePath)
+  })
+
+  app.get('/api/public/docs/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string }
+    const doc = await db.query.documents.findFirst({
+      where: (d, { eq, and }) => and(eq(d.tenantId, request.tenant.id), eq(d.slug, slug), eq(d.active, true)),
+    })
+    if (!doc) return reply.code(404).send({ error: 'Document not found' })
+    return reply.redirect(doc.filePath)
   })
 }
