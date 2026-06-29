@@ -16,17 +16,30 @@ export async function documentRoutes(app: FastifyInstance) {
     const data = await request.file()
     if (!data) return reply.code(400).send({ error: 'File required' })
 
-    const meta = documentSchema.safeParse({ name: data.fields?.name?.toString() ?? data.filename, slug: data.fields?.slug?.toString(), active: true })
-    if (!meta.success) return reply.code(400).send({ error: meta.error.flatten() })
+    const fields = data.fields as Record<string, any>
+    const name = fields?.name?.value ?? data.filename
+    const slug = fields?.slug?.value
+
+    if (!slug) return reply.code(400).send({ error: 'Slug is required' })
+
+    const meta = documentSchema.safeParse({ name, slug, active: true })
+    if (!meta.success) return reply.code(400).send({ error: meta.error.issues.map((i: any) => i.message).join(', ') })
 
     // Check slug uniqueness
     const existing = await db.query.documents.findFirst({ where: (d, { eq, and }) => and(eq(d.tenantId, request.tenant.id), eq(d.slug, meta.data.slug)) })
     if (existing) return reply.code(409).send({ error: 'Slug already exists' })
 
-    // TODO: Upload to MinIO in phase 5
-    const filePath = `tenants/${request.tenant.id}/docs/${meta.data.slug}.pdf`
+    // Upload to MinIO
+    const chunks: Buffer[] = []
+    for await (const chunk of data.file) chunks.push(chunk)
+    const buffer = Buffer.concat(chunks)
 
-    const [doc] = await db.insert(documents).values({ ...meta.data, tenantId: request.tenant.id, filePath }).returning()
+    const { minioClient, BUCKET, ensureBucket, getPublicUrl } = await import('../plugins/storage.js')
+    await ensureBucket()
+    const filePath = `tenants/${request.tenant.id}/docs/${meta.data.slug}.pdf`
+    await minioClient.putObject(BUCKET, filePath, buffer, buffer.length, { 'Content-Type': 'application/pdf' })
+
+    const [doc] = await db.insert(documents).values({ ...meta.data, tenantId: request.tenant.id, filePath: getPublicUrl(filePath) }).returning()
     return reply.code(201).send(doc)
   })
 
