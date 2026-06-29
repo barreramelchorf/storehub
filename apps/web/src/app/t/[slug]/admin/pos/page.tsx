@@ -31,7 +31,7 @@ export default function POSPage() {
   useEffect(() => { setCart(loadCart()); setCartLoaded(true) }, [])
   useEffect(() => { if (cartLoaded) saveCart(cart) }, [cart, cartLoaded])
 
-  const { data } = useQuery({ queryKey: ['products', search], queryFn: () => api(`/api/admin/products?search=${search}`, { token }) })
+  const { data } = useQuery({ queryKey: ['products', search], queryFn: () => api(`/api/admin/products?search=${search}&pageSize=500`, { token }) })
 
   const saleMutation = useMutation({
     mutationFn: (body: any) => api('/api/admin/sales', { method: 'POST', body: JSON.stringify(body), token }),
@@ -62,11 +62,11 @@ export default function POSPage() {
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto flex-1">
         {data?.items?.map((p: any) => (
           <button key={p.id} onClick={() => addToCart(p)} disabled={p.stock <= 0}
-            className="card text-left hover:border-[var(--color-primary)] hover:shadow-md transition-all disabled:opacity-40 overflow-hidden flex flex-col">
-            {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-24 object-cover" /> : <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-2xl">📦</div>}
-            <div className="p-3">
-              <p className="font-medium text-sm text-[var(--color-text-dark)] line-clamp-2">{p.name}</p>
-              <p className="text-[var(--color-primary)] font-bold text-sm mt-1">${Number(p.price).toFixed(2)}</p>
+            className="card text-left hover:border-[var(--color-primary)] hover:shadow-md transition-all disabled:opacity-40 overflow-hidden flex flex-col h-40">
+            {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-20 object-cover flex-shrink-0" /> : <div className="w-full h-20 bg-gray-100 flex items-center justify-center text-2xl flex-shrink-0">📦</div>}
+            <div className="p-2 flex-1 flex flex-col justify-between">
+              <p className="font-medium text-xs text-[var(--color-text-dark)] line-clamp-2">{p.name}</p>
+              <p className="text-[var(--color-primary)] font-bold text-sm">${Number(p.price).toFixed(2)}</p>
             </div>
           </button>
         ))}

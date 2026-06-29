@@ -10,7 +10,7 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.get('/api/admin/products', { preHandler: requirePermission('inventory.view') }, async (request) => {
     const { page = '1', pageSize = '20', category, search } = request.query as Record<string, string>
-    const limit = Math.min(Number(pageSize), 100)
+    const limit = Math.min(Number(pageSize), 500)
     const offset = (Number(page) - 1) * limit
 
     const items = await db.query.products.findMany({
