@@ -23,7 +23,7 @@ const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
 
 await app.register(cors, { origin: true, credentials: true })
 await app.register(helmet)
-await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } })
+await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } }) // 50MB
 await app.register(cookie)
 await app.register(rateLimit, { max: 100, timeWindow: '1 minute' })
 
