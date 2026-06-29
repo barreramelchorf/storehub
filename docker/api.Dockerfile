@@ -12,19 +12,10 @@ COPY packages/schemas/package.json packages/schemas/
 COPY packages/types/package.json packages/types/
 RUN pnpm install --frozen-lockfile --prod=false
 
-# --- Build ---
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
-COPY --from=deps /app/packages/schemas/node_modules ./packages/schemas/node_modules
-COPY --from=deps /app/packages/types/node_modules ./packages/types/node_modules
-COPY . .
-RUN pnpm --filter @storehub/api build
-
 # --- Production ---
 FROM node:20-alpine AS production
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN npm install -g tsx@4.19.2
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -46,7 +37,7 @@ COPY package.json pnpm-workspace.yaml ./
 
 EXPOSE 3001
 USER node
-CMD ["npx", "tsx", "apps/api/src/server.ts"]
+CMD ["tsx", "apps/api/src/server.ts"]
 
 # --- Dev (hot-reload) ---
 FROM base AS dev
