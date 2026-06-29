@@ -19,9 +19,9 @@ export default function DocumentsPage() {
       const file = fileRef.current?.files?.[0]
       if (!file) throw new Error('Selecciona un archivo')
       const formData = new FormData()
-      formData.append('file', file)
       formData.append('slug', docSlug)
       formData.append('name', name || file.name)
+      formData.append('file', file)
       const res = await fetch(`/api/admin/documents`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1] ?? '' },
