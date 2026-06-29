@@ -1,18 +1,25 @@
-import { useAuthStore } from './store'
-
 const SERVER_API_URL = process.env.API_URL ?? 'http://localhost:3001'
 const CLIENT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 type FetchOptions = RequestInit & { token?: string; host?: string; _retry?: boolean }
 
+let refreshPromise: Promise<string | null> | null = null
+
 async function refreshToken(): Promise<string | null> {
-  try {
-    const res = await fetch(`${CLIENT_API_URL}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
-    if (!res.ok) return null
-    const { accessToken } = await res.json()
-    useAuthStore.getState().setToken(accessToken)
-    return accessToken
-  } catch { return null }
+  if (refreshPromise) return refreshPromise
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${CLIENT_API_URL}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
+      if (!res.ok) return null
+      const { accessToken } = await res.json()
+      // Dynamically import store only on client
+      const { useAuthStore } = await import('./store')
+      useAuthStore.getState().setToken(accessToken)
+      return accessToken
+    } catch { return null }
+    finally { refreshPromise = null }
+  })()
+  return refreshPromise
 }
 
 export async function api<T = any>(path: string, opts: FetchOptions = {}): Promise<T> {
@@ -44,13 +51,14 @@ export async function api<T = any>(path: string, opts: FetchOptions = {}): Promi
     ...rest,
   })
 
-  // 401 interceptor: try refresh and retry once
+  // 401 interceptor (client-side only)
   if (res.status === 401 && !isServer && !_retry && token) {
     const newToken = await refreshToken()
     if (newToken) {
       return api(path, { ...opts, token: newToken, _retry: true })
     }
-    // Refresh failed — session expired, redirect to login
+    // Session expired — redirect to login
+    const { useAuthStore } = await import('./store')
     useAuthStore.getState().setToken(null)
     const slug = window.location.pathname.split('/')[2] ?? ''
     window.location.href = `/t/${slug}/admin/login?expired=1`
