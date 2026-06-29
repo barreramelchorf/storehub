@@ -31,6 +31,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
+  username: text('username'),
   passwordHash: text('password_hash').notNull(),
   roleId: uuid('role_id').notNull().references(() => roles.id),
   active: boolean('active').notNull().default(true),

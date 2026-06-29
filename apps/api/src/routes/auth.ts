@@ -8,14 +8,17 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', {
     config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
   }, async (request, reply) => {
-    const body = loginSchema.safeParse(request.body)
-    if (!body.success) return reply.code(400).send({ error: 'Invalid input' })
+    const { email, password, username } = request.body as { email?: string; password: string; username?: string }
+    if (!password || (!email && !username)) return reply.code(400).send({ error: 'Email/username and password required' })
 
-    const { email, password } = body.data
     const tenantId = request.tenant.id
 
     const user = await db.query.users.findFirst({
-      where: (u, { eq, and }) => and(eq(u.email, email), eq(u.tenantId, tenantId), eq(u.active, true)),
+      where: (u, { eq, and, or }) => and(
+        eq(u.tenantId, tenantId),
+        eq(u.active, true),
+        email ? eq(u.email, email) : eq(u.username, username!),
+      ),
       with: { role: { columns: { permissions: true } } },
     })
 

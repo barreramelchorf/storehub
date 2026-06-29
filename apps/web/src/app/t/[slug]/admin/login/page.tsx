@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,10 +18,11 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
+      const isEmail = identifier.includes('@')
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-tenant-slug': slug },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ ...(isEmail ? { email: identifier } : { username: identifier }), password }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Login failed')
@@ -38,7 +39,7 @@ export default function LoginPage() {
         <p className="text-sm text-[var(--color-text)] text-center mb-8">Inicia sesión en tu panel</p>
         <form onSubmit={handleSubmit} className="card p-8 space-y-4">
           {error && <p className="text-red-500 text-sm text-center bg-red-50 rounded-lg py-2">{error}</p>}
-          <div><label className="label">Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input" required /></div>
+          <div><label className="label">Usuario o Email</label><input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} className="input" required /></div>
           <div><label className="label">Contraseña</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} className="input" required /></div>
           <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Entrando...' : 'Entrar'}</button>
         </form>
