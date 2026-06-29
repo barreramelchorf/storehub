@@ -1,7 +1,7 @@
 config:
   storehub:platformDomain: barreramelchorf.top
-  storehub:version: v0.9.3
-  storehub:migrationsVersion: v0.9.3
+  storehub:version: v0.9.4
+  storehub:migrationsVersion: v0.9.4
   storehub:apiReplicas: "2"
   storehub:webReplicas: "2"
   kubernetes:context: default
@@ -26,7 +26,7 @@ config:
           cpu: 100m
           memory: 128Mi
         limits:
-          cpu: 200m
+          cpu: 300m
           memory: 512Mi
     web:
       resources:
