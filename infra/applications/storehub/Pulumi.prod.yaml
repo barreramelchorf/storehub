@@ -1,7 +1,7 @@
 config:
   storehub:platformDomain: barreramelchorf.top
-  storehub:version: v0.9.11
-  storehub:migrationsVersion: v0.9.11
+  storehub:version: v0.10.0
+  storehub:migrationsVersion: v0.10.0
   storehub:apiReplicas: "2"
   storehub:webReplicas: "2"
   kubernetes:context: default
