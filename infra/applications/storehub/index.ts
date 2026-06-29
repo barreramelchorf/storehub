@@ -62,7 +62,9 @@ const app = createAppResources({
   ghcrToken,
   nextPublicApiUrl: config.get("nextPublicApiUrl") ?? "",
   platformApiKey: config.requireSecret("platformApiKey"),
-  defaultTenantSlug: config.get("defaultTenantSlug") ?? "" ?? "",
+  defaultTenantSlug: config.get("defaultTenantSlug") ?? "",
+  containers: config.requireObject("containers") as any,
+  hpa: config.requireObject("hpa") as any,
 });
 
 // --- Exports ---

@@ -20,6 +20,8 @@ export interface AppResourcesArgs {
   ghcrToken: pulumi.Input<string>;
   nextPublicApiUrl?: string;
   platformApiKey: pulumi.Input<string>;
+  containers: { api: { resources: any }; web: { resources: any }; migrate: { resources: any } };
+  hpa: { minReplicas: number; maxReplicas: number; cpuTarget: number };
   defaultTenantSlug?: string;
 }
 
@@ -112,7 +114,7 @@ export function createAppResources(args: AppResourcesArgs) {
             envFrom,
             livenessProbe: { httpGet: { path: "/health", port: 3001 }, initialDelaySeconds: 10, periodSeconds: 30 },
             readinessProbe: { httpGet: { path: "/health", port: 3001 }, initialDelaySeconds: 5, periodSeconds: 10 },
-            resources: { requests: { memory: "128Mi", cpu: "100m" }, limits: { memory: "256Mi", cpu: "500m" } },
+            resources: args.containers.api.resources,
           }],
           imagePullSecrets: [{ name: "ghcr-secret" }],
         },
@@ -151,7 +153,7 @@ export function createAppResources(args: AppResourcesArgs) {
             ],
             livenessProbe: { httpGet: { path: "/admin/login", port: 3000 }, initialDelaySeconds: 15, periodSeconds: 30 },
             readinessProbe: { httpGet: { path: "/admin/login", port: 3000 }, initialDelaySeconds: 10, periodSeconds: 10 },
-            resources: { requests: { memory: "128Mi", cpu: "100m" }, limits: { memory: "256Mi", cpu: "500m" } },
+            resources: args.containers.api.resources,
           }],
           imagePullSecrets: [{ name: "ghcr-secret" }],
         },
@@ -229,9 +231,9 @@ export function createAppResources(args: AppResourcesArgs) {
     metadata: { namespace: args.namespace },
     spec: {
       scaleTargetRef: { apiVersion: "apps/v1", kind: "Deployment", name: apiDeployment.metadata.name },
-      minReplicas: args.apiReplicas,
-      maxReplicas: Math.max(args.apiReplicas * 3, 3),
-      metrics: [{ type: "Resource", resource: { name: "cpu", target: { type: "Utilization", averageUtilization: 70 } } }],
+      minReplicas: args.hpa.minReplicas,
+      maxReplicas: args.hpa.maxReplicas,
+      metrics: [{ type: "Resource", resource: { name: "cpu", target: { type: "Utilization", averageUtilization: args.hpa.cpuTarget } } }],
     },
   });
 

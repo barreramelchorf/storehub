@@ -1,7 +1,7 @@
 config:
   storehub:platformDomain: barreramelchorf.top
-  storehub:version: v0.9.2
-  storehub:migrationsVersion: v0.9.2
+  storehub:version: v0.9.3
+  storehub:migrationsVersion: v0.9.3
   storehub:apiReplicas: "2"
   storehub:webReplicas: "2"
   kubernetes:context: default
@@ -19,3 +19,32 @@ config:
   storehub:platformApiKey:
     secure: AAABAJFesnVESzYSTWrzxE5UmBmJ4V4xfAcOlsRVPkwMRGzo6fp+dUI9BhpnnGdjfwUOhMyqEVyYkgbsgQJpdBoish22DPetrPpJCbIZqQU=
   storehub:defaultTenantSlug: xalli
+  storehub:containers:
+    api:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 400m
+          memory: 512Mi
+    web:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+    migrate:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+  storehub:hpa:
+    minReplicas: 2
+    maxReplicas: 6
+    cpuTarget: 70
