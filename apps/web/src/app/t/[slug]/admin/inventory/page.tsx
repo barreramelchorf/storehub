@@ -2,8 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '@/lib/api'
-import { getAuthStore } from "@/lib/store"
-import { useParams } from "next/navigation"
+import { getAuthStore } from '@/lib/store'
+import { useParams } from 'next/navigation'
 import { ImageUpload } from '@/components/ImageUpload'
 
 export default function InventoryPage() {

@@ -2,8 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '@/lib/api'
-import { getAuthStore } from "@/lib/store"
-import { useParams } from "next/navigation"
+import { getAuthStore } from '@/lib/store'
+import { useParams } from 'next/navigation'
 
 export default function UsersPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!

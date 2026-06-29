@@ -1,8 +1,8 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { getAuthStore } from "@/lib/store"
-import { useParams } from "next/navigation"
+import { getAuthStore } from '@/lib/store'
+import { useParams } from 'next/navigation'
 
 export default function AdminDashboard() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)

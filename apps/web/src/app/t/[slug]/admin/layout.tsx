@@ -1,11 +1,10 @@
 'use client'
-import { useHydrated } from '@/lib/store'
+import { useHydrated, getAuthStore } from '@/lib/store'
 import { useRouter, usePathname, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { startProactiveRefresh } from '@/lib/auth'
 import { setAuthCallbacks } from '@/lib/api'
 import Link from 'next/link'
-import { getAuthStore } from '@/lib/store'
 
 export default function TenantAdminLayout({ children }: { children: React.ReactNode }) {
   const params = useParams()
@@ -15,8 +14,6 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   const setToken = store(s => s.setToken)
   const router = useRouter()
   const pathname = usePathname()
-  const params = useParams()
-  const slug = params.slug as string
   const hydrated = useHydrated()
   const [menuOpen, setMenuOpen] = useState(false)
 

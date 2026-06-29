@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { getAuthStore } from "@/lib/store"
-import { useParams } from "next/navigation"
+import { getAuthStore } from '@/lib/store'
+import { useParams } from 'next/navigation'
 
 interface CartItem { productId: string; name: string; price: number; quantity: number }
 const CART_KEY = 'storehub-cart'
