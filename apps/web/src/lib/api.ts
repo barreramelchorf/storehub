@@ -3,18 +3,27 @@ const CLIENT_API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 type FetchOptions = RequestInit & { token?: string; host?: string; _retry?: boolean }
 
+// Token management callbacks (set by client-side layout)
+let onTokenRefreshed: ((token: string) => void) | null = null
+let onSessionExpired: (() => void) | null = null
+let getToken: (() => string | null) | null = null
+
+export function setAuthCallbacks(callbacks: { onRefreshed: (t: string) => void; onExpired: () => void; getToken: () => string | null }) {
+  onTokenRefreshed = callbacks.onRefreshed
+  onSessionExpired = callbacks.onExpired
+  getToken = callbacks.getToken
+}
+
 let refreshPromise: Promise<string | null> | null = null
 
-async function refreshToken(): Promise<string | null> {
+async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise
   refreshPromise = (async () => {
     try {
       const res = await fetch(`${CLIENT_API_URL}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
       if (!res.ok) return null
       const { accessToken } = await res.json()
-      // Dynamically import store only on client
-      const { useAuthStore } = await import('./store')
-      useAuthStore.getState().setToken(accessToken)
+      onTokenRefreshed?.(accessToken)
       return accessToken
     } catch { return null }
     finally { refreshPromise = null }
@@ -53,15 +62,11 @@ export async function api<T = any>(path: string, opts: FetchOptions = {}): Promi
 
   // 401 interceptor (client-side only)
   if (res.status === 401 && !isServer && !_retry && token) {
-    const newToken = await refreshToken()
+    const newToken = await refreshAccessToken()
     if (newToken) {
       return api(path, { ...opts, token: newToken, _retry: true })
     }
-    // Session expired — redirect to login
-    const { useAuthStore } = await import('./store')
-    useAuthStore.getState().setToken(null)
-    const slug = window.location.pathname.split('/')[2] ?? ''
-    window.location.href = `/t/${slug}/admin/login?expired=1`
+    onSessionExpired?.()
     throw new Error('Session expired')
   }
 

@@ -3,6 +3,7 @@ import { useAuthStore, useHydrated } from '@/lib/store'
 import { useRouter, usePathname, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { startProactiveRefresh } from '@/lib/auth'
+import { setAuthCallbacks } from '@/lib/api'
 import Link from 'next/link'
 
 export default function TenantAdminLayout({ children }: { children: React.ReactNode }) {
@@ -36,8 +37,16 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
 
   // Proactive token refresh (checks every 60s, refreshes if expiring in <2min)
   useEffect(() => {
-    if (token) return startProactiveRefresh()
-  }, [token])
+    if (token) {
+      // Register auth callbacks for the api interceptor
+      setAuthCallbacks({
+        onRefreshed: (t) => setToken(t),
+        onExpired: () => { setToken(null); router.push(`${base}/login?expired=1`) },
+        getToken: () => useAuthStore.getState().token,
+      })
+      return startProactiveRefresh()
+    }
+  }, [token, base, router, setToken])
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
 
