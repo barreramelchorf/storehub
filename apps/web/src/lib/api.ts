@@ -50,6 +50,10 @@ export async function api<T = any>(path: string, opts: FetchOptions = {}): Promi
       ...(isServer && host && { 'x-forwarded-host': host }),
       ...(isServer && host && { 'x-tenant-slug': resolveSlug(host) }),
       ...(!isServer && (() => {
+        // Check URL path for /t/:slug/ pattern
+        const pathMatch = window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)
+        if (pathMatch) return { 'x-tenant-slug': pathMatch[1] }
+        // Check hostname for subdomain
         const parts = window.location.hostname.split('.')
         const slug = parts.length > 2 && !['storehub', 'www'].includes(parts[0]) ? parts[0] : undefined
         return slug ? { 'x-tenant-slug': slug } : {}
