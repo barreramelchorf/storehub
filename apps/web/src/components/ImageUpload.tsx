@@ -13,11 +13,11 @@ export function ImageUpload({ productId, onUploaded, token }: { productId: strin
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/products/${productId}/image`, {
+      const res = await fetch(`/api/admin/products/${productId}/image`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
-          'x-tenant-slug': window.location.hostname.split('.')[0] === 'localhost' ? 'demo-cafe' : window.location.hostname.split('.')[0],
+          'x-tenant-slug': window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1] ?? '',
         },
         body: formData,
       })

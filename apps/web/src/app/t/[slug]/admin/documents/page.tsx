@@ -22,9 +22,9 @@ export default function DocumentsPage() {
       formData.append('file', file)
       formData.append('slug', slug)
       formData.append('name', name || file.name)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/documents`, {
+      const res = await fetch(`/api/admin/documents`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': window.location.hostname.split('.')[0] === 'localhost' ? 'demo-cafe' : window.location.hostname.split('.')[0] },
+        headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1] ?? '' },
         body: formData,
       })
       if (!res.ok) { const b = await res.json(); throw new Error(b.error) }
