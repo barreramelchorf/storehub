@@ -1,10 +1,11 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { useAuthStore } from '@/lib/store'
+import { getAuthStore } from "@/lib/store"
+import { useParams } from "next/navigation"
 
 export default function ApprovalsPage() {
-  const token = useAuthStore(s => s.token)!
+  const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
 
   const { data } = useQuery({ queryKey: ['pending-sales'], queryFn: () => api('/api/admin/sales?status=pending_approval', { token }) })

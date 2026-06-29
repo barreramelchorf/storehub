@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { useAuthStore } from '@/lib/store'
+import { getAuthStore } from "@/lib/store"
+import { useParams } from "next/navigation"
 
 interface CartItem { productId: string; name: string; price: number; quantity: number }
 const CART_KEY = 'storehub-cart'
@@ -10,7 +11,7 @@ function loadCart(): CartItem[] { try { return JSON.parse(localStorage.getItem(C
 function saveCart(cart: CartItem[]) { localStorage.setItem(CART_KEY, JSON.stringify(cart)) }
 
 export default function POSPage() {
-  const token = useAuthStore(s => s.token)!
+  const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
   const [cart, setCart] = useState<CartItem[]>([])
   const [cartLoaded, setCartLoaded] = useState(false)

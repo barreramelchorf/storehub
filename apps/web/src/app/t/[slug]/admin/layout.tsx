@@ -1,14 +1,18 @@
 'use client'
-import { useAuthStore, useHydrated } from '@/lib/store'
+import { useHydrated } from '@/lib/store'
 import { useRouter, usePathname, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { startProactiveRefresh } from '@/lib/auth'
 import { setAuthCallbacks } from '@/lib/api'
 import Link from 'next/link'
+import { getAuthStore } from '@/lib/store'
 
 export default function TenantAdminLayout({ children }: { children: React.ReactNode }) {
-  const token = useAuthStore(s => s.token)
-  const setToken = useAuthStore(s => s.setToken)
+  const params = useParams()
+  const slug = params.slug as string
+  const store = getAuthStore(slug)
+  const token = store(s => s.token)
+  const setToken = store(s => s.setToken)
   const router = useRouter()
   const pathname = usePathname()
   const params = useParams()
@@ -42,7 +46,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
       setAuthCallbacks({
         onRefreshed: (t) => setToken(t),
         onExpired: () => { setToken(null); router.push(`${base}/login?expired=1`) },
-        getToken: () => useAuthStore.getState().token,
+        getToken: () => store.getState().token,
       })
       return startProactiveRefresh()
     }

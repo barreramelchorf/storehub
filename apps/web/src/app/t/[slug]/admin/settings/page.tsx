@@ -2,10 +2,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
-import { useAuthStore } from '@/lib/store'
+import { getAuthStore } from "@/lib/store"
+import { useParams } from "next/navigation"
 
 export default function SettingsPage() {
-  const token = useAuthStore(s => s.token)!
+  const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
   const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '' })
 

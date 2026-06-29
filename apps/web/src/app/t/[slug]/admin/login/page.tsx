@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { useAuthStore } from '@/lib/store'
+import { getAuthStore } from '@/lib/store'
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('')
@@ -13,7 +13,7 @@ export default function LoginPage() {
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
   const expired = searchParams.get('expired') === '1'
   const slug = params.slug as string
-  const setToken = useAuthStore(s => s.setToken)
+  const setToken = getAuthStore(slug)(s => s.setToken)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -1,10 +1,11 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { useAuthStore } from '@/lib/store'
+import { getAuthStore } from "@/lib/store"
+import { useParams } from "next/navigation"
 
 export default function AdminDashboard() {
-  const token = useAuthStore(s => s.token)
+  const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)
   const { data, isLoading } = useQuery({ queryKey: ['analytics'], queryFn: () => api('/api/admin/analytics', { token: token! }), enabled: !!token })
   const { data: todayData } = useQuery({
     queryKey: ['analytics-today'],

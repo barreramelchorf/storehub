@@ -2,11 +2,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '@/lib/api'
-import { useAuthStore } from '@/lib/store'
+import { getAuthStore } from "@/lib/store"
+import { useParams } from "next/navigation"
 import { ImageUpload } from '@/components/ImageUpload'
 
 export default function InventoryPage() {
-  const token = useAuthStore(s => s.token)!
+  const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<'products' | 'categories'>('products')
   const [modal, setModal] = useState<{ type: 'product' | 'category'; id: string | null } | null>(null)

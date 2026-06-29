@@ -1,9 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
-import { useAuthStore } from '@/lib/store'
 
-export function ImageUpload({ productId, onUploaded }: { productId: string; onUploaded: (url: string) => void }) {
-  const token = useAuthStore(s => s.token)!
+export function ImageUpload({ productId, onUploaded, token }: { productId: string; onUploaded: (url: string) => void; token: string }) {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
