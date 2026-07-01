@@ -44,7 +44,6 @@ export async function platformRoutes(app: FastifyInstance) {
   app.get('/api/platform/tenants', async () => {
     return db.query.tenants.findMany({ columns: { id: true, slug: true, name: true, giro: true, customDomain: true, createdAt: true } })
   })
-}
 
   app.put('/api/platform/tenants/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
@@ -58,3 +57,4 @@ export async function platformRoutes(app: FastifyInstance) {
     if (!updated) return reply.code(404).send({ error: 'Tenant not found' })
     return updated
   })
+}
