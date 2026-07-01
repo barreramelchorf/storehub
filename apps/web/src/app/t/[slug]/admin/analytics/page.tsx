@@ -71,7 +71,7 @@ export default function AnalyticsPage() {
                     <div className="w-full bg-[var(--color-primary)] rounded-t opacity-80 hover:opacity-100 transition-opacity"
                       style={{ height: `${(Number(d.total) / maxDaySale) * 100}%`, minHeight: '4px' }}
                       title={`$${Number(d.total).toFixed(0)} - ${d.count} ventas`} />
-                    <span className="text-[9px] text-[var(--color-text)]">{new Date(d.date).getDate()}</span>
+                    <span className="text-[9px] text-[var(--color-text)]">{d.date.split('-')[2]}</span>
                   </div>
                 ))}
               </div>

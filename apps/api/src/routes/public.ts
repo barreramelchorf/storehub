@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '@storehub/db'
-import { asc } from 'drizzle-orm'
+import { asc, sql } from 'drizzle-orm'
 
 export async function publicRoutes(app: FastifyInstance) {
   app.get('/api/public/products', async (request) => {
@@ -10,10 +10,10 @@ export async function publicRoutes(app: FastifyInstance) {
     const offset = (Number(page) - 1) * limit
 
     const items = await db.query.products.findMany({
-      where: (p, { eq, and, ilike }) => {
+      where: (p, { eq, and }) => {
         const conditions = [eq(p.tenantId, tenantId), eq(p.active, true), eq(p.visible, true)]
         if (category) conditions.push(eq(p.categoryId, category))
-        if (search) conditions.push(ilike(p.name, `%${search}%`))
+        if (search) conditions.push(sql`unaccent(${p.name}) ILIKE unaccent(${`%${search}%`})`)
         return and(...conditions)
       },
       limit, offset, orderBy: (p) => [asc(p.name)],

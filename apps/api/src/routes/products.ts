@@ -14,10 +14,10 @@ export async function productRoutes(app: FastifyInstance) {
     const offset = (Number(page) - 1) * limit
 
     const items = await db.query.products.findMany({
-      where: (p, { eq, and, ilike }) => {
+      where: (p, { eq, and }) => {
         const conditions = [eq(p.tenantId, request.tenant.id)]
         if (category) conditions.push(eq(p.categoryId, category))
-        if (search) conditions.push(ilike(p.name, `%${search}%`))
+        if (search) conditions.push(sql`unaccent(${p.name}) ILIKE unaccent(${`%${search}%`})`)
         return and(...conditions)
       },
       limit, offset, orderBy: (p) => [asc(p.name)]

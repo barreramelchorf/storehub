@@ -6,7 +6,10 @@ import { useParams } from 'next/navigation'
 
 export default function AdminDashboard() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)
-  const { data, isLoading } = useQuery({ queryKey: ['analytics'], queryFn: () => api('/api/admin/analytics', { token: token! }), enabled: !!token })
+  const { data, isLoading } = useQuery({ queryKey: ['analytics'], queryFn: () => {
+    const from = new Date(); from.setDate(from.getDate() - 30)
+    return api(`/api/admin/analytics?from=${from.toISOString()}&to=${new Date().toISOString()}`, { token: token! })
+  }, enabled: !!token })
   const { data: todayData } = useQuery({
     queryKey: ['analytics-today'],
     queryFn: () => {
