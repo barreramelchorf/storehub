@@ -151,6 +151,8 @@ export function createAppResources(args: AppResourcesArgs) {
             env: [
               { name: "API_URL", value: pulumi.interpolate`http://${apiService.metadata.name}:3001` },
               { name: "NEXT_PUBLIC_API_URL", value: args.nextPublicApiUrl ?? "" },
+              { name: "NEXT_PUBLIC_DOMAIN_MAP", value: (args.customDomains ?? []).map(cd => `${cd.host}=${cd.tenantSlug}`).join(',') },
+              { name: "NEXT_PUBLIC_PLATFORM_HOST", value: args.ingressHost ?? `storehub.${args.platformDomain}` },
               { name: "HOSTNAME", value: "0.0.0.0" },
             ],
             livenessProbe: { httpGet: { path: "/admin/login", port: 3000 }, initialDelaySeconds: 15, periodSeconds: 30 },
