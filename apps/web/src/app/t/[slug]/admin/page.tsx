@@ -7,8 +7,9 @@ import { useParams } from 'next/navigation'
 export default function AdminDashboard() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)
   const { data, isLoading } = useQuery({ queryKey: ['analytics'], queryFn: () => {
-    const from = new Date(); from.setDate(from.getDate() - 30)
-    return api(`/api/admin/analytics?from=${from.toISOString()}&to=${new Date().toISOString()}`, { token: token! })
+    const from = new Date(); from.setDate(from.getDate() - 30); from.setHours(0,0,0,0)
+    const to = new Date(); to.setHours(23,59,59,999)
+    return api(`/api/admin/analytics?from=${from.toISOString()}&to=${to.toISOString()}`, { token: token! })
   }, enabled: !!token })
   const { data: todayData } = useQuery({
     queryKey: ['analytics-today'],
@@ -56,9 +57,10 @@ export default function AdminDashboard() {
 
           {/* Mini sales chart */}
           {(() => {
+            const tz = 'America/Mexico_City'
             const days = Array.from({ length: 14 }, (_, i) => {
               const d = new Date(); d.setDate(d.getDate() - 13 + i)
-              return d.toISOString().split('T')[0]
+              return d.toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD in Mexico tz
             })
             const salesMap = Object.fromEntries((data.salesByDay ?? []).map((x: any) => [x.date, Number(x.total)]))
             const chartData = days.map(date => ({ date, total: salesMap[date] ?? 0 }))
