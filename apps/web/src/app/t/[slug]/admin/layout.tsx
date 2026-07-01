@@ -17,8 +17,10 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   const hydrated = useHydrated()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const base = `/t/${slug}/admin`
-  const isLoginPage = pathname === `${base}/login`
+  // On custom domains, URLs are /admin/* not /t/:slug/admin/*
+  const isCustomDomain = typeof window !== 'undefined' && !window.location.pathname.startsWith('/t/')
+  const base = isCustomDomain ? '/admin' : `/t/${slug}/admin`
+  const isLoginPage = pathname.endsWith('/admin/login')
 
   const nav = [
     { href: base, label: 'Dashboard', icon: '📊' },
@@ -66,7 +68,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
         <nav className="flex-1 space-y-1">
           {nav.map(n => (
             <Link key={n.href} href={n.href}
-              className={`flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm transition-colors ${pathname === n.href ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'}`}>
+              className={`flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm transition-colors ${(pathname === n.href || pathname === n.href.replace('/admin', `/t/${slug}/admin`)) ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'}`}>
               <span>{n.icon}</span>{n.label}
             </Link>
           ))}

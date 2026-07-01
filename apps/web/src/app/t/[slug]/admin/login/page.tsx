@@ -29,7 +29,8 @@ export default function LoginPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Login failed')
       setToken(data.accessToken)
-      router.push(`/t/${slug}/admin`)
+      const isCustomDomain = !window.location.pathname.startsWith('/t/')
+      router.push(isCustomDomain ? '/admin' : `/t/${slug}/admin`)
     } catch (err: any) { setError(err.message) }
     finally { setLoading(false) }
   }
