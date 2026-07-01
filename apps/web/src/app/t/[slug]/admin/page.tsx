@@ -59,7 +59,7 @@ export default function AdminDashboard() {
           {(() => {
             const tz = 'America/Mexico_City'
             const days = Array.from({ length: 14 }, (_, i) => {
-              const d = new Date(); d.setDate(d.getDate() - 13 + i)
+              const d = new Date(); d.setDate(d.getDate() - i)
               return d.toLocaleDateString('en-CA', { timeZone: tz })
             })
             const salesMap = Object.fromEntries((data.salesByDay ?? []).map((x: any) => [x.date, Number(x.total)]))
