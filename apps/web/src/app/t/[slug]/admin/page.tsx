@@ -55,23 +55,30 @@ export default function AdminDashboard() {
           </div>
 
           {/* Mini sales chart */}
-          {data.salesByDay?.length > 0 && (
-            <div className="card p-5">
-              <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-3">Ventas últimos días</h2>
-              <div className="flex items-end gap-1 h-20">
-                {data.salesByDay.slice(-14).map((d: any) => {
-                  const max = Math.max(...data.salesByDay.map((x: any) => Number(x.total)))
-                  return (
+          {(() => {
+            const days = Array.from({ length: 14 }, (_, i) => {
+              const d = new Date(); d.setDate(d.getDate() - 13 + i)
+              return d.toISOString().split('T')[0]
+            })
+            const salesMap = Object.fromEntries((data.salesByDay ?? []).map((x: any) => [x.date, Number(x.total)]))
+            const chartData = days.map(date => ({ date, total: salesMap[date] ?? 0 }))
+            const max = Math.max(...chartData.map(x => x.total), 1)
+            return (
+              <div className="card p-5">
+                <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-3">Ventas últimos 14 días</h2>
+                <div className="flex items-end gap-1 h-24">
+                  {chartData.map((d) => (
                     <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
-                      <div className="w-full bg-[var(--color-primary)] rounded-t opacity-70 hover:opacity-100 transition-opacity"
-                        style={{ height: `${(Number(d.total) / max) * 100}%`, minHeight: '2px' }}
-                        title={`${new Date(d.date).toLocaleDateString()} — $${Number(d.total).toFixed(0)}`} />
+                      <div className={`w-full rounded-t transition-opacity ${d.total > 0 ? 'bg-[var(--color-primary)] opacity-70 hover:opacity-100' : 'bg-gray-200'}`}
+                        style={{ height: `${Math.max((d.total / max) * 100, 2)}%` }}
+                        title={`${d.date} — $${d.total.toFixed(0)}`} />
+                      <span className="text-[8px] text-[var(--color-text)]">{d.date.split('-')[2]}</span>
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Recent sales */}
