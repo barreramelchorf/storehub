@@ -60,23 +60,28 @@ export default function AdminDashboard() {
             const tz = 'America/Mexico_City'
             const days = Array.from({ length: 14 }, (_, i) => {
               const d = new Date(); d.setDate(d.getDate() - 13 + i)
-              return d.toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD in Mexico tz
+              return d.toLocaleDateString('en-CA', { timeZone: tz })
             })
             const salesMap = Object.fromEntries((data.salesByDay ?? []).map((x: any) => [x.date, Number(x.total)]))
             const chartData = days.map(date => ({ date, total: salesMap[date] ?? 0 }))
             const max = Math.max(...chartData.map(x => x.total), 1)
+            const barMaxHeight = 80 // px
             return (
               <div className="card p-5">
                 <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-3">Ventas últimos 14 días</h2>
-                <div className="flex items-end gap-1 h-24">
-                  {chartData.map((d) => (
-                    <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
-                      <div className={`w-full rounded-t transition-opacity ${d.total > 0 ? 'bg-[var(--color-primary)] opacity-70 hover:opacity-100' : 'bg-gray-200'}`}
-                        style={{ height: `${Math.max((d.total / max) * 100, 2)}%` }}
-                        title={`${d.date} — $${d.total.toFixed(0)}`} />
-                      <span className="text-[8px] text-[var(--color-text)]">{d.date.split('-')[2]}</span>
-                    </div>
-                  ))}
+                <div className="flex items-end gap-1" style={{ height: `${barMaxHeight + 20}px` }}>
+                  {chartData.map((d) => {
+                    const barHeight = d.total > 0 ? Math.max((d.total / max) * barMaxHeight, 4) : 2
+                    return (
+                      <div key={d.date} className="flex-1 flex flex-col items-center justify-end" style={{ height: '100%' }}>
+                        <div
+                          className={`w-full rounded-t ${d.total > 0 ? 'bg-[var(--color-primary)]' : 'bg-gray-200'}`}
+                          style={{ height: `${barHeight}px` }}
+                          title={`${d.date} — $${d.total.toFixed(0)}`} />
+                        <span className="text-[8px] text-[var(--color-text)] mt-1">{d.date.split('-')[2]}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )
