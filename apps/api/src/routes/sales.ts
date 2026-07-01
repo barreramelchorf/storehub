@@ -70,7 +70,9 @@ export async function saleRoutes(app: FastifyInstance) {
     }
 
     total = total - discount + tip
-    const status = isBackdated ? 'pending_approval' : 'approved'
+    // Admin/manager can backdate without approval, cashiers need approval
+    const canAutoApprove = request.user.permissions.includes('users.manage')
+    const status = isBackdated && !canAutoApprove ? 'pending_approval' : 'approved'
 
     const [sale] = await db.insert(sales).values({
       tenantId, userId, total: String(total), discount: String(discount), tip: String(tip),
