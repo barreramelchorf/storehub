@@ -1,7 +1,7 @@
 config:
   storehub:platformDomain: barreramelchorf.top
-  storehub:version: v0.10.6
-  storehub:migrationsVersion: v0.10.6
+  storehub:version: v0.10.7
+  storehub:migrationsVersion: v0.10.7
   storehub:apiReplicas: "2"
   storehub:webReplicas: "2"
   kubernetes:context: default
@@ -48,3 +48,4 @@ config:
     minReplicas: 2
     maxReplicas: 6
     cpuTarget: 70
+  storehub:customDomains: '[{"host":"xalli.top","tenantSlug":"xalli"}]'

@@ -24,6 +24,7 @@ export interface AppResourcesArgs {
   hpa: { minReplicas: number; maxReplicas: number; cpuTarget: number };
   defaultTenantSlug?: string;
   ingressHost?: string;
+  customDomains?: { host: string; tenantSlug: string }[];
 }
 
 export function createAppResources(args: AppResourcesArgs) {
@@ -238,5 +239,42 @@ export function createAppResources(args: AppResourcesArgs) {
     },
   });
 
-  return { apiDeployment, apiService, webDeployment, webService, ingress, migrateJob, apiHpa };
+  // --- Custom Domain Ingresses ---
+  const customDomainIngresses = (args.customDomains ?? []).map((cd) => {
+    return new k8s.networking.v1.Ingress(`ingress-${cd.host.replace(/\./g, '-')}`, {
+      metadata: {
+        namespace: args.namespace,
+        annotations: {
+          "kubernetes.io/ingress.class": "traefik",
+          "cert-manager.io/cluster-issuer": "letsencrypt-prod",
+        },
+      },
+      spec: {
+        ingressClassName: "traefik",
+        tls: [{
+          hosts: [cd.host],
+          secretName: `tls-${cd.host.replace(/\./g, '-')}`,
+        }],
+        rules: [{
+          host: cd.host,
+          http: {
+            paths: [
+              {
+                path: "/api",
+                pathType: "Prefix",
+                backend: { service: { name: apiService.metadata.name, port: { number: 3001 } } },
+              },
+              {
+                path: "/",
+                pathType: "Prefix",
+                backend: { service: { name: webService.metadata.name, port: { number: 3000 } } },
+              },
+            ],
+          },
+        }],
+      },
+    });
+  });
+
+  return { apiDeployment, apiService, webDeployment, webService, ingress, migrateJob, apiHpa, customDomainIngresses };
 }

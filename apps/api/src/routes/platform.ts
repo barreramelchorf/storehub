@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db, tenants, roles, users } from '@storehub/db'
+import { db, tenants, roles, users } from "@storehub/db"
+import { eq } from "drizzle-orm"
 import bcrypt from 'bcryptjs'
 
 export async function platformRoutes(app: FastifyInstance) {
@@ -41,6 +42,19 @@ export async function platformRoutes(app: FastifyInstance) {
   })
 
   app.get('/api/platform/tenants', async () => {
-    return db.query.tenants.findMany({ columns: { id: true, slug: true, name: true, giro: true, createdAt: true } })
+    return db.query.tenants.findMany({ columns: { id: true, slug: true, name: true, giro: true, customDomain: true, createdAt: true } })
   })
 }
+
+  app.put('/api/platform/tenants/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { name, customDomain, giro } = request.body as any
+    const updates: any = {}
+    if (name) updates.name = name
+    if (customDomain !== undefined) updates.customDomain = customDomain || null
+    if (giro) updates.giro = giro
+
+    const [updated] = await db.update(tenants).set(updates).where(eq(tenants.id, id)).returning()
+    if (!updated) return reply.code(404).send({ error: 'Tenant not found' })
+    return updated
+  })
