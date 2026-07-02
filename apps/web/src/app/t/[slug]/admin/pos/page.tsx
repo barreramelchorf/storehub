@@ -76,9 +76,9 @@ export default function POSPage() {
   )
 
   const cartPanel = (
-    <div className="flex flex-col h-full">
-      <h2 className="font-semibold text-[var(--color-text-dark)] mb-4">Resumen de venta</h2>
-      <div className="flex-1 overflow-y-auto space-y-3">
+    <div className="flex flex-col h-full min-h-0">
+      <h2 className="font-semibold text-[var(--color-text-dark)] mb-4 flex-shrink-0">Resumen de venta</h2>
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-3">
         {cart.map(item => (
           <div key={item.productId} className="flex items-center justify-between py-2 border-b border-[var(--color-border)]">
             <div className="flex-1">
@@ -98,7 +98,7 @@ export default function POSPage() {
         {cart.length === 0 && <p className="text-sm text-[var(--color-text)] text-center py-8">Sin productos en la venta</p>}
       </div>
 
-      <div className="border-t border-[var(--color-border)] pt-4 mt-4 space-y-3">
+      <div className="border-t border-[var(--color-border)] pt-4 mt-4 space-y-3 flex-shrink-0">
         <div className="grid grid-cols-2 gap-3">
           <div><label className="label">Descuento</label><input type="number" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} className="input" /></div>
           <div><label className="label">Propina</label><input type="number" value={tip || ''} onChange={e => setTip(Number(e.target.value))} className="input" /></div>
@@ -152,8 +152,8 @@ export default function POSPage() {
           </div>
         )}
         {mobileView === 'cart' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <button onClick={() => setMobileView('products')} className="btn-secondary mb-3 self-start">← Productos</button>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <button onClick={() => setMobileView('products')} className="btn-secondary mb-3 self-start flex-shrink-0">← Productos</button>
             {cartPanel}
           </div>
         )}

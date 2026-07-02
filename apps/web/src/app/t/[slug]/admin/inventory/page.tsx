@@ -6,6 +6,8 @@ import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 import { ImageUpload } from '@/components/ImageUpload'
 
+import Link from 'next/link'
+
 export default function InventoryPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
@@ -63,7 +65,12 @@ export default function InventoryPage() {
 
       {tab === 'products' && (
         <>
-          <div className="mb-4"><button onClick={openNewProduct} className="btn-primary">+ Nuevo producto</button></div>
+          <div className="mb-4 flex gap-2">
+            <button onClick={openNewProduct} className="btn-primary">+ Nuevo producto</button>
+            <Link href={`/t/${params.slug}/admin/bulk`} className="px-4 py-2 text-sm border border-[var(--color-border)] rounded-lg text-[var(--color-text)] hover:bg-gray-50 transition-colors">
+              📋 Carga masiva
+            </Link>
+          </div>
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]"><th className="p-3 text-left table-header">Producto</th><th className="p-3 table-header">Categoría</th><th className="p-3 table-header">Precio</th><th className="p-3 table-header">Stock</th><th className="p-3 table-header">Estado</th><th className="p-3 table-header">Acciones</th></tr></thead>
