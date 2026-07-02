@@ -77,19 +77,7 @@ export default function AnalyticsPage() {
 
           {/* Sales by day chart */}
           {data.salesByDay?.length > 0 && (
-            <div className="card p-5">
-              <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Ventas por día</h2>
-              <div className="flex items-end gap-1 h-32">
-                {data.salesByDay.map((d: any) => (
-                  <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full bg-[var(--color-primary)] rounded-t opacity-80 hover:opacity-100 transition-opacity"
-                      style={{ height: `${(Number(d.total) / maxDaySale) * 100}%`, minHeight: '4px' }}
-                      title={`$${Number(d.total).toFixed(0)} - ${d.count} ventas`} />
-                    <span className="text-[9px] text-[var(--color-text)]">{d.date.split('-')[2]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SalesByDayChart salesByDay={data.salesByDay} maxDaySale={maxDaySale} />
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -332,6 +320,42 @@ function YearlyView({ data }: { data: any }) {
           <p className="text-[var(--color-text)]">No hay ventas registradas en {data.year}.</p>
         </div>
       )}
+    </div>
+  )
+}
+
+function SalesByDayChart({ salesByDay, maxDaySale }: { salesByDay: any[]; maxDaySale: number }) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const selectedData = salesByDay.find((d: any) => d.date === selected)
+
+  return (
+    <div className="card p-5">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-sm font-semibold text-[var(--color-text-dark)]">Ventas por día</h2>
+        {selectedData && (
+          <div className="text-right animate-in fade-in duration-150">
+            <span className="text-xs text-[var(--color-text)]">{selectedData.date}</span>
+            <span className="text-sm font-bold text-[var(--color-primary)] ml-2">${Number(selectedData.total).toLocaleString('es-MX')} · {selectedData.count} ventas</span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-end gap-1 h-32">
+        {salesByDay.map((d: any) => {
+          const isSelected = selected === d.date
+          return (
+            <div key={d.date} className="flex-1 flex flex-col items-center gap-1 cursor-pointer"
+              onClick={() => setSelected(isSelected ? null : d.date)}>
+              {isSelected && (
+                <span className="text-[9px] font-medium text-[var(--color-primary)]">${Number(d.total) >= 1000 ? `${(Number(d.total)/1000).toFixed(1)}k` : Number(d.total).toFixed(0)}</span>
+              )}
+              <div className={`w-full rounded-t transition-all ${isSelected ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-primary)] opacity-60'}`}
+                style={{ height: `${(Number(d.total) / maxDaySale) * 100}%`, minHeight: '4px' }}
+                title={`$${Number(d.total).toFixed(0)} - ${d.count} ventas`} />
+              <span className={`text-[9px] ${isSelected ? 'font-bold text-[var(--color-primary)]' : 'text-[var(--color-text)]'}`}>{d.date.split('-')[2]}</span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

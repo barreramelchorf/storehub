@@ -1,5 +1,6 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
@@ -70,23 +71,7 @@ export default function AdminDashboard() {
             const max = Math.max(...chartData.map(x => x.total), 1)
             const barMaxHeight = 80 // px
             return (
-              <div className="card p-5">
-                <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-3">Ventas últimos 14 días</h2>
-                <div className="flex items-end gap-1" style={{ height: `${barMaxHeight + 20}px` }}>
-                  {chartData.map((d) => {
-                    const barHeight = d.total > 0 ? Math.max((d.total / max) * barMaxHeight, 4) : 2
-                    return (
-                      <div key={d.date} className="flex-1 flex flex-col items-center justify-end" style={{ height: '100%' }}>
-                        <div
-                          className={`w-full rounded-t ${d.total > 0 ? 'bg-[var(--color-primary)]' : 'bg-gray-200'}`}
-                          style={{ height: `${barHeight}px` }}
-                          title={`${d.date} — $${d.total.toFixed(0)}`} />
-                        <span className="text-[8px] text-[var(--color-text)] mt-1">{d.date.split('-')[2]}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+              <DashboardChart chartData={chartData} max={max} barMaxHeight={barMaxHeight} />
             )
           })()}
 
@@ -149,6 +134,44 @@ export default function AdminDashboard() {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function DashboardChart({ chartData, max, barMaxHeight }: { chartData: Array<{ date: string; total: number }>; max: number; barMaxHeight: number }) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const selectedData = chartData.find(d => d.date === selected)
+
+  return (
+    <div className="card p-5">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-sm font-semibold text-[var(--color-text-dark)]">Ventas últimos 14 días</h2>
+        {selectedData && (
+          <div className="text-right animate-in fade-in duration-150">
+            <span className="text-xs text-[var(--color-text)]">{selectedData.date}</span>
+            <span className="text-sm font-bold text-[var(--color-primary)] ml-2">${selectedData.total.toLocaleString('es-MX')}</span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-end gap-1" style={{ height: `${barMaxHeight + 20}px` }}>
+        {chartData.map((d) => {
+          const barHeight = d.total > 0 ? Math.max((d.total / max) * barMaxHeight, 4) : 2
+          const isSelected = selected === d.date
+          return (
+            <div key={d.date} className="flex-1 flex flex-col items-center justify-end cursor-pointer" style={{ height: '100%' }}
+              onClick={() => setSelected(isSelected ? null : d.date)}>
+              {isSelected && d.total > 0 && (
+                <span className="text-[9px] font-medium text-[var(--color-primary)] mb-1">${d.total >= 1000 ? `${(d.total/1000).toFixed(1)}k` : d.total.toFixed(0)}</span>
+              )}
+              <div
+                className={`w-full rounded-t transition-all ${d.total > 0 ? (isSelected ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-primary)] opacity-60') : 'bg-gray-200'}`}
+                style={{ height: `${barHeight}px` }}
+                title={`${d.date} — $${d.total.toFixed(0)}`} />
+              <span className={`text-[8px] mt-1 ${isSelected ? 'font-bold text-[var(--color-primary)]' : 'text-[var(--color-text)]'}`}>{d.date.split('-')[2]}</span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
