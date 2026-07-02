@@ -83,8 +83,26 @@ export default function BulkImportPage() {
     setLoading(false)
   }
 
-  const handleDownloadTemplate = () => {
-    window.open(`/api/admin/bulk/template`, '_blank')
+  const handleDownloadTemplate = async () => {
+    try {
+      const pathMatch = window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)
+      const tenantHeader: Record<string, string> = {}
+      if (pathMatch) tenantHeader['x-tenant-slug'] = pathMatch[1]
+
+      const res = await fetch(`/api/admin/bulk/template`, {
+        headers: { Authorization: `Bearer ${token}`, ...tenantHeader },
+      })
+      if (!res.ok) throw new Error('Error al descargar')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'productos_template.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('No se pudo descargar el template')
+    }
   }
 
   const reset = () => {
