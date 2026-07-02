@@ -1,0 +1,51 @@
+config:
+  kubernetes:context: default
+  storehub:platformDomain: barreramelchorf.top
+  storehub:ingressHost: storehub-staging.barreramelchorf.top
+  storehub:version: v0.11.3
+  storehub:migrationsVersion: v0.11.3
+  storehub:defaultTenantSlug: ""
+  storehub:nextPublicApiUrl: ""
+  storehub:apiReplicas: "1"
+  storehub:webReplicas: "1"
+  storehub:postgresPassword:
+    secure: AAABADGMuFZB6dn/0OcOemUiERlkPdGFnlgVV4Jx90p3eqGpKv+1A0QnnQLtFNNlTRp9CwENrcXwMJ8RfyQkng==
+  storehub:redisPassword:
+    secure: AAABAKgoPrpdIkSvclKudtXfijEnPWk+zAqvx8dje1YBQOA08YEzzCRSHi419tiZfHrjF/CPteutRJQtK2Tl0w==
+  storehub:jwtSecret:
+    secure: AAABAKNsnPUdOVQru4zGLnGaAcwEPNQCxzb7I9E2fRJpSirTgKG1jXDlE9jw8s+lSsyqKEEw7cwNUYkLq1cL+Jpdv9xGHw4D69KK1P1d12JgZexE6PLwks7ugrqhOLrW
+  storehub:minioRootPassword:
+    secure: AAABAKJBaY3M+yz2s1PIsR/FXDhoYfLwHrl5DXwqJCEStu+L1Yzxeeato5UAZI5aNfd9d92BHQYBEnsM7TtqSQ==
+  storehub:ghcrToken:
+    secure: AAABAHNnn+8plwgiHRYTpwOiBtnTni3bzBvqScmFKvghW767x1IR9E/m3KUzLien76UUVzZoJSPW9/7OAbzflHoiimqMVCXS
+  storehub:platformApiKey:
+    secure: AAABAAV4KyZ8i/mnXSJpVvNvJLWU0aqd/HXoZBeFHm6I4ysuCWKm2NOr1F7ckqGQTFjdVymNGB3gkITC53YcUEbLXVBGz3PdEYisCeZ4HNQ=
+  storehub:containers:
+    api:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 300m
+          memory: 256Mi
+    web:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+    migrate:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+  storehub:hpa:
+    minReplicas: 1
+    maxReplicas: 2
+    cpuTarget: 80
