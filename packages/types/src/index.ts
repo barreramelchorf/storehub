@@ -27,6 +27,7 @@ export type Permission =
   | 'sales.backdate'
   | 'inventory.view'
   | 'inventory.manage'
+  | 'inventory.restock'
   | 'analytics.view'
   | 'audit.view'
   | 'settings.manage'

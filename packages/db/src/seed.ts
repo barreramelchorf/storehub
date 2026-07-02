@@ -56,6 +56,22 @@ async function seed() {
     isDefault: true,
   })
 
+  // Almacenista role (only restock)
+  await db.insert(roles).values({
+    tenantId: tenant.id,
+    name: 'almacenista',
+    permissions: ['inventory.view', 'inventory.restock'],
+    isDefault: true,
+  })
+
+  // Cajero+Almacenista role (cashier + restock)
+  await db.insert(roles).values({
+    tenantId: tenant.id,
+    name: 'cajero_almacenista',
+    permissions: ['sales.create', 'inventory.view', 'inventory.restock'],
+    isDefault: true,
+  })
+
   // Admin user
   await db.insert(users).values({
     tenantId: tenant.id,

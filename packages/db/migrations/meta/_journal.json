@@ -22,6 +22,13 @@
       "when": 1783314445527,
       "tag": "0002_enable_unaccent",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783314506160,
+      "tag": "0003_add_almacenista_roles",
+      "breakpoints": true
     }
   ]
 }

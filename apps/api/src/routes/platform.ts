@@ -33,6 +33,8 @@ export async function platformRoutes(app: FastifyInstance) {
 
     await db.insert(roles).values({ tenantId: tenant.id, name: 'manager', isDefault: true, permissions: ['sales.create','sales.view','sales.override_price','sales.backdate','inventory.view','inventory.manage','analytics.view','audit.view','documents.manage'] })
     await db.insert(roles).values({ tenantId: tenant.id, name: 'cashier', isDefault: true, permissions: ['sales.create'] })
+    await db.insert(roles).values({ tenantId: tenant.id, name: 'almacenista', isDefault: true, permissions: ['inventory.view', 'inventory.restock'] })
+    await db.insert(roles).values({ tenantId: tenant.id, name: 'cajero_almacenista', isDefault: true, permissions: ['sales.create', 'inventory.view', 'inventory.restock'] })
 
     const [admin] = await db.insert(users).values({
       tenantId: tenant.id, email: adminEmail, passwordHash: await bcrypt.hash(adminPassword, 10), roleId: adminRole.id,

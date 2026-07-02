@@ -8,6 +8,7 @@ import { healthRoutes } from './routes/health.js'
 import { authRoutes } from './routes/auth.js'
 import { categoryRoutes } from './routes/categories.js'
 import { productRoutes } from './routes/products.js'
+import { inventoryRoutes } from './routes/inventory.js'
 import { saleRoutes } from './routes/sales.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { documentRoutes } from './routes/documents.js'
@@ -50,6 +51,7 @@ await app.register(async (tenantApp) => {
   await tenantApp.register(publicRoutes)
   await tenantApp.register(categoryRoutes)
   await tenantApp.register(productRoutes)
+  await tenantApp.register(inventoryRoutes)
   await tenantApp.register(saleRoutes)
   await tenantApp.register(analyticsRoutes)
   await tenantApp.register(documentRoutes)
