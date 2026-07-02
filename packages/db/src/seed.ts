@@ -4,25 +4,33 @@ import bcrypt from 'bcryptjs'
 async function seed() {
   console.log('🌱 Seeding...')
 
-  // Demo tenant (idempotent - skip if exists)
-  const existing = await db.query.tenants.findFirst({ where: (t, { eq }) => eq(t.slug, 'demo-cafe') })
-  if (existing) {
+  // Idempotent check - skip if admin user already exists
+  const existingUser = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, 'admin@demo-cafe.com') })
+  if (existingUser) {
     console.log('✅ Seed already applied, skipping')
     process.exit(0)
   }
 
-  const [tenant] = await db.insert(tenants).values({
-    slug: 'demo-cafe',
-    name: 'Café Demo',
-    giro: 'cafeteria',
-    config: {
-      branding: { primaryColor: '#6F4E37', secondaryColor: '#D4A574' },
-      contact: { address: 'Calle Principal 123', phone: '+52 555 0000', hours: 'Lun-Vie 8am-6pm' },
-      social: {},
-      modules: { pos: true, inventory: true, analytics: true },
-      meta: { title: 'Café Demo' },
-    },
-  }).returning()
+  // Create or find tenant
+  let existingTenant = await db.query.tenants.findFirst({ where: (t, { eq }) => eq(t.slug, 'demo-cafe') })
+  
+  if (!existingTenant) {
+    const [t] = await db.insert(tenants).values({
+      slug: 'demo-cafe',
+      name: 'Café Demo',
+      giro: 'cafeteria',
+      config: {
+        branding: { primaryColor: '#6F4E37', secondaryColor: '#D4A574' },
+        contact: { address: 'Calle Principal 123', phone: '+52 555 0000', hours: 'Lun-Vie 8am-6pm' },
+        social: {},
+        modules: { pos: true, inventory: true, analytics: true },
+        meta: { title: 'Café Demo' },
+      },
+    }).returning()
+    existingTenant = t
+  }
+
+  const tenant = existingTenant!
 
   // Admin role
   const [adminRole] = await db.insert(roles).values({
