@@ -29,6 +29,13 @@
       "when": 1783314506160,
       "tag": "0003_add_almacenista_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783314869780,
+      "tag": "0004_add_restock_to_admin_manager",
+      "breakpoints": true
     }
   ]
 }
