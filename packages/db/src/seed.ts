@@ -60,6 +60,7 @@ async function seed() {
   await db.insert(users).values({
     tenantId: tenant.id,
     email: 'admin@demo-cafe.com',
+    username: 'admin',
     passwordHash: bcrypt.hashSync('password123', 10),
     roleId: adminRole.id,
   })
