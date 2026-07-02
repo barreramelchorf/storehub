@@ -6,27 +6,36 @@ Pendientes a resolver en siguientes iteraciones.
 
 ## Alta prioridad
 
-### Fix: NEXT_PUBLIC_API_URL placeholder en bundles client-side
-- El entrypoint `sed` no está reemplazando correctamente el placeholder en todos los JS bundles
-- Las páginas del admin hacen requests a `__NEXT_PUBLIC_API_URL_PLACEHOLDER__/api/...`
-- **Solución propuesta**: Eliminar el approach de placeholder y en su lugar usar un endpoint `/config.js` que exponga las env vars al cliente en runtime, o simplemente hardcodear `""` (vacío) en build para producción donde todo va por ruta relativa `/api`
+### Rol "Almacenista" + endpoint de restock
+- Nuevo permiso: `inventory.restock` — solo puede sumar stock, no restar ni editar precios
+- Rol "Almacenista" (solo restock) y "Almacenista+Cajero" (restock + ventas)
+- Endpoint `POST /api/admin/inventory/restock` que solo suma stock, con auditoría
+- Toda suma queda en audit_log automáticamente
+- Reducciones de stock solo vía ventas o admin/manager con razón obligatoria
+- **Debe ir en migración + seed, nada manual en BD**
 
-### Panel Super Admin
-- Actualmente los tenants se crean vía API con `x-platform-key`
-- Crear UI en `/platform` con login separado para:
-  - CRUD de tenants
-  - Ver métricas globales
-  - Gestionar dominios custom
-
-### Migración de datos Xalli → StoreHub
-- 3 usuarios, 12 categorías, 94 productos, 119 ventas, 577 sale_items
-- 17 imágenes en PVC `/app/uploads/`
-- Script de migración que mapee el schema viejo al nuevo
-- Copiar imágenes a MinIO
+### CREATE EXTENSION unaccent en migraciones
+- Actualmente solo existe en prod (se creó manualmente con ALTER)
+- Necesita agregarse como migración SQL para que staging/nuevos deploys lo tengan automáticamente
+- Impacta la búsqueda de productos (sin acentos)
 
 ---
 
 ## Media prioridad
+
+### Pre-compilar TypeScript del API (esbuild)
+- Actualmente usa `tsx` (compila on-the-fly al arrancar)
+- Spike de ~300-500m CPU al inicio, luego se estabiliza
+- Se intentó con esbuild pero falló por imports de workspace packages
+- **Solución**: resolver los paths de packages en el bundle, o usar tsc + node directo
+- Objetivo: bajar CPU limit a 100-200m
+
+### CI/CD completo con Pulumi
+- GitHub Action de build ya existe (push a main → `latest`, tag → versión)
+- **Falta**: action que haga `pulumi up` automático al push de tag (CD)
+- **Falta**: tests corriendo en CI antes de merge
+- **Falta**: linting en CI
+- Esto automatiza el deploy sin intervención manual
 
 ### Vault (HashiCorp) para secretos
 - Instalar Vault en el cluster (stack `support`)
@@ -34,22 +43,11 @@ Pendientes a resolver en siguientes iteraciones.
 - Eliminar secrets de Pulumi config y migrarlos a Vault
 - Referencia: ya existe un stack de Vault en el repo de infra viejo
 
-### Optimización del API (spike de CPU al inicio)
-- Actualmente usa `tsx` (compila TypeScript on-the-fly al arrancar)
-- Spike de ~500m CPU al inicio, luego se estabiliza en ~10m
-- **Solución**: Pre-compilar TypeScript a JavaScript en el Dockerfile (eliminar tsx del runtime)
-- Reduce tiempo de arranque y consumo de recursos
-
-### CI/CD completo
-- GitHub Action de build ya existe
-- Falta: action que haga `pulumi up` automático al mergear a main (CD)
-- Falta: tests corriendo en CI antes de merge
-- Falta: linting en CI
-
 ### Wildcard certificate
 - Hostinger no tiene webhook para cert-manager DNS-01
 - Opciones: migrar DNS a Cloudflare (tiene webhook oficial) o mantener certs individuales por tenant
 - Con Cloudflare: wildcard automático, zero config por tenant
+- Actualmente cada custom domain necesita entrada en Pulumi YAML + DNS manual
 
 ---
 
@@ -75,12 +73,28 @@ Pendientes a resolver en siguientes iteraciones.
 
 ---
 
+## Completados ✅
+
+- ~~NEXT_PUBLIC_API_URL placeholder~~ — Resuelto: entrypoint sed + runtime injection funciona
+- ~~Panel Super Admin~~ — Existe en `/platform` con CRUD de tenants y custom domains
+- ~~Migración Xalli~~ — 94 productos, 119 ventas, 577 items, 3 usuarios, 17 imágenes migrados
+- ~~Custom domain routing~~ — Middleware Next.js reescribe /admin/* en dominios propios
+- ~~Token refresh automático~~ — Interceptor 401 + refresh proactivo implementado
+- ~~Tenant-scoped tokens~~ — localStorage por tenant, sin data leaks
+- ~~Configurable resources/HPA~~ — Controlados desde Pulumi YAML por stack
+
+---
+
 ## Notas para retomar
 
 - **Cluster**: k3s en `5.189.172.140` (contexto `default`)
-- **Pulumi stacks**: `cert-manager/support`, `storehub/prod`
+- **Pulumi stacks**: `cert-manager/support`, `storehub/prod`, `storehub/staging`
 - **Registry**: `ghcr.io/barreramelchorf/storehub-*`
-- **Tenant Xalli**: ya creado en prod (admin@xalli.com / Xalli2024!)
-- **Platform API key**: `37959826a1b0bdb404fff0a5d08d270fc5531f7e617479a4`
-- **Dominio**: `storehub.barreramelchorf.top`
+- **Prod**: `xalli.top` + `storehub.barreramelchorf.top` (v0.11.3)
+- **Staging**: `storehub-staging.barreramelchorf.top` (v0.11.5)
+- **Prod admin (Xalli)**: username `admin` / `Xalli2024!`
+- **Staging admin**: username `admin` / `password123` (tenant demo-cafe)
+- **Prod platform key**: `37959826a1b0bdb404fff0a5d08d270fc5531f7e617479a4`
+- **Staging platform key**: `0015b865c1f407686f34f72485e8952cb59631541f1e0e78`
 - **GitHub Actions**: build en push a main o tags `v*`
+- **Dominio Xalli**: `xalli.top` → `5.189.172.140`
