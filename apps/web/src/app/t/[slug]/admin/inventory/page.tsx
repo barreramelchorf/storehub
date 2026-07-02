@@ -12,9 +12,10 @@ export default function InventoryPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<'products' | 'categories'>('products')
-  const [modal, setModal] = useState<{ type: 'product' | 'category'; id: string | null } | null>(null)
+  const [modal, setModal] = useState<{ type: 'product' | 'category' | 'restock'; id: string | null } | null>(null)
   const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true })
   const [catForm, setCatForm] = useState({ name: '', description: '' })
+  const [restockForm, setRestockForm] = useState({ quantity: '', reason: '' })
 
   const { data: products } = useQuery({ queryKey: ['products'], queryFn: () => api('/api/admin/products?pageSize=100', { token }) })
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: () => api('/api/admin/categories', { token }) })
@@ -45,8 +46,15 @@ export default function InventoryPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
   })
 
+  const restockMutation = useMutation({
+    mutationFn: (body: { productId: string; quantity: number; reason?: string }) =>
+      api('/api/admin/inventory/restock', { method: 'POST', body: JSON.stringify({ items: [body] }), token }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['products'] }); setModal(null) },
+  })
+
   const openNewProduct = () => { setForm({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true }); setModal({ type: 'product', id: null }) }
   const openEditProduct = (p: any) => { setForm({ name: p.name, price: String(Number(p.price)), stock: String(p.stock), minStock: String(p.minStock), categoryId: p.categoryId, description: p.description ?? '', active: p.active, visible: p.visible }); setModal({ type: 'product', id: p.id }) }
+  const openRestock = (p: any) => { setRestockForm({ quantity: '', reason: '' }); setModal({ type: 'restock', id: p.id }) }
   const openNewCategory = () => { setCatForm({ name: '', description: '' }); setModal({ type: 'category', id: null }) }
   const openEditCategory = (c: any) => { setCatForm({ name: c.name, description: c.description ?? '' }); setModal({ type: 'category', id: c.id }) }
 
@@ -65,13 +73,15 @@ export default function InventoryPage() {
 
       {tab === 'products' && (
         <>
-          <div className="mb-4 flex gap-2">
+          <div className="mb-4 flex gap-2 flex-wrap">
             <button onClick={openNewProduct} className="btn-primary">+ Nuevo producto</button>
             <Link href={`/t/${params.slug}/admin/bulk`} className="px-4 py-2 text-sm border border-[var(--color-border)] rounded-lg text-[var(--color-text)] hover:bg-gray-50 transition-colors">
               📋 Carga masiva
             </Link>
           </div>
-          <div className="card overflow-hidden">
+
+          {/* Desktop table */}
+          <div className="hidden md:block card overflow-hidden">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]"><th className="p-3 text-left table-header">Producto</th><th className="p-3 table-header">Categoría</th><th className="p-3 table-header">Precio</th><th className="p-3 table-header">Stock</th><th className="p-3 table-header">Estado</th><th className="p-3 table-header">Acciones</th></tr></thead>
               <tbody>
@@ -89,6 +99,7 @@ export default function InventoryPage() {
                     <td className="p-3 text-center">{p.stock <= p.minStock ? <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">Bajo</span> : <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">OK</span>}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-1">
+                        <button onClick={() => openRestock(p)} className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+Stock</button>
                         <button onClick={() => openEditProduct(p)} className="btn-secondary text-xs px-2 py-1">Editar</button>
                         <button onClick={() => { if(confirm('¿Eliminar?')) deleteMutation.mutate(p.id) }} className="btn-danger">Eliminar</button>
                       </div>
@@ -97,6 +108,31 @@ export default function InventoryPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {products?.items?.map((p: any) => (
+              <div key={p.id} className="card p-4">
+                <div className="flex items-start gap-3">
+                  {p.images?.[0] ? <img src={p.images[0]} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" /> : <span className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-lg flex-shrink-0">📦</span>}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-[var(--color-text-dark)] truncate">{p.name}</p>
+                    <p className="text-xs text-[var(--color-text)]">{getCategoryName(p.categoryId)}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-sm font-bold text-[var(--color-primary)]">${Number(p.price).toFixed(2)}</span>
+                      <span className="text-xs text-[var(--color-text)]">Stock: <strong className={p.stock <= p.minStock ? 'text-amber-600' : ''}>{p.stock}</strong></span>
+                      {p.stock <= p.minStock && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full">Bajo</span>}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--color-border)]">
+                  <button onClick={() => openRestock(p)} className="flex-1 text-xs py-2 rounded-lg bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition-colors">+ Reabastecer</button>
+                  <button onClick={() => openEditProduct(p)} className="flex-1 text-xs py-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-dark)] font-medium hover:bg-gray-100 transition-colors">Editar</button>
+                  <button onClick={() => { if(confirm('¿Eliminar?')) deleteMutation.mutate(p.id) }} className="text-xs py-2 px-3 rounded-lg bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors">🗑️</button>
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}
@@ -194,6 +230,41 @@ export default function InventoryPage() {
                 </form>
               </>
             )}
+
+            {modal.type === 'restock' && (() => {
+              const product = products?.items?.find((p: any) => p.id === modal.id)
+              return (
+                <>
+                  <h2 className="text-lg font-bold text-[var(--color-text-dark)]">Reabastecer stock</h2>
+                  {product && (
+                    <div className="p-3 bg-[var(--color-surface)] rounded-lg">
+                      <p className="font-medium text-[var(--color-text-dark)]">{product.name}</p>
+                      <p className="text-sm text-[var(--color-text)]">Stock actual: <strong>{product.stock}</strong></p>
+                    </div>
+                  )}
+                  <form onSubmit={(e) => { e.preventDefault(); restockMutation.mutate({ productId: modal.id!, quantity: Number(restockForm.quantity), ...(restockForm.reason && { reason: restockForm.reason }) }) }} className="space-y-3">
+                    <div>
+                      <label className="label">Cantidad a agregar</label>
+                      <input type="number" min="1" value={restockForm.quantity} onChange={e => setRestockForm(f => ({ ...f, quantity: e.target.value }))} className="input" placeholder="Ej: 50" required autoFocus />
+                      {product && restockForm.quantity && (
+                        <p className="text-xs text-[var(--color-text)] mt-1">
+                          Nuevo stock: <strong className="text-green-600">{product.stock + Number(restockForm.quantity)}</strong>
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="label">Razón (opcional)</label>
+                      <input value={restockForm.reason} onChange={e => setRestockForm(f => ({ ...f, reason: e.target.value }))} className="input" placeholder="Ej: Reabastecimiento semanal" />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <button type="submit" disabled={restockMutation.isPending || !restockForm.quantity} className="btn-primary flex-1">{restockMutation.isPending ? 'Procesando...' : 'Reabastecer'}</button>
+                      <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>
+                    </div>
+                    {restockMutation.isError && <p className="text-red-500 text-xs">{(restockMutation.error as Error).message}</p>}
+                  </form>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
