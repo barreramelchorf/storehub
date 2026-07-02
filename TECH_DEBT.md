@@ -6,18 +6,18 @@ Pendientes a resolver en siguientes iteraciones.
 
 ## Alta prioridad
 
-### Rol "Almacenista" + endpoint de restock
+### ~~Rol "Almacenista" + endpoint de restock~~ ✅
 - Nuevo permiso: `inventory.restock` — solo puede sumar stock, no restar ni editar precios
-- Rol "Almacenista" (solo restock) y "Almacenista+Cajero" (restock + ventas)
+- Rol "Almacenista" (solo restock) y "Cajero+Almacenista" (restock + ventas)
 - Endpoint `POST /api/admin/inventory/restock` que solo suma stock, con auditoría
 - Toda suma queda en audit_log automáticamente
 - Reducciones de stock solo vía ventas o admin/manager con razón obligatoria
-- **Debe ir en migración + seed, nada manual en BD**
+- **Implementado en v0.12.0–v0.12.1** (migraciones 0003, 0004)
 
-### CREATE EXTENSION unaccent en migraciones
-- Actualmente solo existe en prod (se creó manualmente con ALTER)
-- Necesita agregarse como migración SQL para que staging/nuevos deploys lo tengan automáticamente
-- Impacta la búsqueda de productos (sin acentos)
+### ~~CREATE EXTENSION unaccent en migraciones~~ ✅
+- Migración 0002: `CREATE EXTENSION IF NOT EXISTS unaccent`
+- Idempotente — seguro para prod donde ya existe manualmente
+- **Implementado en v0.12.0**
 
 ---
 
@@ -75,6 +75,9 @@ Pendientes a resolver en siguientes iteraciones.
 
 ## Completados ✅
 
+- ~~Rol "Almacenista" + endpoint de restock~~ — v0.12.0–v0.12.1: permiso `inventory.restock`, roles almacenista/cajero_almacenista, endpoint con audit log
+- ~~CREATE EXTENSION unaccent en migraciones~~ — v0.12.0: migración idempotente `IF NOT EXISTS`
+- ~~Dashboard "Ventas del mes" mostraba 30 días atrás~~ — v0.12.2: corregido a 1ro del mes actual
 - ~~NEXT_PUBLIC_API_URL placeholder~~ — Resuelto: entrypoint sed + runtime injection funciona
 - ~~Panel Super Admin~~ — Existe en `/platform` con CRUD de tenants y custom domains
 - ~~Migración Xalli~~ — 94 productos, 119 ventas, 577 items, 3 usuarios, 17 imágenes migrados
@@ -91,7 +94,7 @@ Pendientes a resolver en siguientes iteraciones.
 - **Pulumi stacks**: `cert-manager/support`, `storehub/prod`, `storehub/staging`
 - **Registry**: `ghcr.io/barreramelchorf/storehub-*`
 - **Prod**: `xalli.top` + `storehub.barreramelchorf.top` (v0.11.3)
-- **Staging**: `storehub-staging.barreramelchorf.top` (v0.11.5)
+- **Staging**: `storehub-staging.barreramelchorf.top` (v0.12.3)
 - **Prod admin (Xalli)**: username `admin` / `Xalli2024!`
 - **Staging admin**: username `admin` / `password123` (tenant demo-cafe)
 - **Prod platform key**: `37959826a1b0bdb404fff0a5d08d270fc5531f7e617479a4`

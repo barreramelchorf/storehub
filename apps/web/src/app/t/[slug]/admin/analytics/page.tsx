@@ -5,6 +5,8 @@ import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 
+const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
 export default function AnalyticsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const [period, setPeriod] = useState('month')
@@ -19,7 +21,14 @@ export default function AnalyticsPage() {
   }
 
   const range = getRange()
-  const { data } = useQuery({ queryKey: ['analytics', period], queryFn: () => api(`/api/admin/analytics?from=${range.from}&to=${range.to}`, { token }) })
+  const { data } = useQuery({ queryKey: ['analytics', period], queryFn: () => api(`/api/admin/analytics?from=${range.from}&to=${range.to}`, { token }), enabled: period !== 'year' })
+
+  // Yearly data
+  const { data: yearData } = useQuery({
+    queryKey: ['analytics-yearly'],
+    queryFn: () => api(`/api/admin/analytics/yearly`, { token }),
+    enabled: period === 'year',
+  })
 
   const prevChange = data?.previousPeriod?.totalSales > 0
     ? (((Number(data.summary?.totalSales ?? 0) - Number(data.previousPeriod.totalSales)) / Number(data.previousPeriod.totalSales)) * 100).toFixed(1)
@@ -32,13 +41,17 @@ export default function AnalyticsPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-[var(--color-text-dark)]">Analytics</h1>
         <div className="flex gap-2">
-          {[{k:'day',l:'Hoy'},{k:'week',l:'Semana'},{k:'month',l:'Mes'}].map(p => (
+          {[{k:'day',l:'Hoy'},{k:'week',l:'Semana'},{k:'month',l:'Mes'},{k:'year',l:'Año'}].map(p => (
             <button key={p.k} onClick={() => setPeriod(p.k)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${period === p.k ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>{p.l}</button>
           ))}
         </div>
       </div>
 
-      {data && (
+      {/* Yearly view */}
+      {period === 'year' && yearData && <YearlyView data={yearData} />}
+
+      {/* Regular views (day/week/month) */}
+      {period !== 'year' && data && (
         <div className="space-y-6">
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -160,6 +173,162 @@ export default function AnalyticsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function YearlyView({ data }: { data: any }) {
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
+  const maxMonthTotal = Math.max(...(data.monthlyData?.map((m: any) => m.total) ?? [1]), 1)
+  const labels: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' }
+
+  return (
+    <div className="space-y-6">
+      {/* Year summary */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="stat-card">
+          <p className="stat-label">Ventas del año {data.year}</p>
+          <p className="stat-value">${Number(data.summary?.totalSales ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+        </div>
+        <div className="stat-card">
+          <p className="stat-label">Transacciones</p>
+          <p className="stat-value">{data.summary?.totalTransactions ?? 0}</p>
+        </div>
+        <div className="stat-card">
+          <p className="stat-label">Ticket promedio</p>
+          <p className="stat-value">${Number(data.summary?.avgTicket ?? 0).toFixed(2)}</p>
+        </div>
+      </div>
+
+      {/* Month-by-month bar chart */}
+      <div className="card p-5">
+        <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Ventas por mes</h2>
+        <div className="flex items-end gap-2 h-40">
+          {data.monthlyData?.map((m: any) => {
+            const barHeight = m.total > 0 ? Math.max((m.total / maxMonthTotal) * 100, 4) : 2
+            const isSelected = selectedMonth === m.month
+            return (
+              <div key={m.month} className="flex-1 flex flex-col items-center justify-end cursor-pointer" style={{ height: '100%' }}
+                onClick={() => setSelectedMonth(isSelected ? null : m.month)}>
+                <div
+                  className={`w-full rounded-t transition-all ${m.total > 0 ? (isSelected ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-primary)] opacity-70 hover:opacity-100') : 'bg-gray-200'}`}
+                  style={{ height: `${barHeight}%` }}
+                  title={`${MONTH_NAMES[m.month - 1]} — $${Number(m.total).toLocaleString('es-MX')} (${m.count} ventas)`} />
+                <span className={`text-xs mt-2 ${isSelected ? 'font-bold text-[var(--color-primary)]' : 'text-[var(--color-text)]'}`}>
+                  {MONTH_NAMES[m.month - 1]}
+                </span>
+                {m.total > 0 && (
+                  <span className="text-[9px] text-[var(--color-text)]">${(m.total / 1000).toFixed(1)}k</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Selected month detail */}
+      {selectedMonth && (() => {
+        const monthData = data.monthlyData?.find((m: any) => m.month === selectedMonth)
+        const monthProducts = data.topProductsByMonth?.[selectedMonth] ?? []
+        return (
+          <div className="card p-5 border-l-4 border-l-[var(--color-primary)]">
+            <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">
+              {MONTH_NAMES[selectedMonth - 1]} {data.year} — Detalle
+            </h2>
+            {monthData && monthData.total > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <p className="text-xs text-[var(--color-text)]">Ventas</p>
+                    <p className="font-semibold">${Number(monthData.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--color-text)]">Transacciones</p>
+                    <p className="font-semibold">{monthData.count}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--color-text)]">Ticket promedio</p>
+                    <p className="font-semibold">${Number(monthData.avgTicket).toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--color-text)]">Propinas</p>
+                    <p className="font-semibold">${Number(monthData.tips).toFixed(2)}</p>
+                  </div>
+                </div>
+                {monthProducts.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-[var(--color-text)] mb-2">Top productos del mes</p>
+                    <div className="space-y-1">
+                      {monthProducts.map((p: any, i: number) => (
+                        <div key={p.productId} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-[var(--color-text)] w-4">{i + 1}</span>
+                            <span>{p.name}</span>
+                          </div>
+                          <span className="text-xs text-[var(--color-text)]">{p.totalQty} uds · ${Number(p.totalRevenue).toFixed(0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text)]">Sin datos para este mes.</p>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Year-wide top products */}
+      {data.topProductsYear?.length > 0 && (
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Top productos del año</h2>
+          <div className="space-y-2">
+            {data.topProductsYear.map((p: any, i: number) => (
+              <div key={p.productId} className="flex items-center justify-between py-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-[var(--color-text)] w-5">{i + 1}</span>
+                  <span className="text-sm text-[var(--color-text-dark)]">{p.name}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-medium">${Number(p.totalRevenue).toLocaleString('es-MX')}</span>
+                  <span className="text-xs text-[var(--color-text)] ml-2">{p.totalQty} uds</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Payment methods for the year */}
+      {data.paymentMethods?.length > 0 && (
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Métodos de pago del año</h2>
+          <div className="space-y-3">
+            {data.paymentMethods.map((p: any) => {
+              const pct = data.summary.totalSales > 0 ? (Number(p.total) / data.summary.totalSales * 100).toFixed(0) : '0'
+              return (
+                <div key={p.method}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-[var(--color-text)]">{labels[p.method] ?? p.method}</span>
+                    <span className="font-medium">${Number(p.total).toLocaleString('es-MX')} ({pct}%)</span>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-[var(--color-primary)] rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state if no data at all */}
+      {data.summary?.totalTransactions === 0 && (
+        <div className="card p-8 text-center">
+          <p className="text-[var(--color-text)]">No hay ventas registradas en {data.year}.</p>
         </div>
       )}
     </div>

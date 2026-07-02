@@ -7,6 +7,129 @@ import { requirePermission } from '../middleware/permissions.js'
 export async function analyticsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
+  app.get('/api/admin/analytics/yearly', { preHandler: requirePermission('analytics.view') }, async (request) => {
+    const { year } = request.query as { year?: string }
+    const tenantId = request.tenant.id
+    const targetYear = year ? Number(year) : new Date().getFullYear()
+
+    // Generate all 12 months for the year
+    const months = Array.from({ length: 12 }, (_, i) => i + 1)
+
+    // Sales aggregated by month for the entire year
+    const salesByMonth = await db.select({
+      month: sql<number>`EXTRACT(MONTH FROM ${sales.saleDate})::int`,
+      total: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      count: sql<number>`COUNT(*)::int`,
+      avgTicket: sql<number>`COALESCE(AVG(${sales.total}::numeric), 0)`,
+      tips: sql<number>`COALESCE(SUM(${sales.tip}::numeric), 0)`,
+      discounts: sql<number>`COALESCE(SUM(${sales.discount}::numeric), 0)`,
+    }).from(sales).where(and(
+      eq(sales.tenantId, tenantId),
+      eq(sales.status, 'approved'),
+      sql`EXTRACT(YEAR FROM ${sales.saleDate}) = ${targetYear}`,
+    )).groupBy(sql`EXTRACT(MONTH FROM ${sales.saleDate})`)
+
+    // Build a map for quick lookup
+    const monthMap = Object.fromEntries(salesByMonth.map(m => [m.month, m]))
+
+    // Fill all 12 months (months without data get zeros)
+    const monthlyData = months.map(m => ({
+      month: m,
+      total: Number(monthMap[m]?.total ?? 0),
+      count: Number(monthMap[m]?.count ?? 0),
+      avgTicket: Number(monthMap[m]?.avgTicket ?? 0),
+      tips: Number(monthMap[m]?.tips ?? 0),
+      discounts: Number(monthMap[m]?.discounts ?? 0),
+    }))
+
+    // Year totals
+    const yearTotal = monthlyData.reduce((acc, m) => acc + m.total, 0)
+    const yearCount = monthlyData.reduce((acc, m) => acc + m.count, 0)
+
+    // Top products per month (top 5 for each month that has data)
+    const topProductsByMonth: Record<number, Array<{ productId: string; name: string; totalQty: number; totalRevenue: number }>> = {}
+
+    const monthsWithData = salesByMonth.map(m => m.month)
+    if (monthsWithData.length > 0) {
+      const topProductsRaw = await db.select({
+        month: sql<number>`EXTRACT(MONTH FROM ${sales.saleDate})::int`,
+        productId: saleItems.productId,
+        name: products.name,
+        totalQty: sql<number>`SUM(${saleItems.quantity})::int`,
+        totalRevenue: sql<number>`COALESCE(SUM(${saleItems.subtotal}::numeric), 0)`,
+      }).from(saleItems)
+        .innerJoin(sales, eq(saleItems.saleId, sales.id))
+        .innerJoin(products, eq(saleItems.productId, products.id))
+        .where(and(
+          eq(sales.tenantId, tenantId),
+          eq(sales.status, 'approved'),
+          sql`EXTRACT(YEAR FROM ${sales.saleDate}) = ${targetYear}`,
+        ))
+        .groupBy(sql`EXTRACT(MONTH FROM ${sales.saleDate})`, saleItems.productId, products.name)
+        .orderBy(sql`EXTRACT(MONTH FROM ${sales.saleDate})`, desc(sql`SUM(${saleItems.quantity})`))
+
+      // Group by month and take top 5 per month
+      for (const row of topProductsRaw) {
+        if (!topProductsByMonth[row.month]) topProductsByMonth[row.month] = []
+        if (topProductsByMonth[row.month].length < 5) {
+          topProductsByMonth[row.month].push({
+            productId: row.productId,
+            name: row.name,
+            totalQty: Number(row.totalQty),
+            totalRevenue: Number(row.totalRevenue),
+          })
+        }
+      }
+    }
+
+    // Fill empty months with empty arrays
+    for (const m of months) {
+      if (!topProductsByMonth[m]) topProductsByMonth[m] = []
+    }
+
+    // Year-wide top products (overall)
+    const topProductsYear = await db.select({
+      productId: saleItems.productId,
+      name: products.name,
+      totalQty: sql<number>`SUM(${saleItems.quantity})::int`,
+      totalRevenue: sql<number>`COALESCE(SUM(${saleItems.subtotal}::numeric), 0)`,
+    }).from(saleItems)
+      .innerJoin(sales, eq(saleItems.saleId, sales.id))
+      .innerJoin(products, eq(saleItems.productId, products.id))
+      .where(and(
+        eq(sales.tenantId, tenantId),
+        eq(sales.status, 'approved'),
+        sql`EXTRACT(YEAR FROM ${sales.saleDate}) = ${targetYear}`,
+      ))
+      .groupBy(saleItems.productId, products.name)
+      .orderBy(desc(sql`SUM(${saleItems.quantity})`))
+      .limit(10)
+
+    // Payment method breakdown for the year
+    const paymentMethods = await db.select({
+      method: sales.paymentMethod,
+      total: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      count: sql<number>`COUNT(*)::int`,
+    }).from(sales).where(and(
+      eq(sales.tenantId, tenantId),
+      eq(sales.status, 'approved'),
+      sql`EXTRACT(YEAR FROM ${sales.saleDate}) = ${targetYear}`,
+    )).groupBy(sales.paymentMethod)
+
+    return {
+      year: targetYear,
+      summary: {
+        totalSales: yearTotal,
+        totalTransactions: yearCount,
+        avgTicket: yearCount > 0 ? yearTotal / yearCount : 0,
+      },
+      monthlyData,
+      topProductsByMonth,
+      topProductsYear: topProductsYear.map(p => ({ ...p, totalQty: Number(p.totalQty), totalRevenue: Number(p.totalRevenue) })),
+      paymentMethods,
+    }
+  })
+
   app.get('/api/admin/analytics', { preHandler: requirePermission('analytics.view') }, async (request) => {
     const { from, to } = request.query as { from?: string; to?: string }
     const tenantId = request.tenant.id
