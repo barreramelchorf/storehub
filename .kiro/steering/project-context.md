@@ -42,6 +42,54 @@ SaaS whitelabel multi-tenant platform for store management (POS, inventory, anal
 - **Prod platform key**: `37959826a1b0bdb404fff0a5d08d270fc5531f7e617479a4`
 - **Staging platform key**: `0015b865c1f407686f34f72485e8952cb59631541f1e0e78`
 
+## Deployment Process
+
+### Deploy to Staging
+```bash
+cd /Users/fernando/Code/storehub
+
+# 1. Commit and push changes
+git add . && git commit -m "feat: description" && git push origin main
+
+# 2. Create version tag (triggers GitHub Action to build images)
+git tag vX.Y.Z && git push origin vX.Y.Z
+
+# 3. Wait ~4 minutes for GitHub Action to build (check: gh run list --limit 1)
+
+# 4. Deploy to staging
+cd infra/applications/storehub
+pulumi stack select staging
+pulumi config set version vX.Y.Z
+pulumi config set migrationsVersion vX.Y.Z
+pulumi up --yes --skip-preview
+```
+
+### Promote to Prod (after staging verification)
+```bash
+cd infra/applications/storehub
+pulumi stack select prod
+pulumi config set version vX.Y.Z
+pulumi config set migrationsVersion vX.Y.Z
+pulumi up --yes --skip-preview
+```
+
+### Verify deployment
+```bash
+kubectl get pods -n storehub-staging  # or storehub-prod
+kubectl logs -n storehub-staging -l app=storehub-api --tail=5
+```
+
+### If migration job gets stuck
+```bash
+kubectl delete jobs --all -n storehub-staging
+pulumi up --yes --skip-preview
+```
+
+### If pulumi gets stuck with "Another update in progress"
+```bash
+pulumi cancel && pulumi up --yes --skip-preview
+```
+
 ## Development Rules
 - **Never make manual DB changes** — all schema changes must be in Drizzle migrations
 - **Verify code compiles** before pushing (`npx tsc --noEmit`)

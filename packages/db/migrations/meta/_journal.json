@@ -15,6 +15,13 @@
       "when": 1782952404398,
       "tag": "0001_ambiguous_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783314445527,
+      "tag": "0002_enable_unaccent",
+      "breakpoints": true
     }
   ]
 }
