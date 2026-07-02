@@ -7,15 +7,18 @@ import { useParams } from 'next/navigation'
 export default function AdminDashboard() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)
   const { data, isLoading } = useQuery({ queryKey: ['analytics'], queryFn: () => {
-    const from = new Date(); from.setDate(1); from.setHours(0,0,0,0)
-    const to = new Date(); to.setHours(23,59,59,999)
+    const now = new Date()
+    const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1))
+    const to = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999))
     return api(`/api/admin/analytics?from=${from.toISOString()}&to=${to.toISOString()}`, { token: token! })
   }, enabled: !!token })
   const { data: todayData } = useQuery({
     queryKey: ['analytics-today'],
     queryFn: () => {
-      const today = new Date(); today.setHours(0,0,0,0)
-      return api(`/api/admin/analytics?from=${today.toISOString()}&to=${new Date().toISOString()}`, { token: token! })
+      const now = new Date()
+      const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+      const end = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999))
+      return api(`/api/admin/analytics?from=${today.toISOString()}&to=${end.toISOString()}`, { token: token! })
     }, enabled: !!token
   })
   const { data: products } = useQuery({ queryKey: ['products'], queryFn: () => api('/api/admin/products?pageSize=500', { token: token! }), enabled: !!token })

@@ -14,10 +14,11 @@ export default function AnalyticsPage() {
   const getRange = () => {
     const now = new Date()
     let from: Date
-    if (period === 'day') { from = new Date(now.getFullYear(), now.getMonth(), now.getDate()) }
-    else if (period === 'week') { from = new Date(now); from.setDate(now.getDate() - now.getDay()); from.setHours(0,0,0,0) }
-    else { from = new Date(now.getFullYear(), now.getMonth(), 1) }
-    return { from: from.toISOString(), to: now.toISOString() }
+    if (period === 'day') { from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) }
+    else if (period === 'week') { const d = new Date(now); d.setDate(now.getDate() - now.getDay()); from = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) }
+    else { from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)) }
+    const to = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999))
+    return { from: from.toISOString(), to: to.toISOString() }
   }
 
   const range = getRange()
