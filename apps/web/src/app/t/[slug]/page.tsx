@@ -1,7 +1,17 @@
 import { api } from '@/lib/api'
 import { StoreClient } from '@/components/StoreClient'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const opts = { headers: { 'x-tenant-slug': params.slug } }
+  const info = await api('/api/public/info', opts)
+  return {
+    title: info.config?.meta?.title || info.name || 'Tienda',
+    description: info.config?.meta?.description || undefined,
+  }
+}
 
 export default async function TenantStorePage({ params }: { params: { slug: string } }) {
   const opts = { headers: { 'x-tenant-slug': params.slug } }
@@ -12,8 +22,11 @@ export default async function TenantStorePage({ params }: { params: { slug: stri
     api('/api/public/info', opts),
   ])
 
+  const primaryColor = info.config?.branding?.primaryColor || '#635BFF'
+  const secondaryColor = info.config?.branding?.secondaryColor || '#0A2540'
+
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-white" style={{ '--color-primary': primaryColor, '--color-secondary': secondaryColor, '--color-text-dark': secondaryColor } as React.CSSProperties}>
       <header className="border-b border-[var(--color-border)] px-6 py-8 md:px-12 md:py-12">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-text-dark)]">{info.name}</h1>

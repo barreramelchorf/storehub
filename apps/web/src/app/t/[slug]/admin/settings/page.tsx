@@ -40,7 +40,7 @@ export default function SettingsPage() {
         },
       }),
     }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings'] }).then(() => queryClient.invalidateQueries({ queryKey: ['tenant-config'] })),
   })
 
   return (

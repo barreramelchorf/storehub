@@ -21,6 +21,16 @@ Pendientes a resolver en siguientes iteraciones.
 
 ---
 
+## Alta prioridad
+
+### Configuración de colores/branding no aplica cambios
+- En Configuración se pueden elegir colores primario y secundario
+- Al cambiar los colores, no se refleja en el sitio (ni admin ni tienda pública)
+- Posiblemente los CSS variables no se actualizan dinámicamente al guardar
+- Verificar: ¿se guardan en DB? ¿el middleware inyecta los nuevos valores? ¿requiere reload?
+
+---
+
 ## Media prioridad
 
 ### Pre-compilar TypeScript del API (esbuild)

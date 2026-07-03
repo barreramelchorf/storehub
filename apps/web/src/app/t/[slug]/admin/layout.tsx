@@ -2,8 +2,10 @@
 import { useHydrated, getAuthStore } from '@/lib/store'
 import { useRouter, usePathname, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { startProactiveRefresh } from '@/lib/auth'
 import { setAuthCallbacks } from '@/lib/api'
+import { api } from '@/lib/api'
 import Link from 'next/link'
 
 export default function TenantAdminLayout({ children }: { children: React.ReactNode }) {
@@ -53,18 +55,36 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
 
+  // Load tenant config for branding
+  const { data: tenantConfig } = useQuery({
+    queryKey: ['tenant-config'],
+    queryFn: () => api('/api/admin/settings', { token: token! }),
+    enabled: !!token,
+  })
+
+  const primaryColor = tenantConfig?.config?.branding?.primaryColor || '#635BFF'
+  const secondaryColor = tenantConfig?.config?.branding?.secondaryColor || '#0A2540'
+  const tenantName = tenantConfig?.config?.meta?.title || tenantConfig?.name || slug
+
+  // Dynamic page title
+  useEffect(() => {
+    if (tenantName) document.title = `${tenantName} — Admin`
+  }, [tenantName])
+
   if (isLoginPage) return <>{children}</>
   if (!hydrated || !token) return null
 
+  const cssVars = { '--color-primary': primaryColor, '--color-secondary': secondaryColor, '--color-text-dark': secondaryColor } as React.CSSProperties
+
   return (
-    <div className="min-h-screen flex bg-[var(--color-surface)]">
+    <div className="min-h-screen flex bg-[var(--color-surface)]" style={cssVars}>
       <div className="fixed top-0 left-0 right-0 h-14 bg-[var(--color-secondary)] flex items-center px-4 z-40 md:hidden">
         <button onClick={() => setMenuOpen(!menuOpen)} className="text-white text-2xl">☰</button>
-        <span className="text-white font-bold ml-3">{slug}</span>
+        <span className="text-white font-bold ml-3">{tenantName}</span>
       </div>
       {menuOpen && <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setMenuOpen(false)} />}
       <aside className={`fixed md:static top-0 left-0 h-full md:min-h-screen w-60 bg-[var(--color-secondary)] text-white p-5 flex flex-col z-50 transition-transform md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <h2 className="text-lg font-bold mb-8 tracking-tight">{slug}</h2>
+        <h2 className="text-lg font-bold mb-8 tracking-tight">{tenantName}</h2>
         <nav className="flex-1 space-y-1">
           {nav.map(n => (
             <Link key={n.href} href={n.href}
