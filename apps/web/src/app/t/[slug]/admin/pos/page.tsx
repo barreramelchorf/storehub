@@ -211,23 +211,23 @@ export default function POSPage() {
         {data?.items?.map((p: any) => {
           const inCart = cart.find(i => i.productId === p.id)
           return (
-            <div key={p.id} className={`card overflow-hidden flex flex-col cursor-pointer transition-all hover:border-[var(--color-primary)] hover:shadow-md ${p.stock <= 0 ? 'opacity-40 pointer-events-none' : ''}`}
+            <div key={p.id} className={`card overflow-hidden cursor-pointer transition-all hover:border-[var(--color-primary)] hover:shadow-md ${p.stock <= 0 ? 'opacity-40 pointer-events-none' : ''}`}
               onClick={() => addToCart(p)}>
-              <div className="relative flex-shrink-0">
-                {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-20 md:h-28 object-cover" /> : <div className="w-full h-20 md:h-28 bg-gray-100 flex items-center justify-center text-2xl">📦</div>}
+              <div className="relative">
+                {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-16 md:h-28 object-cover" /> : <div className="w-full h-16 md:h-28 bg-gray-100 flex items-center justify-center text-xl md:text-2xl">📦</div>}
                 {inCart && (
                   <span className="absolute top-1 right-1 bg-[var(--color-primary)] text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">{inCart.quantity}</span>
                 )}
               </div>
-              <div className="p-2 flex-1 flex flex-col justify-between min-h-[3.5rem]">
+              <div className="p-2">
                 <p className="font-medium text-[11px] md:text-xs text-[var(--color-text-dark)] line-clamp-2 leading-tight">{p.name}</p>
                 <div className="flex items-center justify-between mt-1">
-                  <p className="text-[var(--color-primary)] font-bold text-sm">${Number(p.price).toFixed(2)}</p>
+                  <p className="text-[var(--color-primary)] font-bold text-xs md:text-sm">${Number(p.price).toFixed(2)}</p>
                   {inCart && (
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => updateQty(p.id, inCart.quantity - 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">−</button>
-                      <span className="text-xs font-bold w-4 text-center">{inCart.quantity}</span>
-                      <button onClick={() => updateQty(p.id, inCart.quantity + 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">+</button>
+                      <button onClick={() => updateQty(p.id, inCart.quantity - 1)} className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] md:text-xs flex items-center justify-center hover:bg-gray-100">−</button>
+                      <span className="text-[10px] md:text-xs font-bold w-3 md:w-4 text-center">{inCart.quantity}</span>
+                      <button onClick={() => updateQty(p.id, inCart.quantity + 1)} className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] md:text-xs flex items-center justify-center hover:bg-gray-100">+</button>
                     </div>
                   )}
                 </div>
