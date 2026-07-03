@@ -41,7 +41,7 @@ export function StoreClient({ products, categories, info }: { products: Product[
   const itemCount = cart.reduce((s, i) => s + i.quantity, 0)
 
   const handleWhatsAppOrder = () => {
-    const whatsapp = info.config?.contact?.whatsapp
+    const whatsapp = info.config?.contact?.whatsapp || info.config?.contact?.phone
     if (!whatsapp) return alert('Esta tienda no tiene WhatsApp configurado')
 
     // Build message
