@@ -23,15 +23,25 @@ Pendientes a resolver en siguientes iteraciones.
 
 ## Alta prioridad
 
-### Configuración de colores/branding no aplica cambios
-- En Configuración se pueden elegir colores primario y secundario
-- Al cambiar los colores, no se refleja en el sitio (ni admin ni tienda pública)
-- Posiblemente los CSS variables no se actualizan dinámicamente al guardar
-- Verificar: ¿se guardan en DB? ¿el middleware inyecta los nuevos valores? ¿requiere reload?
+### Configuración de colores/branding no aplica cambios ✅
+- ~~En Configuración se pueden elegir colores primario y secundario~~
+- ~~Al cambiar los colores, no se refleja en el sitio (ni admin ni tienda pública)~~
+- **Implementado en v0.13.1–v0.13.2**: CSS variables inyectadas desde tenant config, título dinámico
 
 ---
 
 ## Media prioridad
+
+### Carrito + Ordenar por WhatsApp (tienda pública)
+- La tienda pública actualmente solo muestra productos y precios
+- **Fase 1**: Agregar carrito de compras en la tienda pública
+  - El cliente puede agregar productos, ver resumen, ajustar cantidades
+  - Botón "Ordenar" abre WhatsApp con mensaje pre-armado: lista de productos, cantidades, total
+  - El número de WhatsApp sale de la configuración del tenant (`config.contact.whatsapp`)
+  - El cobro se hace manualmente después del mensaje (flujo in-person)
+- **Fase 2 (futuro, no urgente)**: Pasarela de pagos (Stripe, Mercado Pago, PayPal)
+  - Pago online directo desde la tienda
+  - No prioritario — el negocio es presencial, la tienda pública es más catálogo/precios
 
 ### Pre-compilar TypeScript del API (esbuild)
 - Actualmente usa `tsx` (compila on-the-fly al arrancar)
@@ -87,6 +97,7 @@ Pendientes a resolver en siguientes iteraciones.
 
 - ~~Rol "Almacenista" + endpoint de restock~~ — v0.12.0–v0.12.1: permiso `inventory.restock`, roles almacenista/cajero_almacenista, endpoint con audit log
 - ~~CREATE EXTENSION unaccent en migraciones~~ — v0.12.0: migración idempotente `IF NOT EXISTS`
+- ~~Configuración de colores/branding no aplica~~ — v0.13.1–v0.13.2: CSS variables desde tenant config, título dinámico, sin flash
 - ~~Dashboard "Ventas del mes" mostraba 30 días atrás~~ — v0.12.2: corregido a 1ro del mes actual
 - ~~NEXT_PUBLIC_API_URL placeholder~~ — Resuelto: entrypoint sed + runtime injection funciona
 - ~~Panel Super Admin~~ — Existe en `/platform` con CRUD de tenants y custom domains
