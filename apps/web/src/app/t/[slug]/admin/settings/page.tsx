@@ -68,7 +68,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className="label">Dirección</label><input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className="input" /></div>
             <div><label className="label">Teléfono</label><input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="input" /></div>
-            <div><label className="label">WhatsApp</label><input value={form.whatsapp} onChange={e => setForm(f => ({ ...f, whatsapp: e.target.value }))} className="input" /></div>
+            <div><label className="label">WhatsApp</label><input value={form.whatsapp} onChange={e => setForm(f => ({ ...f, whatsapp: e.target.value }))} className="input" placeholder="Déjalo vacío si es el mismo que teléfono" /></div>
             <div><label className="label">Email</label><input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input" /></div>
             <div className="md:col-span-2"><label className="label">Horarios</label><input value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} className="input" /></div>
           </div>
@@ -78,7 +78,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Redes sociales</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className="label">Instagram</label><input value={form.instagram} onChange={e => setForm(f => ({ ...f, instagram: e.target.value }))} className="input" placeholder="@usuario" /></div>
-            <div><label className="label">Facebook</label><input value={form.facebook} onChange={e => setForm(f => ({ ...f, facebook: e.target.value }))} className="input" /></div>
+            <div><label className="label">Facebook</label><input value={form.facebook} onChange={e => setForm(f => ({ ...f, facebook: e.target.value }))} className="input" placeholder="@tupagina o URL completa" /></div>
             <div><label className="label">TikTok</label><input value={form.tiktok} onChange={e => setForm(f => ({ ...f, tiktok: e.target.value }))} className="input" /></div>
             <div><label className="label">Sitio web</label><input value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} className="input" /></div>
           </div>
