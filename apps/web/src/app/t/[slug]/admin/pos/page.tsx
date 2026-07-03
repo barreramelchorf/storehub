@@ -207,7 +207,8 @@ export default function POSPage() {
   const productsGrid = (
     <div className="flex flex-col h-full min-h-0">
       <input placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} className="input mb-4 flex-shrink-0" />
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto flex-1 min-h-0">
+      <div className="overflow-y-auto flex-1 min-h-0">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {data?.items?.map((p: any) => {
           const inCart = cart.find(i => i.productId === p.id)
           return (
@@ -235,6 +236,7 @@ export default function POSPage() {
             </div>
           )
         })}
+        </div>
       </div>
     </div>
   )
