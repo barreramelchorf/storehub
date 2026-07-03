@@ -66,7 +66,7 @@ export function StoreClient({ products, categories, info }: { products: Product[
 
   // Category navigation
   const categoryNav = (
-    <nav className="flex gap-2 overflow-x-auto pb-4 mb-6 border-b border-[var(--color-border)]">
+    <nav className="flex gap-2 overflow-x-auto pb-4 mb-6 border-b border-[var(--color-border)] lg:flex-wrap lg:overflow-x-visible">
       <button onClick={() => setActiveCategory(null)} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${!activeCategory ? 'bg-[var(--color-primary)] text-white' : 'border border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]'}`}>
         Todos
       </button>
@@ -178,7 +178,7 @@ export function StoreClient({ products, categories, info }: { products: Product[
     <>
       {/* Desktop layout */}
       <div className="hidden lg:flex gap-8">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {categoryNav}
           {productsGrid}
         </div>
