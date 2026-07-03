@@ -73,6 +73,14 @@ Pendientes a resolver en siguientes iteraciones.
 
 ## Baja prioridad
 
+### Favicon configurable por tenant
+- Actualmente usa el favicon default de Next.js
+- Permitir subir una imagen desde Configuración que se use como favicon
+- UI: interfaz de recorte cuadrado (crop) para que el usuario seleccione el área
+- Backend: procesar/redimensionar a 32x32 y 180x180 (apple-touch-icon)
+- Servir dinámicamente según el tenant (por hostname o slug)
+- Complejidad media: requiere crop UI (librería tipo react-cropper), procesamiento de imagen (sharp), y servir el favicon dinámicamente
+
 ### Toppings / Modificadores de productos (v2)
 - Productos que se pueden agregar como complemento a otros
 - En la tienda pública: opción de seleccionar toppings al ver un producto

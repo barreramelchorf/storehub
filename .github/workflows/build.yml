@@ -1,4 +1,4 @@
-name: Build & Push Images
+name: Build & Deploy
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+  PULUMI_WORKING_DIR: infra/applications/storehub
 
 jobs:
   build:
@@ -15,6 +16,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      is_tag: ${{ steps.tag.outputs.is_tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -32,8 +36,10 @@ jobs:
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "is_tag=true" >> $GITHUB_OUTPUT
           else
             echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "is_tag=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Build & push API
@@ -70,3 +76,76 @@ jobs:
           tags: ${{ env.IMAGE_PREFIX }}/storehub-migrate:${{ steps.tag.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy-staging:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v6
+        with:
+          command: version
+
+      - name: Install infra dependencies
+        run: cd infra && npm install
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to staging
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        run: |
+          cd ${{ env.PULUMI_WORKING_DIR }}
+          pulumi stack select staging
+          pulumi config set version latest
+          pulumi config set migrationsVersion latest
+          pulumi up --yes --skip-preview
+
+  deploy-prod:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v6
+        with:
+          command: version
+
+      - name: Install infra dependencies
+        run: cd infra && npm install
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to production
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        run: |
+          cd ${{ env.PULUMI_WORKING_DIR }}
+          VERSION="${GITHUB_REF#refs/tags/}"
+          pulumi stack select prod
+          pulumi config set version $VERSION
+          pulumi config set migrationsVersion $VERSION
+          pulumi up --yes --skip-preview
