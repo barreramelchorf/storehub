@@ -2,8 +2,27 @@ import { headers } from 'next/headers'
 import { api } from '@/lib/api'
 import { StoreClient } from '@/components/StoreClient'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const headersList = headers()
+  const host = headersList.get('host')?.split(':')[0] ?? 'localhost'
+  const isPlatform = host.includes('storehub') || host === 'localhost'
+  if (isPlatform) return { title: 'StoreHub' }
+
+  try {
+    const opts = { host: headersList.get('host') ?? '' }
+    const info = await api('/api/public/info', opts)
+    return {
+      title: info.config?.meta?.title || info.name || 'Tienda',
+      description: info.config?.meta?.description || undefined,
+    }
+  } catch {
+    return { title: 'Tienda' }
+  }
+}
 
 export default async function RootPage() {
   const headersList = headers()
@@ -22,8 +41,11 @@ export default async function RootPage() {
         api('/api/public/info', opts),
       ])
 
+      const primaryColor = info.config?.branding?.primaryColor || '#635BFF'
+      const secondaryColor = info.config?.branding?.secondaryColor || '#0A2540'
+
       return (
-        <main className="min-h-screen bg-white">
+        <main className="min-h-screen bg-white" style={{ '--color-primary': primaryColor, '--color-secondary': secondaryColor, '--color-text-dark': secondaryColor } as React.CSSProperties}>
           <header className="border-b border-[var(--color-border)] px-6 py-8 md:px-12 md:py-12">
             <div className="max-w-6xl mx-auto">
               <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-text-dark)]">{info.name}</h1>
