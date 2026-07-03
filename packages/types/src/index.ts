@@ -15,7 +15,7 @@ export interface TenantConfig {
   branding: { logoUrl?: string; primaryColor: string; secondaryColor: string }
   contact: { address?: string; phone?: string; whatsapp?: string; email?: string; hours?: string }
   social: { instagram?: string; facebook?: string; tiktok?: string; website?: string }
-  modules: { pos: boolean; inventory: boolean; analytics: boolean }
+  modules: { pos: boolean; inventory: boolean; analytics: boolean; multicomanda: boolean }
   meta: { title?: string; description?: string; ogImage?: string }
 }
 

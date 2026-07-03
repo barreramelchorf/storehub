@@ -8,7 +8,7 @@ import { useParams } from 'next/navigation'
 export default function SettingsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '' })
+  const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '', multicomanda: false })
 
   const { data: info } = useQuery({ queryKey: ['settings'], queryFn: () => api('/api/admin/settings', { token }) })
 
@@ -22,6 +22,7 @@ export default function SettingsPage() {
         address: c.contact?.address ?? '', phone: c.contact?.phone ?? '', whatsapp: c.contact?.whatsapp ?? '', email: c.contact?.email ?? '', hours: c.contact?.hours ?? '',
         instagram: c.social?.instagram ?? '', facebook: c.social?.facebook ?? '', tiktok: c.social?.tiktok ?? '', website: c.social?.website ?? '',
         metaTitle: c.meta?.title ?? '', metaDescription: c.meta?.description ?? '',
+        multicomanda: c.modules?.multicomanda ?? false,
       })
     }
   }, [info])
@@ -36,7 +37,7 @@ export default function SettingsPage() {
           contact: { address: form.address, phone: form.phone, whatsapp: form.whatsapp, email: form.email, hours: form.hours },
           social: { instagram: form.instagram, facebook: form.facebook, tiktok: form.tiktok, website: form.website },
           meta: { title: form.metaTitle, description: form.metaDescription },
-          modules: info?.config?.modules ?? { pos: true, inventory: true, analytics: true },
+          modules: { ...info?.config?.modules, pos: true, inventory: true, analytics: true, multicomanda: form.multicomanda },
         },
       }),
     }),
@@ -89,6 +90,19 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 gap-4">
             <div><label className="label">Título</label><input value={form.metaTitle} onChange={e => setForm(f => ({ ...f, metaTitle: e.target.value }))} className="input" /></div>
             <div><label className="label">Descripción</label><input value={form.metaDescription} onChange={e => setForm(f => ({ ...f, metaDescription: e.target.value }))} className="input" /></div>
+          </div>
+        </div>
+
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Módulos</h2>
+          <div className="space-y-3">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <p className="text-sm font-medium text-[var(--color-text-dark)]">Multicomanda</p>
+                <p className="text-xs text-[var(--color-text)]">Permite manejar múltiples cuentas/mesas simultáneas en el POS</p>
+              </div>
+              <input type="checkbox" checked={form.multicomanda} onChange={e => setForm(f => ({ ...f, multicomanda: e.target.checked }))} className="w-5 h-5 rounded border-[var(--color-border)] text-[var(--color-primary)]" />
+            </label>
           </div>
         </div>
       </div>

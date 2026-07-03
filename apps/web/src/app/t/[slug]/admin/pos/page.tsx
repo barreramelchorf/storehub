@@ -1,41 +1,119 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 
 interface CartItem { productId: string; name: string; price: number; quantity: number }
+interface Comanda { id: string; name: string; cart: CartItem[] }
+interface ComandasState { comandas: Comanda[]; activeId: string }
+
 const CART_KEY = 'storehub-cart'
+const COMANDAS_KEY = 'storehub-comandas'
+
+// Legacy single-cart helpers (used when multicomanda is OFF)
 function loadCart(): CartItem[] { try { return JSON.parse(localStorage.getItem(CART_KEY) ?? '[]') } catch { return [] } }
 function saveCart(cart: CartItem[]) { localStorage.setItem(CART_KEY, JSON.stringify(cart)) }
+
+// Multi-comanda helpers
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }
+function loadComandas(): ComandasState {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COMANDAS_KEY) ?? 'null')
+    if (raw && raw.comandas?.length > 0) return raw
+  } catch {}
+  const initial: Comanda = { id: generateId(), name: 'Comanda 1', cart: [] }
+  return { comandas: [initial], activeId: initial.id }
+}
+function saveComandas(state: ComandasState) { localStorage.setItem(COMANDAS_KEY, JSON.stringify(state)) }
 
 export default function POSPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [cartLoaded, setCartLoaded] = useState(false)
+  const [search, setSearch] = useState('')
+  const [mobileCartOpen, setMobileCartOpen] = useState(false)
   const [discount, setDiscount] = useState(0)
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [search, setSearch] = useState('')
   const [saleDate, setSaleDate] = useState('')
-  const [mobileCartOpen, setMobileCartOpen] = useState(false)
 
+  // Multicomanda state
+  const [comandasState, setComandasState] = useState<ComandasState>({ comandas: [], activeId: '' })
+  const [comandasLoaded, setComandasLoaded] = useState(false)
+  const [editingName, setEditingName] = useState<string | null>(null)
+  const renameRef = useRef<HTMLInputElement>(null)
+
+  // Single cart state (used when multicomanda OFF)
+  const [singleCart, setSingleCart] = useState<CartItem[]>([])
+  const [singleCartLoaded, setSingleCartLoaded] = useState(false)
+
+  // Load tenant config for multicomanda flag
+  const { data: tenantConfig } = useQuery({
+    queryKey: ['tenant-config'],
+    queryFn: () => api('/api/admin/settings', { token }),
+    enabled: !!token,
+  })
+  const multicomandaEnabled = tenantConfig?.config?.modules?.multicomanda ?? false
+
+  // Initialize date
   useEffect(() => {
     const tz = process.env.NEXT_PUBLIC_TIMEZONE ?? 'America/Mexico_City'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
     setSaleDate(today)
   }, [])
 
-  useEffect(() => { setCart(loadCart()); setCartLoaded(true) }, [])
-  useEffect(() => { if (cartLoaded) saveCart(cart) }, [cart, cartLoaded])
+  // Load single cart
+  useEffect(() => { setSingleCart(loadCart()); setSingleCartLoaded(true) }, [])
+  useEffect(() => { if (singleCartLoaded) saveCart(singleCart) }, [singleCart, singleCartLoaded])
+
+  // Load multicomanda state
+  useEffect(() => { setComandasState(loadComandas()); setComandasLoaded(true) }, [])
+  useEffect(() => { if (comandasLoaded) saveComandas(comandasState) }, [comandasState, comandasLoaded])
+
+  // Focus rename input
+  useEffect(() => { if (editingName && renameRef.current) renameRef.current.focus() }, [editingName])
 
   const { data } = useQuery({ queryKey: ['products', search], queryFn: () => api(`/api/admin/products?search=${search}&pageSize=500`, { token }) })
 
+  // Determine active cart based on mode
+  const activeComanda = comandasState.comandas.find(c => c.id === comandasState.activeId)
+  const cart = multicomandaEnabled ? (activeComanda?.cart ?? []) : singleCart
+
+  const setCart = (updater: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
+    if (multicomandaEnabled) {
+      setComandasState(prev => ({
+        ...prev,
+        comandas: prev.comandas.map(c =>
+          c.id === prev.activeId
+            ? { ...c, cart: typeof updater === 'function' ? updater(c.cart) : updater }
+            : c
+        ),
+      }))
+    } else {
+      setSingleCart(typeof updater === 'function' ? updater(singleCart) : updater)
+    }
+  }
+
   const saleMutation = useMutation({
     mutationFn: (body: any) => api('/api/admin/sales', { method: 'POST', body: JSON.stringify(body), token }),
-    onSuccess: () => { setCart([]); setDiscount(0); setTip(0); setMobileCartOpen(false); queryClient.invalidateQueries({ queryKey: ['products'] }) },
+    onSuccess: () => {
+      if (multicomandaEnabled) {
+        // Close the active comanda
+        setComandasState(prev => {
+          const remaining = prev.comandas.filter(c => c.id !== prev.activeId)
+          if (remaining.length === 0) {
+            const newComanda: Comanda = { id: generateId(), name: 'Comanda 1', cart: [] }
+            return { comandas: [newComanda], activeId: newComanda.id }
+          }
+          return { comandas: remaining, activeId: remaining[0].id }
+        })
+      } else {
+        setSingleCart([])
+      }
+      setDiscount(0); setTip(0); setMobileCartOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
   })
 
   const addToCart = (p: any) => {
@@ -64,7 +142,63 @@ export default function POSPage() {
     })
   }
 
-  // Products grid with inline cart controls
+  // Multicomanda actions
+  const addComanda = () => {
+    const num = comandasState.comandas.length + 1
+    const newComanda: Comanda = { id: generateId(), name: `Comanda ${num}`, cart: [] }
+    setComandasState(prev => ({ comandas: [...prev.comandas, newComanda], activeId: newComanda.id }))
+  }
+
+  const switchComanda = (id: string) => {
+    setComandasState(prev => ({ ...prev, activeId: id }))
+    setDiscount(0); setTip(0)
+  }
+
+  const renameComanda = (id: string, name: string) => {
+    setComandasState(prev => ({
+      ...prev,
+      comandas: prev.comandas.map(c => c.id === id ? { ...c, name: name || c.name } : c),
+    }))
+    setEditingName(null)
+  }
+
+  const closeComanda = (id: string) => {
+    setComandasState(prev => {
+      const remaining = prev.comandas.filter(c => c.id !== id)
+      if (remaining.length === 0) {
+        const newComanda: Comanda = { id: generateId(), name: 'Comanda 1', cart: [] }
+        return { comandas: [newComanda], activeId: newComanda.id }
+      }
+      const newActiveId = prev.activeId === id ? remaining[0].id : prev.activeId
+      return { comandas: remaining, activeId: newActiveId }
+    })
+  }
+
+  // Tabs UI component
+  const comandaTabs = multicomandaEnabled ? (
+    <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-3 border-b border-[var(--color-border)] flex-shrink-0">
+      {comandasState.comandas.map(c => (
+        <div key={c.id} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer transition-colors ${c.id === comandasState.activeId ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)]'}`}>
+          {editingName === c.id ? (
+            <input ref={renameRef} defaultValue={c.name} className="bg-transparent border-none outline-none w-20 text-xs"
+              onBlur={e => renameComanda(c.id, e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') renameComanda(c.id, (e.target as HTMLInputElement).value) }} />
+          ) : (
+            <span onClick={() => switchComanda(c.id)} onDoubleClick={() => setEditingName(c.id)}>{c.name}</span>
+          )}
+          {c.cart.length > 0 && <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center ${c.id === comandasState.activeId ? 'bg-white/30' : 'bg-[var(--color-primary)] text-white'}`}>{c.cart.reduce((s, i) => s + i.quantity, 0)}</span>}
+          {comandasState.comandas.length > 1 && (
+            <button onClick={(e) => { e.stopPropagation(); closeComanda(c.id) }} className={`ml-1 text-xs opacity-50 hover:opacity-100 ${c.id === comandasState.activeId ? 'text-white' : 'text-[var(--color-text)]'}`}>✕</button>
+          )}
+        </div>
+      ))}
+      <button onClick={addComanda} className="px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] whitespace-nowrap transition-colors">
+        + Nueva
+      </button>
+    </div>
+  ) : null
+
+  // Products grid
   const productsGrid = (
     <div className="flex flex-col h-full min-h-0">
       <input placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} className="input mb-4 flex-shrink-0" />
@@ -108,11 +242,14 @@ export default function POSPage() {
     </div>
   )
 
-  // Cart panel (shared between desktop sidebar and mobile overlay)
+  // Cart panel
   const cartContent = (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <h2 className="font-semibold text-[var(--color-text-dark)] text-lg">Resumen de venta</h2>
+      {comandaTabs}
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
+        <h2 className="font-semibold text-[var(--color-text-dark)] text-lg">
+          {multicomandaEnabled && activeComanda ? activeComanda.name : 'Resumen de venta'}
+        </h2>
         {cart.length > 0 && <span className="text-xs text-[var(--color-text)] bg-[var(--color-surface)] px-2 py-1 rounded-full">{itemCount} producto(s)</span>}
       </div>
 
@@ -200,6 +337,8 @@ export default function POSPage() {
       {/* Mobile layout */}
       <div className="lg:hidden flex flex-col h-[calc(100vh-7rem)]">
         <h1 className="text-xl font-bold text-[var(--color-text-dark)] mb-3 flex-shrink-0">Punto de Venta</h1>
+        {/* Mobile comanda tabs */}
+        {comandaTabs}
         {productsGrid}
 
         {/* Floating cart bar */}
@@ -208,7 +347,7 @@ export default function POSPage() {
             className="fixed bottom-6 left-4 right-4 bg-[var(--color-primary)] text-white py-3.5 px-6 rounded-xl shadow-lg flex items-center justify-between z-30 hover:opacity-90 transition-opacity">
             <div className="flex items-center gap-2">
               <span className="text-lg">🛒</span>
-              <span className="font-medium">{itemCount} producto(s)</span>
+              <span className="font-medium">{multicomandaEnabled && activeComanda ? activeComanda.name : `${itemCount} producto(s)`}</span>
             </div>
             <span className="font-bold text-lg">${total.toFixed(2)}</span>
           </button>
@@ -218,7 +357,9 @@ export default function POSPage() {
         {mobileCartOpen && (
           <div className="fixed inset-0 z-50 bg-white flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)] flex-shrink-0">
-              <h2 className="text-lg font-bold text-[var(--color-text-dark)]">Resumen de venta</h2>
+              <h2 className="text-lg font-bold text-[var(--color-text-dark)]">
+                {multicomandaEnabled && activeComanda ? activeComanda.name : 'Resumen de venta'}
+              </h2>
               <button onClick={() => setMobileCartOpen(false)} className="text-2xl text-[var(--color-text)] hover:text-[var(--color-text-dark)]">✕</button>
             </div>
             <div className="flex-1 p-4 min-h-0 overflow-hidden">
