@@ -206,7 +206,8 @@ export default function POSPage() {
         {data?.items?.map((p: any) => {
           const inCart = cart.find(i => i.productId === p.id)
           return (
-            <div key={p.id} className="card overflow-hidden flex flex-col">
+            <div key={p.id} className={`card overflow-hidden flex flex-col cursor-pointer transition-all hover:border-[var(--color-primary)] hover:shadow-md ${p.stock <= 0 ? 'opacity-40 pointer-events-none' : ''}`}
+              onClick={() => addToCart(p)}>
               <div className="relative">
                 {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-24 md:h-28 object-cover" /> : <div className="w-full h-24 md:h-28 bg-gray-100 flex items-center justify-center text-2xl">📦</div>}
                 {inCart && (
@@ -215,25 +216,16 @@ export default function POSPage() {
               </div>
               <div className="p-2 flex-1 flex flex-col justify-between">
                 <p className="font-medium text-xs text-[var(--color-text-dark)] line-clamp-2">{p.name}</p>
-                <p className="text-[var(--color-primary)] font-bold text-sm mt-1">${Number(p.price).toFixed(2)}</p>
-              </div>
-              <div className="px-2 pb-2">
-                {p.stock <= 0 ? (
-                  <span className="text-xs text-red-500">Agotado</span>
-                ) : inCart ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => updateQty(p.id, inCart.quantity - 1)} className="w-7 h-7 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-sm flex items-center justify-center hover:bg-gray-100">−</button>
-                      <span className="text-sm font-bold w-5 text-center">{inCart.quantity}</span>
-                      <button onClick={() => updateQty(p.id, inCart.quantity + 1)} className="w-7 h-7 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-sm flex items-center justify-center hover:bg-gray-100">+</button>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[var(--color-primary)] font-bold text-sm">${Number(p.price).toFixed(2)}</p>
+                  {inCart && (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => updateQty(p.id, inCart.quantity - 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">−</button>
+                      <span className="text-xs font-bold w-4 text-center">{inCart.quantity}</span>
+                      <button onClick={() => updateQty(p.id, inCart.quantity + 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">+</button>
                     </div>
-                    <button onClick={() => removeFromCart(p.id)} className="text-xs text-red-500 hover:text-red-700">✕</button>
-                  </div>
-                ) : (
-                  <button onClick={() => addToCart(p)} className="w-full py-1.5 rounded-lg bg-[var(--color-primary)] text-white text-xs font-medium hover:opacity-90 transition-opacity">
-                    Agregar
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           )
