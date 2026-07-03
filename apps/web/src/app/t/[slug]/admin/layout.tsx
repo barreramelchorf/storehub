@@ -66,18 +66,19 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   const secondaryColor = tenantConfig?.config?.branding?.secondaryColor || '#0A2540'
   const tenantName = tenantConfig?.config?.meta?.title || tenantConfig?.name || slug
 
-  // Dynamic page title
+  // Dynamic page title - update on every navigation
   useEffect(() => {
     if (tenantName) document.title = `${tenantName} — Admin`
-  }, [tenantName])
+  }, [tenantName, pathname])
 
   if (isLoginPage) return <>{children}</>
   if (!hydrated || !token) return null
 
   const cssVars = { '--color-primary': primaryColor, '--color-secondary': secondaryColor, '--color-text-dark': secondaryColor } as React.CSSProperties
+  const ready = !!tenantConfig
 
   return (
-    <div className="min-h-screen flex bg-[var(--color-surface)]" style={cssVars}>
+    <div className={`min-h-screen flex bg-[var(--color-surface)] transition-opacity duration-150 ${ready ? 'opacity-100' : 'opacity-0'}`} style={cssVars}>
       <div className="fixed top-0 left-0 right-0 h-14 bg-[var(--color-secondary)] flex items-center px-4 z-40 md:hidden">
         <button onClick={() => setMenuOpen(!menuOpen)} className="text-white text-2xl">☰</button>
         <span className="text-white font-bold ml-3">{tenantName}</span>
