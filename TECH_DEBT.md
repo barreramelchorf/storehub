@@ -32,16 +32,22 @@ Pendientes a resolver en siguientes iteraciones.
 
 ## Media prioridad
 
-### Carrito + Ordenar por WhatsApp (tienda pública)
-- La tienda pública actualmente solo muestra productos y precios
-- **Fase 1**: Agregar carrito de compras en la tienda pública
-  - El cliente puede agregar productos, ver resumen, ajustar cantidades
-  - Botón "Ordenar" abre WhatsApp con mensaje pre-armado: lista de productos, cantidades, total
-  - El número de WhatsApp sale de la configuración del tenant (`config.contact.whatsapp`)
-  - El cobro se hace manualmente después del mensaje (flujo in-person)
-- **Fase 2 (futuro, no urgente)**: Pasarela de pagos (Stripe, Mercado Pago, PayPal)
-  - Pago online directo desde la tienda
-  - No prioritario — el negocio es presencial, la tienda pública es más catálogo/precios
+### Carrito + Ordenar por WhatsApp (tienda pública) ✅
+- **Implementado en v0.13.3–v0.13.6**
+
+### Multicomanda en POS (múltiples cuentas simultáneas)
+- Feature específico para restaurantes — debe ser configurable (on/off) desde Configuración → Módulos
+- **Concepto**: el cajero puede tener múltiples cuentas/comandas abiertas a la vez (ej: Mesa 1, Mesa 2, Barra)
+- **Nombres**: default auto-generado ("Comanda 1", "Comanda 2"), editable si el cajero tiene tiempo
+- **UI**: tabs arriba del panel de carrito para switchear entre comandas
+  - `[+ Nueva] [Comanda 1 ●] [Mesa 2 ●] [Barra ●]`
+  - El contenido del carrito cambia según la tab activa
+  - Cada tab tiene su propio carrito independiente
+- **Mobile-first**: tabs deben funcionar bien en celular (scroll horizontal, compactos)
+- **Persistencia**: todas las comandas abiertas se guardan en localStorage
+- **Cobrar**: cierra solo la comanda activa, las demás permanecen
+- **Sin límite** de comandas simultáneas
+- Complejidad: media-alta (UI de tabs, multi-state management, localStorage multi-cart)
 
 ### Pre-compilar TypeScript del API (esbuild)
 - Actualmente usa `tsx` (compila on-the-fly al arrancar)

@@ -172,6 +172,9 @@ export default function POSPage() {
             className="w-full py-3 rounded-lg bg-[var(--color-primary)] text-white font-medium text-base hover:opacity-90 transition-opacity disabled:opacity-50">
             {saleMutation.isPending ? 'Procesando...' : 'Cobrar'}
           </button>
+          <button onClick={() => setCart([])} className="w-full py-2 text-xs text-[var(--color-text)] hover:text-red-500 transition-colors">
+            Vaciar carrito
+          </button>
           {saleMutation.isError && <p className="text-red-500 text-xs text-center">{(saleMutation.error as Error).message}</p>}
           {saleMutation.isSuccess && <p className="text-green-600 text-xs text-center font-medium">✓ Venta registrada</p>}
         </div>
