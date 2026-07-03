@@ -38,7 +38,8 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
             echo "is_tag=true" >> $GITHUB_OUTPUT
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            echo "tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
             echo "is_tag=false" >> $GITHUB_OUTPUT
           fi
 
@@ -90,9 +91,7 @@ jobs:
           node-version: '20'
 
       - name: Install Pulumi CLI
-        uses: pulumi/actions@v6
-        with:
-          command: version
+        run: curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> $GITHUB_PATH
 
       - name: Install infra dependencies
         run: cd infra && npm install
@@ -109,8 +108,8 @@ jobs:
         run: |
           cd ${{ env.PULUMI_WORKING_DIR }}
           pulumi stack select staging
-          pulumi config set version latest
-          pulumi config set migrationsVersion latest
+          pulumi config set version ${{ needs.build.outputs.tag }}
+          pulumi config set migrationsVersion ${{ needs.build.outputs.tag }}
           pulumi up --yes --skip-preview
 
   deploy-prod:
@@ -126,9 +125,7 @@ jobs:
           node-version: '20'
 
       - name: Install Pulumi CLI
-        uses: pulumi/actions@v6
-        with:
-          command: version
+        run: curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> $GITHUB_PATH
 
       - name: Install infra dependencies
         run: cd infra && npm install
@@ -144,8 +141,7 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         run: |
           cd ${{ env.PULUMI_WORKING_DIR }}
-          VERSION="${GITHUB_REF#refs/tags/}"
           pulumi stack select prod
-          pulumi config set version $VERSION
-          pulumi config set migrationsVersion $VERSION
+          pulumi config set version ${{ needs.build.outputs.tag }}
+          pulumi config set migrationsVersion ${{ needs.build.outputs.tag }}
           pulumi up --yes --skip-preview
