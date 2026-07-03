@@ -16,8 +16,9 @@ export default function InventoryPage() {
   const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true })
   const [catForm, setCatForm] = useState({ name: '', description: '' })
   const [restockForm, setRestockForm] = useState({ quantity: '', reason: '' })
+  const [search, setSearch] = useState('')
 
-  const { data: products } = useQuery({ queryKey: ['products'], queryFn: () => api('/api/admin/products?pageSize=100', { token }) })
+  const { data: products } = useQuery({ queryKey: ['products', search], queryFn: () => api(`/api/admin/products?pageSize=500&search=${search}`, { token }) })
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: () => api('/api/admin/categories', { token }) })
 
   const saveMutation = useMutation({
@@ -78,6 +79,15 @@ export default function InventoryPage() {
             <Link href={`/t/${params.slug}/admin/bulk`} className="px-4 py-2 text-sm border border-[var(--color-border)] rounded-lg text-[var(--color-text)] hover:bg-gray-50 transition-colors">
               📋 Carga masiva
             </Link>
+          </div>
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Buscar producto..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input w-full md:w-80"
+            />
           </div>
 
           {/* Desktop table */}
