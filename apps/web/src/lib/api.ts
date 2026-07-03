@@ -61,6 +61,7 @@ export async function api<T = any>(path: string, opts: FetchOptions = {}): Promi
       ...headers,
     },
     credentials: 'include',
+    ...(isServer && { cache: 'no-store' as RequestCache }),
     ...rest,
   })
 
