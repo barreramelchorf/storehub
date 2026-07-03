@@ -184,7 +184,12 @@ export default function POSPage() {
               onBlur={e => renameComanda(c.id, e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') renameComanda(c.id, (e.target as HTMLInputElement).value) }} />
           ) : (
-            <span onClick={() => switchComanda(c.id)} onDoubleClick={() => setEditingName(c.id)}>{c.name}</span>
+            <>
+              <span onClick={() => switchComanda(c.id)}>{c.name}</span>
+              {c.id === comandasState.activeId && (
+                <button onClick={(e) => { e.stopPropagation(); setEditingName(c.id) }} className="ml-0.5 opacity-60 hover:opacity-100">✏️</button>
+              )}
+            </>
           )}
           {c.cart.length > 0 && <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center ${c.id === comandasState.activeId ? 'bg-white/30' : 'bg-[var(--color-primary)] text-white'}`}>{c.cart.reduce((s, i) => s + i.quantity, 0)}</span>}
           {comandasState.comandas.length > 1 && (
@@ -208,14 +213,14 @@ export default function POSPage() {
           return (
             <div key={p.id} className={`card overflow-hidden flex flex-col cursor-pointer transition-all hover:border-[var(--color-primary)] hover:shadow-md ${p.stock <= 0 ? 'opacity-40 pointer-events-none' : ''}`}
               onClick={() => addToCart(p)}>
-              <div className="relative">
-                {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-24 md:h-28 object-cover" /> : <div className="w-full h-24 md:h-28 bg-gray-100 flex items-center justify-center text-2xl">📦</div>}
+              <div className="relative flex-shrink-0">
+                {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-20 md:h-28 object-cover" /> : <div className="w-full h-20 md:h-28 bg-gray-100 flex items-center justify-center text-2xl">📦</div>}
                 {inCart && (
                   <span className="absolute top-1 right-1 bg-[var(--color-primary)] text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">{inCart.quantity}</span>
                 )}
               </div>
-              <div className="p-2 flex-1 flex flex-col justify-between">
-                <p className="font-medium text-xs text-[var(--color-text-dark)] line-clamp-2">{p.name}</p>
+              <div className="p-2 flex-1 flex flex-col justify-between min-h-[3.5rem]">
+                <p className="font-medium text-[11px] md:text-xs text-[var(--color-text-dark)] line-clamp-2 leading-tight">{p.name}</p>
                 <div className="flex items-center justify-between mt-1">
                   <p className="text-[var(--color-primary)] font-bold text-sm">${Number(p.price).toFixed(2)}</p>
                   {inCart && (
