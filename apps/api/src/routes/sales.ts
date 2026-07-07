@@ -32,7 +32,18 @@ export async function saleRoutes(app: FastifyInstance) {
       with: { items: true },
     })
     if (!sale) return reply.code(404).send({ error: 'Not found' })
-    return sale
+
+    // If cancelled, fetch the reason from audit log
+    let cancelReason: string | null = null
+    if (sale.status === 'cancelled') {
+      const log = await db.query.auditLog.findFirst({
+        where: (a, { eq, and }) => and(eq(a.entityId, id), eq(a.eventType, 'sale_deleted')),
+        orderBy: (a, { desc }) => [desc(a.createdAt)],
+      })
+      cancelReason = (log?.payload as any)?.reason ?? null
+    }
+
+    return { ...sale, cancelReason }
   })
 
   app.post('/api/admin/sales', { preHandler: requirePermission('sales.create') }, async (request, reply) => {

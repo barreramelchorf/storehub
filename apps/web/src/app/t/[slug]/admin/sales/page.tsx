@@ -195,6 +195,17 @@ export default function SalesPage() {
                 Eliminar venta
               </button>
             )}
+            {selectedSale.status === 'cancelled' && saleDetail?.cancelReason && (
+              <div className="mt-4 p-3 bg-red-50 rounded-lg">
+                <p className="text-xs font-medium text-red-600 mb-1">Motivo de cancelación:</p>
+                <p className="text-sm text-red-700">{saleDetail.cancelReason}</p>
+              </div>
+            )}
+            {selectedSale.status === 'cancelled' && !saleDetail?.cancelReason && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-[var(--color-text)]">Venta cancelada (sin motivo registrado)</p>
+              </div>
+            )}
           </div>
         </div>
       )}
