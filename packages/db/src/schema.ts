@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm'
 
 // Enums
 export const giroEnum = pgEnum('giro_type', ['cafeteria', 'electronics', 'bakery', 'restaurant', 'other'])
-export const saleStatusEnum = pgEnum('sale_status', ['approved', 'pending_approval', 'rejected'])
+export const saleStatusEnum = pgEnum('sale_status', ['approved', 'pending_approval', 'rejected', 'cancelled', 'pending_delete'])
 export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'card', 'transfer', 'other'])
 
 // Tenants

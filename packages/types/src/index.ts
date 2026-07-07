@@ -23,6 +23,7 @@ export interface TenantConfig {
 export type Permission =
   | 'sales.create'
   | 'sales.view'
+  | 'sales.delete'
   | 'sales.override_price'
   | 'sales.backdate'
   | 'inventory.view'
@@ -78,7 +79,7 @@ export interface Product {
 }
 
 // Sales
-export type SaleStatus = 'approved' | 'pending_approval' | 'rejected'
+export type SaleStatus = 'approved' | 'pending_approval' | 'rejected' | 'cancelled' | 'pending_delete'
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'other'
 
 export interface Sale {

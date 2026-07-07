@@ -109,23 +109,108 @@ export async function saleRoutes(app: FastifyInstance) {
       where: (s, { eq, and }) => and(eq(s.id, id), eq(s.tenantId, request.tenant.id)),
     })
     if (!sale) return reply.code(404).send({ error: 'Sale not found' })
-    if (sale.status !== 'pending_approval') return reply.code(400).send({ error: 'Sale is not pending approval' })
+    if (sale.status !== 'pending_approval' && sale.status !== 'pending_delete') return reply.code(400).send({ error: 'Sale is not pending' })
 
-    await db.update(sales).set({ status: status as any }).where(eq(sales.id, id))
+    if (sale.status === 'pending_delete') {
+      // Approving a delete request → cancel the sale and revert stock
+      if (status === 'approved') {
+        await db.update(sales).set({ status: 'cancelled' as any }).where(eq(sales.id, id))
+        const items = await db.query.saleItems.findMany({ where: (si, { eq }) => eq(si.saleId, id) })
+        for (const item of items) {
+          await db.update(products).set({ stock: sql`${products.stock} + ${item.quantity}` }).where(eq(products.id, item.productId))
+        }
+        await db.insert(auditLog).values({
+          tenantId: request.tenant.id, userId: request.user.id,
+          eventType: 'sale_deleted', entityType: 'sale', entityId: id,
+          payload: { action: 'approved_delete', total: sale.total, approvedBy: request.user.id },
+        })
+      } else {
+        // Rejected delete → revert to approved
+        await db.update(sales).set({ status: 'approved' as any }).where(eq(sales.id, id))
+        await db.insert(auditLog).values({
+          tenantId: request.tenant.id, userId: request.user.id,
+          eventType: 'sale_delete_rejected', entityType: 'sale', entityId: id,
+          payload: { action: 'rejected_delete' },
+        })
+      }
+    } else {
+      // Regular approval (backdated sale)
+      await db.update(sales).set({ status: status as any }).where(eq(sales.id, id))
+      if (status === 'approved') {
+        const items = await db.query.saleItems.findMany({ where: (si, { eq }) => eq(si.saleId, id) })
+        for (const item of items) {
+          await db.update(products).set({ stock: sql`${products.stock} - ${item.quantity}` }).where(eq(products.id, item.productId))
+        }
+      }
+      await db.insert(auditLog).values({
+        tenantId: request.tenant.id, userId: request.user.id,
+        eventType: 'sale_backdated', entityType: 'sale', entityId: id,
+        payload: { action: status },
+      })
+    }
 
-    if (status === 'approved') {
+    return { ok: true }
+  })
+
+  // DELETE /api/admin/sales/:id — admin/manager delete directly, cashier must use request-delete
+  app.delete('/api/admin/sales/:id', { preHandler: requirePermission('sales.delete') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { reason } = request.body as { reason?: string } || {}
+
+    const sale = await db.query.sales.findFirst({
+      where: (s, { eq, and }) => and(eq(s.id, id), eq(s.tenantId, request.tenant.id)),
+    })
+    if (!sale) return reply.code(404).send({ error: 'Sale not found' })
+    if (sale.status === 'cancelled') return reply.code(400).send({ error: 'Sale is already cancelled' })
+
+    // Check if user is admin/manager (has users.manage) — direct delete
+    const canDirectDelete = request.user.permissions.includes('users.manage')
+    if (!canDirectDelete) {
+      return reply.code(403).send({ error: 'Use POST /api/admin/sales/:id/request-delete for approval flow' })
+    }
+
+    // Cancel the sale
+    await db.update(sales).set({ status: 'cancelled' as any }).where(eq(sales.id, id))
+
+    // Revert stock if sale was approved
+    if (sale.status === 'approved') {
       const items = await db.query.saleItems.findMany({ where: (si, { eq }) => eq(si.saleId, id) })
       for (const item of items) {
-        await db.update(products).set({ stock: sql`${products.stock} - ${item.quantity}` }).where(eq(products.id, item.productId))
+        await db.update(products).set({ stock: sql`${products.stock} + ${item.quantity}` }).where(eq(products.id, item.productId))
       }
     }
 
+    // Audit log
     await db.insert(auditLog).values({
       tenantId: request.tenant.id, userId: request.user.id,
-      eventType: 'sale_backdated', entityType: 'sale', entityId: id,
-      payload: { action: status },
+      eventType: 'sale_deleted', entityType: 'sale', entityId: id,
+      payload: { reason: reason ?? null, total: sale.total, deletedBy: request.user.id },
     })
 
     return { ok: true }
+  })
+
+  // POST /api/admin/sales/:id/request-delete — cashier requests deletion (goes to approval)
+  app.post('/api/admin/sales/:id/request-delete', { preHandler: requirePermission('sales.delete') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { reason } = request.body as { reason?: string } || {}
+
+    const sale = await db.query.sales.findFirst({
+      where: (s, { eq, and }) => and(eq(s.id, id), eq(s.tenantId, request.tenant.id)),
+    })
+    if (!sale) return reply.code(404).send({ error: 'Sale not found' })
+    if (sale.status !== 'approved') return reply.code(400).send({ error: 'Only approved sales can be requested for deletion' })
+
+    // Mark as pending_delete
+    await db.update(sales).set({ status: 'pending_delete' as any }).where(eq(sales.id, id))
+
+    // Audit log
+    await db.insert(auditLog).values({
+      tenantId: request.tenant.id, userId: request.user.id,
+      eventType: 'sale_delete_requested', entityType: 'sale', entityId: id,
+      payload: { reason: reason ?? null, requestedBy: request.user.id },
+    })
+
+    return { ok: true, message: 'Delete request sent for approval' }
   })
 }

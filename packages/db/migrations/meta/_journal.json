@@ -36,6 +36,13 @@
       "when": 1783314869780,
       "tag": "0004_add_restock_to_admin_manager",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783592429000,
+      "tag": "0005_add_sale_delete_permission",
+      "breakpoints": true
     }
   ]
 }
