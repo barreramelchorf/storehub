@@ -85,7 +85,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
         <span className="text-white font-bold ml-3">{tenantName}</span>
       </div>
       {menuOpen && <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setMenuOpen(false)} />}
-      <aside className={`fixed md:static top-0 left-0 h-full md:min-h-screen w-60 bg-[var(--color-secondary)] text-white p-5 flex flex-col z-50 transition-transform md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed md:sticky md:top-0 top-0 left-0 h-full md:h-screen w-60 bg-[var(--color-secondary)] text-white p-5 flex flex-col z-50 transition-transform md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <h2 className="text-lg font-bold mb-8 tracking-tight">{tenantName}</h2>
         <nav className="flex-1 space-y-1">
           {nav.map(n => (
