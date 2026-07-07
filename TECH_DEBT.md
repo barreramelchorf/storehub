@@ -56,12 +56,10 @@ Pendientes a resolver en siguientes iteraciones.
 - **Solución**: resolver los paths de packages en el bundle, o usar tsc + node directo
 - Objetivo: bajar CPU limit a 100-200m
 
-### CI/CD completo con Pulumi
-- GitHub Action de build ya existe (push a main → `latest`, tag → versión)
-- **Falta**: action que haga `pulumi up` automático al push de tag (CD)
+### CI/CD completo con Pulumi ✅
+- **Implementado**: push main → build SHA tag → auto deploy staging; tag v* → re-tag → auto deploy prod
 - **Falta**: tests corriendo en CI antes de merge
 - **Falta**: linting en CI
-- Esto automatiza el deploy sin intervención manual
 
 ### Vault (HashiCorp) para secretos
 - Instalar Vault en el cluster (stack `support`)
@@ -74,6 +72,13 @@ Pendientes a resolver en siguientes iteraciones.
 - Opciones: migrar DNS a Cloudflare (tiene webhook oficial) o mantener certs individuales por tenant
 - Con Cloudflare: wildcard automático, zero config por tenant
 - Actualmente cada custom domain necesita entrada en Pulumi YAML + DNS manual
+
+### APM / Monitoreo de errores
+- Actualmente no hay monitoreo de errores ni métricas de rendimiento
+- Opciones gratuitas: Sentry (free tier 5K eventos/mes), Grafana Cloud (free tier), Uptime Kuma (self-hosted)
+- Lo mínimo: captura de errores en API y frontend, alertas, trazabilidad
+- Ideal: Sentry en frontend (Next.js SDK) + Sentry en API (Fastify plugin) + Uptime Kuma para health checks
+- Bonus: dashboards de latencia, error rate, uptime
 
 ---
 
