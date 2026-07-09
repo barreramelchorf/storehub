@@ -49,6 +49,21 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
 
   const nav = allNav.filter(n => userPermissions.includes(n.permission))
 
+  // Redirect to first allowed section if user is on a page they can't access
+  const isProfilePage = pathname.endsWith('/profile')
+  const currentNavItem = allNav.find(n => pathname === n.href || (n.href !== base && pathname.startsWith(n.href)))
+  const isOnDashboard = pathname === base || pathname === base + '/'
+
+  useEffect(() => {
+    if (!token || !hydrated || isLoginPage || isChangePasswordPage || isProfilePage) return
+    // If user is on a route they don't have permission for, redirect to first allowed
+    const onUnauthorizedPage = (isOnDashboard && !userPermissions.includes('analytics.view')) ||
+      (currentNavItem && !userPermissions.includes(currentNavItem.permission))
+    if (onUnauthorizedPage && nav.length > 0) {
+      router.push(nav[0].href)
+    }
+  }, [pathname, token, hydrated])
+
   useEffect(() => {
     if (hydrated && !token && !isLoginPage) router.push(`${base}/login`)
   }, [token, isLoginPage, router, hydrated, base])

@@ -34,7 +34,22 @@ export default function LoginPage() {
       if (data.mustChangePassword) {
         router.push(`${base}/change-password`)
       } else {
-        router.push(base)
+        // Redirect to first allowed page based on permissions
+        const perms: string[] = (() => {
+          try {
+            const payload = data.accessToken.split('.')[1]
+            const padded = payload + '='.repeat((4 - payload.length % 4) % 4)
+            return JSON.parse(atob(padded)).permissions ?? []
+          } catch { return [] }
+        })()
+        const routes = [
+          { path: '', perm: 'analytics.view' },
+          { path: '/pos', perm: 'sales.create' },
+          { path: '/sales', perm: 'sales.view' },
+          { path: '/inventory', perm: 'inventory.view' },
+        ]
+        const first = routes.find(r => perms.includes(r.perm))
+        router.push(`${base}${first?.path ?? ''}`)
       }
     } catch (err: any) { setError(err.message) }
     finally { setLoading(false) }
