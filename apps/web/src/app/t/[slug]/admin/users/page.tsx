@@ -68,8 +68,22 @@ export default function UsersPage() {
               <div><label className="label">Nombre de usuario</label><input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') }))} className="input" placeholder="jose_perez" autoComplete="off" pattern="[a-z0-9_\-]+" title="Solo letras minúsculas, números, guiones y guiones bajos" /></div>
               <div><label className="label">Email</label><input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input" required autoComplete="off" /></div>
               <div>
-                <label className="label">{modal.id ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}</label>
-                <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="input" autoComplete="new-password" {...(!modal.id && { required: true, minLength: 8 })} />
+                <div className="flex items-center justify-between">
+                  <label className="label">{modal.id ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}</label>
+                  <button type="button" onClick={() => {
+                    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+                    const symbols = '!@#$%&*'
+                    let pass = ''
+                    for (let i = 0; i < 6; i++) pass += chars[Math.floor(Math.random() * chars.length)]
+                    pass += symbols[Math.floor(Math.random() * symbols.length)]
+                    pass += '23456789'[Math.floor(Math.random() * 8)]
+                    pass = pass.split('').sort(() => Math.random() - 0.5).join('')
+                    setForm(f => ({ ...f, password: pass }))
+                  }} className="text-xs text-[var(--color-primary)] hover:underline">Generar contraseña</button>
+                </div>
+                <div className="relative">
+                  <input type={form.password && form.password.length > 0 ? 'text' : 'password'} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="input" autoComplete="new-password" {...(!modal.id && { required: true, minLength: 8 })} />
+                </div>
                 {form.password && (
                   <div className="mt-2 space-y-1">
                     {passwordRequirements.map(req => (
