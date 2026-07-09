@@ -54,7 +54,13 @@ export async function saleRoutes(app: FastifyInstance) {
     const tenantId = request.tenant.id
     const userId = request.user.id
 
-    const isBackdated = saleDate && new Date(saleDate).toDateString() !== new Date().toDateString()
+    const isBackdated = (() => {
+      if (!saleDate) return false
+      const tz = process.env.BUSINESS_TIMEZONE ?? 'America/Mexico_City'
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
+      const submitted = new Date(saleDate).toISOString().slice(0, 10)
+      return submitted !== today
+    })()
 
     // Admin/manager can backdate directly; others go through approval
     const canAutoApprove = request.user.permissions.includes('sales.backdate')
@@ -86,7 +92,12 @@ export async function saleRoutes(app: FastifyInstance) {
     const [sale] = await db.insert(sales).values({
       tenantId, userId, total: String(total), discount: String(discount), tip: String(tip),
       paymentMethod, notes: notes ?? null, status: status as any,
-      saleDate: saleDate ? new Date(saleDate) : new Date(),
+      saleDate: saleDate ? new Date(saleDate) : (() => {
+        // Default to today's date in business timezone (midnight UTC of the calendar day)
+        const tz = process.env.BUSINESS_TIMEZONE ?? 'America/Mexico_City'
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: tz }) // "2026-07-08"
+        return new Date(today + 'T00:00:00.000Z')
+      })(),
     }).returning()
 
     await db.insert(saleItems).values(saleItemValues.map(i => ({ ...i, saleId: sale.id })))
