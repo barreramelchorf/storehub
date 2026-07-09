@@ -63,6 +63,7 @@ const app = createAppResources({
   nextPublicApiUrl: config.get("nextPublicApiUrl") ?? "",
   platformApiKey: config.requireSecret("platformApiKey"),
   defaultTenantSlug: config.get("defaultTenantSlug") ?? "",
+  resendApiKey: config.getSecret("resendApiKey"),
   ingressHost: config.get("ingressHost"),
   customDomains: config.getObject<{ host: string; tenantSlug: string }[]>("customDomains") ?? [],
   containers: config.requireObject("containers") as any,

@@ -49,3 +49,5 @@ config:
     minReplicas: 1
     maxReplicas: 2
     cpuTarget: 80
+  storehub:resendApiKey:
+    secure: AAABALnOWwnK8l6lNvrMtb8hXZnPeBlgmtosLuMTtWg+6MgoX1+hSECeSJv8Nqh3VdOwnbOKDURpJsJ3QOk6rzyPLYU=

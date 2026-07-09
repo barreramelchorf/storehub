@@ -49,3 +49,5 @@ config:
     maxReplicas: 6
     cpuTarget: 70
   storehub:customDomains: '[{"host":"xalli.top","tenantSlug":"xalli"}]'
+  storehub:resendApiKey:
+    secure: AAABAOzGEYMJw2D0Y+690VZYSEa7KTtHUUvQix7PkVWjgpOZKZRm7kyKCoSI/KgIHApOiDt6jH7TBuerX7WWHGzLz/c=

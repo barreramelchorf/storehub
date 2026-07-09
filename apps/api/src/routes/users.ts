@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs'
 import { passwordSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
+import { sendWelcomeEmail } from '../lib/email.js'
 
 export async function userRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
@@ -29,6 +30,25 @@ export async function userRoutes(app: FastifyInstance) {
 
     const passwordHash = await bcrypt.hash(password, 10)
     const [user] = await db.insert(users).values({ tenantId: request.tenant.id, email, username: username || null, passwordHash, roleId, mustChangePassword: true }).returning()
+
+    // Send welcome email (non-blocking)
+    const tenantName = request.tenant.name
+    const host = request.headers['x-forwarded-host'] ?? request.headers.host ?? ''
+    const protocol = 'https'
+    const isCustomDomain = !String(host).includes('/t/')
+    const loginUrl = isCustomDomain && request.tenant.customDomain
+      ? `${protocol}://${request.tenant.customDomain}/admin/login`
+      : `${protocol}://${host}/t/${request.tenant.slug}/admin/login`
+
+    sendWelcomeEmail({
+      to: email,
+      username: username || email,
+      password,
+      tenantName,
+      loginUrl,
+      createdBy: request.user.email,
+    }).catch(() => {}) // fire and forget
+
     return reply.code(201).send({ id: user.id, email: user.email, username: user.username, roleId: user.roleId, active: user.active })
   })
 

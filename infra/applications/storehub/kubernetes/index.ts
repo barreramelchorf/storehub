@@ -23,6 +23,7 @@ export interface AppResourcesArgs {
   containers: { api: { resources: any }; web: { resources: any }; migrate: { resources: any } };
   hpa: { minReplicas: number; maxReplicas: number; cpuTarget: number };
   defaultTenantSlug?: string;
+  resendApiKey?: pulumi.Input<string>;
   ingressHost?: string;
   customDomains?: { host: string; tenantSlug: string }[];
 }
@@ -46,6 +47,7 @@ export function createAppResources(args: AppResourcesArgs) {
       JWT_SECRET: args.jwtSecret,
       MINIO_ACCESS_KEY: args.minioAccessKey,
       MINIO_SECRET_KEY: args.minioSecretKey,
+      ...(args.resendApiKey && { RESEND_API_KEY: args.resendApiKey }),
     },
   });
 
