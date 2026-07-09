@@ -24,18 +24,30 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   const base = isCustomDomain ? '/admin' : `/t/${slug}/admin`
   const isLoginPage = pathname.endsWith('/admin/login')
 
-  const nav = [
-    { href: base, label: 'Dashboard', icon: '📊' },
-    { href: `${base}/pos`, label: 'Punto de Venta', icon: '🛒' },
-    { href: `${base}/sales`, label: 'Ventas', icon: '💰' },
-    { href: `${base}/inventory`, label: 'Inventario', icon: '📦' },
-    { href: `${base}/analytics`, label: 'Analytics', icon: '📈' },
-    { href: `${base}/approvals`, label: 'Aprobaciones', icon: '✅' },
-    { href: `${base}/documents`, label: 'Documentos', icon: '📄' },
-    { href: `${base}/users`, label: 'Usuarios', icon: '👤' },
-    { href: `${base}/audit`, label: 'Auditoría', icon: '🔍' },
-    { href: `${base}/settings`, label: 'Configuración', icon: '⚙️' },
+  // Extract permissions from token
+  const userPermissions: string[] = (() => {
+    if (!token) return []
+    try {
+      const payload = token.split('.')[1]
+      const padded = payload + '='.repeat((4 - payload.length % 4) % 4)
+      return JSON.parse(atob(padded)).permissions ?? []
+    } catch { return [] }
+  })()
+
+  const allNav = [
+    { href: base, label: 'Dashboard', icon: '📊', permission: 'analytics.view' },
+    { href: `${base}/pos`, label: 'Punto de Venta', icon: '🛒', permission: 'sales.create' },
+    { href: `${base}/sales`, label: 'Ventas', icon: '💰', permission: 'sales.view' },
+    { href: `${base}/inventory`, label: 'Inventario', icon: '📦', permission: 'inventory.view' },
+    { href: `${base}/analytics`, label: 'Analytics', icon: '📈', permission: 'analytics.view' },
+    { href: `${base}/approvals`, label: 'Aprobaciones', icon: '✅', permission: 'users.manage' },
+    { href: `${base}/documents`, label: 'Documentos', icon: '📄', permission: 'documents.manage' },
+    { href: `${base}/users`, label: 'Usuarios', icon: '👤', permission: 'users.manage' },
+    { href: `${base}/audit`, label: 'Auditoría', icon: '🔍', permission: 'audit.view' },
+    { href: `${base}/settings`, label: 'Configuración', icon: '⚙️', permission: 'settings.manage' },
   ]
+
+  const nav = allNav.filter(n => userPermissions.includes(n.permission))
 
   useEffect(() => {
     if (hydrated && !token && !isLoginPage) router.push(`${base}/login`)
