@@ -51,7 +51,7 @@ export default function UsersPage() {
                 <td className="p-3 text-center">
                   <div className="flex justify-center gap-1">
                     <button onClick={() => openEdit(u)} className="btn-secondary text-xs px-2 py-1">Editar</button>
-                    <button onClick={() => { if(confirm('¿Eliminar usuario?')) deleteMutation.mutate(u.id) }} className="btn-danger">Eliminar</button>
+                    <button onClick={() => { if(confirm('¿Desactivar usuario? No podrá iniciar sesión.')) deleteMutation.mutate(u.id) }} className="btn-danger">{u.active ? 'Desactivar' : 'Inactivo'}</button>
                   </div>
                 </td>
               </tr>
