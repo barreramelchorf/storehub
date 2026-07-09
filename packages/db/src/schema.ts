@@ -35,6 +35,7 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   roleId: uuid('role_id').notNull().references(() => roles.id),
   active: boolean('active').notNull().default(true),
+  mustChangePassword: boolean('must_change_password').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => [
   unique('users_tenant_email_unique').on(t.tenantId, t.email),

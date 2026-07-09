@@ -6,6 +6,7 @@ export interface JwtPayload {
   userId: string
   tenantId: string
   permissions: string[]
+  mustChangePassword?: boolean
 }
 
 export async function signTokens(payload: JwtPayload) {
