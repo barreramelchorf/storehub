@@ -135,10 +135,14 @@ export default function POSPage() {
   const itemCount = cart.reduce((s, i) => s + i.quantity, 0)
 
   const handleCheckout = () => {
+    const tz = process.env.NEXT_PUBLIC_TIMEZONE ?? 'America/Mexico_City'
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
+    const isToday = saleDate === today || !saleDate
+
     saleMutation.mutate({
       items: cart.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.price })),
       paymentMethod, discount, tip,
-      ...(saleDate && { saleDate: new Date(saleDate).toISOString() }),
+      ...(!isToday && { saleDate: new Date(saleDate).toISOString() }),
     })
   }
 
