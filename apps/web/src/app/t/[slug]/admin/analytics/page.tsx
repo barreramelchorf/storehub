@@ -24,6 +24,25 @@ export default function AnalyticsPage() {
   const range = getRange()
   const { data } = useQuery({ queryKey: ['analytics', period], queryFn: () => api(`/api/admin/analytics?from=${range.from}&to=${range.to}`, { token }), enabled: period !== 'year' })
 
+  // Fill all days in the range (so days without sales show as empty bars)
+  const filledSalesByDay = (() => {
+    if (!data?.salesByDay || period === 'day') return data?.salesByDay ?? []
+    const from = new Date(range.from)
+    const to = new Date(range.to)
+    const salesMap: Record<string, any> = {}
+    for (const d of data.salesByDay) salesMap[d.date] = d
+    const days: any[] = []
+    const current = new Date(from)
+    while (current <= to) {
+      const dateStr = current.toISOString().slice(0, 10)
+      days.push(salesMap[dateStr] ?? { date: dateStr, total: 0, count: 0 })
+      current.setDate(current.getDate() + 1)
+    }
+    return days
+  })()
+
+  const maxDaySale = Math.max(...(filledSalesByDay.map((d: any) => Number(d.total)) ?? [1]), 1)
+
   // Yearly data
   const { data: yearData } = useQuery({
     queryKey: ['analytics-yearly'],
@@ -34,8 +53,6 @@ export default function AnalyticsPage() {
   const prevChange = data?.previousPeriod?.totalSales > 0
     ? (((Number(data.summary?.totalSales ?? 0) - Number(data.previousPeriod.totalSales)) / Number(data.previousPeriod.totalSales)) * 100).toFixed(1)
     : null
-
-  const maxDaySale = Math.max(...(data?.salesByDay?.map((d: any) => Number(d.total)) ?? [1]))
 
   return (
     <div>
@@ -77,7 +94,7 @@ export default function AnalyticsPage() {
 
           {/* Sales by day chart */}
           {data.salesByDay?.length > 0 && (
-            <SalesByDayChart salesByDay={data.salesByDay} maxDaySale={maxDaySale} />
+            <SalesByDayChart salesByDay={filledSalesByDay} maxDaySale={maxDaySale} />
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
