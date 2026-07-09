@@ -11,6 +11,7 @@ export default function UsersPage() {
   const queryClient = useQueryClient()
   const [modal, setModal] = useState<{ id: string | null } | null>(null)
   const [form, setForm] = useState({ email: '', username: '', password: '', roleId: '', mustChangePassword: true })
+  const [showPassword, setShowPassword] = useState(false)
 
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: () => api('/api/admin/users', { token }) })
   const { data: roles } = useQuery({ queryKey: ['roles'], queryFn: () => api('/api/admin/roles', { token }) })
@@ -28,8 +29,8 @@ export default function UsersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   })
 
-  const openNew = () => { setForm({ email: '', username: '', password: '', roleId: '', mustChangePassword: true }); setModal({ id: null }) }
-  const openEdit = (u: any) => { setForm({ email: u.email, username: u.username ?? '', password: '', roleId: u.roleId, mustChangePassword: false }); setModal({ id: u.id }) }
+  const openNew = () => { setForm({ email: '', username: '', password: '', roleId: '', mustChangePassword: true }); setShowPassword(false); setModal({ id: null }) }
+  const openEdit = (u: any) => { setForm({ email: u.email, username: u.username ?? '', password: '', roleId: u.roleId, mustChangePassword: false }); setShowPassword(false); setModal({ id: u.id }) }
 
   return (
     <div>
@@ -79,10 +80,14 @@ export default function UsersPage() {
                     pass += '23456789'[Math.floor(Math.random() * 8)]
                     pass = pass.split('').sort(() => Math.random() - 0.5).join('')
                     setForm(f => ({ ...f, password: pass }))
+                    setShowPassword(true)
                   }} className="text-xs text-[var(--color-primary)] hover:underline">Generar contraseña</button>
                 </div>
                 <div className="relative">
-                  <input type={form.password && form.password.length > 0 ? 'text' : 'password'} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="input" autoComplete="new-password" {...(!modal.id && { required: true, minLength: 8 })} />
+                  <input type={showPassword ? 'text' : 'password'} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="input pr-10" autoComplete="new-password" {...(!modal.id && { required: true, minLength: 8 })} />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text)] hover:text-[var(--color-text-dark)]">
+                    {showPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
                 </div>
                 {form.password && (
                   <div className="mt-2 space-y-1">
