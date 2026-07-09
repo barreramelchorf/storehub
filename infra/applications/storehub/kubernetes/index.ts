@@ -104,7 +104,6 @@ export function createAppResources(args: AppResourcesArgs) {
   const apiDeployment = new k8s.apps.v1.Deployment("api", {
     metadata: { namespace: args.namespace },
     spec: {
-      replicas: args.apiReplicas,
       selector: { matchLabels: apiLabels },
       template: {
         metadata: { labels: apiLabels },
@@ -140,7 +139,6 @@ export function createAppResources(args: AppResourcesArgs) {
   const webDeployment = new k8s.apps.v1.Deployment("web", {
     metadata: { namespace: args.namespace },
     spec: {
-      replicas: args.webReplicas,
       selector: { matchLabels: webLabels },
       template: {
         metadata: { labels: webLabels },
