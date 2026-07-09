@@ -3,12 +3,12 @@ import { db, sales, saleItems, products, auditLog } from '@storehub/db'
 import { eq, sql } from 'drizzle-orm'
 import { saleSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
-import { requirePermission } from '../middleware/permissions.js'
+import { requirePermission, requireAnyPermission } from '../middleware/permissions.js'
 
 export async function saleRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
-  app.get('/api/admin/sales', { preHandler: requirePermission('sales.view') }, async (request) => {
+  app.get('/api/admin/sales', { preHandler: requireAnyPermission('sales.view', 'sales.delete') }, async (request) => {
     const { page = '1', pageSize = '20', status: statusFilter } = request.query as Record<string, string>
     const limit = Math.min(Number(pageSize), 100)
     const offset = (Number(page) - 1) * limit
@@ -25,7 +25,7 @@ export async function saleRoutes(app: FastifyInstance) {
     return { items, page: Number(page), pageSize: limit }
   })
 
-  app.get('/api/admin/sales/:id', { preHandler: requirePermission('sales.view') }, async (request, reply) => {
+  app.get('/api/admin/sales/:id', { preHandler: requireAnyPermission('sales.view', 'sales.delete') }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const sale = await db.query.sales.findFirst({
       where: (s, { eq, and }) => and(eq(s.id, id), eq(s.tenantId, request.tenant.id)),

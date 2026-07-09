@@ -37,7 +37,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   const allNav = [
     { href: base, label: 'Dashboard', icon: '📊', permission: 'analytics.view' },
     { href: `${base}/pos`, label: 'Punto de Venta', icon: '🛒', permission: 'sales.create' },
-    { href: `${base}/sales`, label: 'Ventas', icon: '💰', permission: 'sales.view' },
+    { href: `${base}/sales`, label: 'Ventas', icon: '💰', permission: 'sales.delete' },
     { href: `${base}/inventory`, label: 'Inventario', icon: '📦', permission: 'inventory.view' },
     { href: `${base}/analytics`, label: 'Analytics', icon: '📈', permission: 'analytics.view' },
     { href: `${base}/approvals`, label: 'Aprobaciones', icon: '✅', permission: 'users.manage' },

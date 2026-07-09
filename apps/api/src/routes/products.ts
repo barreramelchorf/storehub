@@ -3,12 +3,12 @@ import { db, products } from '@storehub/db'
 import { eq, and, asc, sql } from 'drizzle-orm'
 import { productSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
-import { requirePermission } from '../middleware/permissions.js'
+import { requirePermission, requireAnyPermission } from '../middleware/permissions.js'
 
 export async function productRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
-  app.get('/api/admin/products', { preHandler: requirePermission('inventory.view') }, async (request) => {
+  app.get('/api/admin/products', { preHandler: requireAnyPermission('inventory.view', 'sales.create') }, async (request) => {
     const { page = '1', pageSize = '20', category, search } = request.query as Record<string, string>
     const limit = Math.min(Number(pageSize), 500)
     const offset = (Number(page) - 1) * limit

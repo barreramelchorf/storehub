@@ -7,3 +7,11 @@ export function requirePermission(permission: string) {
     }
   }
 }
+
+export function requireAnyPermission(...permissions: string[]) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!permissions.some(p => request.user?.permissions.includes(p))) {
+      return reply.code(403).send({ error: 'Forbidden' })
+    }
+  }
+}

@@ -51,7 +51,7 @@ export default function POSPage() {
   // Load tenant config for multicomanda flag
   const { data: tenantConfig } = useQuery({
     queryKey: ['tenant-config'],
-    queryFn: () => api('/api/admin/settings', { token }),
+    queryFn: () => api('/api/public/info', { token }),
     enabled: !!token,
   })
   const multicomandaEnabled = tenantConfig?.config?.modules?.multicomanda ?? false
