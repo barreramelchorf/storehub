@@ -27,12 +27,12 @@ export async function platformRoutes(app: FastifyInstance) {
     }).returning()
 
     const [adminRole] = await db.insert(roles).values({
-      tenantId: tenant.id, name: 'admin', isDefault: true,
+      tenantId: tenant.id, name: 'administrador', isDefault: true,
       permissions: ['sales.create','sales.view','sales.delete','sales.override_price','sales.backdate','inventory.view','inventory.manage','inventory.restock','analytics.view','audit.view','settings.manage','users.manage','documents.manage'],
     }).returning()
 
-    await db.insert(roles).values({ tenantId: tenant.id, name: 'manager', isDefault: true, permissions: ['sales.create','sales.view','sales.delete','sales.override_price','sales.backdate','inventory.view','inventory.manage','inventory.restock','analytics.view','audit.view','documents.manage'] })
-    await db.insert(roles).values({ tenantId: tenant.id, name: 'cashier', isDefault: true, permissions: ['sales.create','sales.delete'] })
+    await db.insert(roles).values({ tenantId: tenant.id, name: 'gerente', isDefault: true, permissions: ['sales.create','sales.view','sales.delete','sales.override_price','sales.backdate','inventory.view','inventory.manage','inventory.restock','analytics.view','audit.view','documents.manage'] })
+    await db.insert(roles).values({ tenantId: tenant.id, name: 'cajero', isDefault: true, permissions: ['sales.create','sales.delete'] })
     await db.insert(roles).values({ tenantId: tenant.id, name: 'almacenista', isDefault: true, permissions: ['inventory.view', 'inventory.restock'] })
     await db.insert(roles).values({ tenantId: tenant.id, name: 'cajero_almacenista', isDefault: true, permissions: ['sales.create', 'inventory.view', 'inventory.restock'] })
 

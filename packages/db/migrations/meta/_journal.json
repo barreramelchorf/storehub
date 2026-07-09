@@ -50,6 +50,13 @@
       "when": 1783850740000,
       "tag": "0006_add_must_change_password",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783850880000,
+      "tag": "0007_rename_roles_spanish",
+      "breakpoints": true
     }
   ]
 }
