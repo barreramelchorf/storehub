@@ -342,14 +342,15 @@ function SalesByDayChart({ salesByDay, maxDaySale }: { salesByDay: any[]; maxDay
       <div className="flex items-end gap-1 h-32">
         {salesByDay.map((d: any) => {
           const isSelected = selected === d.date
+          const barHeight = Number(d.total) > 0 ? Math.max((Number(d.total) / maxDaySale) * 100, 4) : 2
           return (
-            <div key={d.date} className="flex-1 flex flex-col items-center gap-1 cursor-pointer"
+            <div key={d.date} className="flex-1 flex flex-col items-center justify-end cursor-pointer" style={{ height: '100%' }}
               onClick={() => setSelected(isSelected ? null : d.date)}>
               {isSelected && (
                 <span className="text-[9px] font-medium text-[var(--color-primary)]">${Number(d.total) >= 1000 ? `${(Number(d.total)/1000).toFixed(1)}k` : Number(d.total).toFixed(0)}</span>
               )}
               <div className={`w-full rounded-t transition-all ${isSelected ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-primary)] opacity-60'}`}
-                style={{ height: `${(Number(d.total) / maxDaySale) * 100}%`, minHeight: '4px' }}
+                style={{ height: `${barHeight}%`, minHeight: '4px' }}
                 title={`$${Number(d.total).toFixed(0)} - ${d.count} ventas`} />
               <span className={`text-[9px] ${isSelected ? 'font-bold text-[var(--color-primary)]' : 'text-[var(--color-text)]'}`}>{d.date.split('-')[2]}</span>
             </div>

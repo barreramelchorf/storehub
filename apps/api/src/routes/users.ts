@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs'
 import { passwordSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
-import { sendWelcomeEmail } from '../lib/email.js'
+import { sendWelcomeEmail, sendPasswordChangedEmail } from '../lib/email.js'
 
 export async function userRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
@@ -68,6 +68,26 @@ export async function userRoutes(app: FastifyInstance) {
 
     const [updated] = await db.update(users).set(updates).where(and(eq(users.id, id), eq(users.tenantId, request.tenant.id))).returning()
     if (!updated) return reply.code(404).send({ error: 'User not found' })
+
+    // Notify user if their password was changed
+    if (password) {
+      const host = request.headers['x-forwarded-host'] ?? request.headers.host ?? ''
+      const protocol = 'https'
+      const loginUrl = request.tenant.customDomain
+        ? `${protocol}://${request.tenant.customDomain}/admin/login`
+        : `${protocol}://${host}/t/${request.tenant.slug}/admin/login`
+
+      sendPasswordChangedEmail({
+        to: updated.email,
+        username: updated.username || updated.email,
+        password,
+        tenantName: request.tenant.name,
+        loginUrl,
+        changedBy: request.user.email,
+        mustChangePassword: mustChangePassword ?? false,
+      }).catch(() => {})
+    }
+
     return { id: updated.id, email: updated.email, username: updated.username, roleId: updated.roleId, active: updated.active }
   })
 
