@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { db, users, roles } from '@storehub/db'
 import { eq, and } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
+import { passwordSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
 
@@ -23,6 +24,9 @@ export async function userRoutes(app: FastifyInstance) {
     const { email, username, password, roleId } = request.body as any
     if (!email || !password || !roleId) return reply.code(400).send({ error: 'email, password, roleId required' })
 
+    const passwordResult = passwordSchema.safeParse(password)
+    if (!passwordResult.success) return reply.code(400).send({ error: passwordResult.error.errors[0].message })
+
     const passwordHash = await bcrypt.hash(password, 10)
     const [user] = await db.insert(users).values({ tenantId: request.tenant.id, email, username: username || null, passwordHash, roleId }).returning()
     return reply.code(201).send({ id: user.id, email: user.email, username: user.username, roleId: user.roleId, active: user.active })
@@ -35,7 +39,11 @@ export async function userRoutes(app: FastifyInstance) {
     if (email) updates.email = email
     if (username !== undefined) updates.username = username || null
     if (roleId) updates.roleId = roleId
-    if (password) updates.passwordHash = await bcrypt.hash(password, 10)
+    if (password) {
+      const passwordResult = passwordSchema.safeParse(password)
+      if (!passwordResult.success) return reply.code(400).send({ error: passwordResult.error.errors[0].message })
+      updates.passwordHash = await bcrypt.hash(password, 10)
+    }
 
     const [updated] = await db.update(users).set(updates).where(and(eq(users.id, id), eq(users.tenantId, request.tenant.id))).returning()
     if (!updated) return reply.code(404).send({ error: 'User not found' })

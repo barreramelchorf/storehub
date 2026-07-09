@@ -1,9 +1,22 @@
 import { z } from 'zod'
 
 // Auth
+export const passwordSchema = z.string()
+  .min(8, 'Mínimo 8 caracteres')
+  .regex(/[A-Z]/, 'Debe incluir al menos una mayúscula')
+  .regex(/[a-z]/, 'Debe incluir al menos una minúscula')
+  .regex(/[0-9]/, 'Debe incluir al menos un número')
+
+export const passwordRequirements = [
+  { key: 'min', label: 'Mínimo 8 caracteres', test: (p: string) => p.length >= 8 },
+  { key: 'upper', label: 'Al menos una mayúscula', test: (p: string) => /[A-Z]/.test(p) },
+  { key: 'lower', label: 'Al menos una minúscula', test: (p: string) => /[a-z]/.test(p) },
+  { key: 'number', label: 'Al menos un número', test: (p: string) => /[0-9]/.test(p) },
+]
+
 export const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(1),
 })
 
 // Tenant
@@ -87,7 +100,8 @@ export const documentSchema = z.object({
 // User
 export const createUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  username: z.string().regex(/^[a-z0-9_-]*$/).optional(),
+  password: passwordSchema,
   roleId: z.string().uuid(),
 })
 

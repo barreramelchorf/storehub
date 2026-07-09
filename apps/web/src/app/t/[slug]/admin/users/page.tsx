@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
+import { passwordRequirements } from '@storehub/schemas'
 
 export default function UsersPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
@@ -66,7 +67,19 @@ export default function UsersPage() {
             <form onSubmit={e => { e.preventDefault(); const body: any = { email: form.email, username: form.username, roleId: form.roleId }; if (form.password) body.password = form.password; saveMutation.mutate(body) }} className="space-y-3">
               <div><label className="label">Nombre de usuario</label><input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') }))} className="input" placeholder="jose_perez" autoComplete="off" pattern="[a-z0-9_\-]+" title="Solo letras minúsculas, números, guiones y guiones bajos" /></div>
               <div><label className="label">Email</label><input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input" required autoComplete="off" /></div>
-              <div><label className="label">{modal.id ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}</label><input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="input" autoComplete="new-password" {...(!modal.id && { required: true, minLength: 8 })} /></div>
+              <div>
+                <label className="label">{modal.id ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}</label>
+                <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="input" autoComplete="new-password" {...(!modal.id && { required: true, minLength: 8 })} />
+                {form.password && (
+                  <div className="mt-2 space-y-1">
+                    {passwordRequirements.map(req => (
+                      <p key={req.key} className={`text-xs flex items-center gap-1 ${req.test(form.password) ? 'text-green-600' : 'text-[var(--color-text)]'}`}>
+                        <span>{req.test(form.password) ? '✓' : '○'}</span> {req.label}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div><label className="label">Rol</label>
                 <select value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))} className="input" required>
                   <option value="">Seleccionar...</option>
