@@ -56,10 +56,12 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
 
   useEffect(() => {
     if (!token || !hydrated || isLoginPage || isChangePasswordPage || isProfilePage) return
-    // If user is on a route they don't have permission for, redirect to first allowed
+    if (userPermissions.length === 0) return // Token not parsed yet
+    if (nav.length === 0) return // Safety: don't redirect if no nav items computed yet
+
     const onUnauthorizedPage = (isOnDashboard && !userPermissions.includes('analytics.view')) ||
       (currentNavItem && !userPermissions.includes(currentNavItem.permission))
-    if (onUnauthorizedPage && nav.length > 0) {
+    if (onUnauthorizedPage) {
       router.push(nav[0].href)
     }
   }, [pathname, token, hydrated])
@@ -83,11 +85,12 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
 
-  // Load tenant config for branding
-  const { data: tenantConfig } = useQuery({
+  // Load tenant config for branding (uses public endpoint, no permissions needed)
+  const { data: tenantConfig, isError: tenantConfigError } = useQuery({
     queryKey: ['tenant-config'],
-    queryFn: () => api('/api/admin/settings', { token: token! }),
+    queryFn: () => api('/api/public/info', { token: token! }),
     enabled: !!token,
+  })
   })
 
   const primaryColor = tenantConfig?.config?.branding?.primaryColor || '#635BFF'
@@ -119,7 +122,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   if (isChangePasswordPage) return <>{children}</>
 
   const cssVars = { '--color-primary': primaryColor, '--color-secondary': secondaryColor, '--color-text-dark': secondaryColor } as React.CSSProperties
-  const ready = !!tenantConfig
+  const ready = !!tenantConfig || tenantConfigError
 
   return (
     <div className={`min-h-screen flex bg-[var(--color-surface)] transition-opacity duration-150 ${ready ? 'opacity-100' : 'opacity-0'}`} style={cssVars}>
