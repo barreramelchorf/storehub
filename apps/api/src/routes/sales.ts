@@ -55,9 +55,10 @@ export async function saleRoutes(app: FastifyInstance) {
     const userId = request.user.id
 
     const isBackdated = saleDate && new Date(saleDate).toDateString() !== new Date().toDateString()
-    if (isBackdated && !request.user.permissions.includes('sales.backdate')) {
-      return reply.code(403).send({ error: 'Permission sales.backdate required' })
-    }
+
+    // Admin/manager can backdate directly; others go through approval
+    const canAutoApprove = request.user.permissions.includes('sales.backdate')
+    const status = isBackdated && !canAutoApprove ? 'pending_approval' : 'approved'
 
     let total = 0
     const saleItemValues = []
@@ -81,9 +82,6 @@ export async function saleRoutes(app: FastifyInstance) {
     }
 
     total = total - discount + tip
-    // Admin/manager can backdate without approval, cashiers need approval
-    const canAutoApprove = request.user.permissions.includes('users.manage')
-    const status = isBackdated && !canAutoApprove ? 'pending_approval' : 'approved'
 
     const [sale] = await db.insert(sales).values({
       tenantId, userId, total: String(total), discount: String(discount), tip: String(tip),

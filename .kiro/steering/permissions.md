@@ -89,6 +89,8 @@
 
 - El POS **no envía `saleDate`** si la fecha es hoy → así no se activa el check de `sales.backdate`
 - Solo si el usuario cambia la fecha explícitamente a un día diferente se requiere `sales.backdate`
+- Si el usuario NO tiene `sales.backdate` pero cambia la fecha → la venta se crea como `pending_approval` y va a aprobaciones
+- Si el usuario SÍ tiene `sales.backdate` → la venta se aprueba directamente
 - La eliminación de ventas por cajeros **siempre** pasa por aprobación (admin/manager debe aprobar)
 - Admin/manager eliminan directamente sin aprobación
 - `/api/public/info` se usa para cargar branding/colores en el layout (no requiere permisos)
