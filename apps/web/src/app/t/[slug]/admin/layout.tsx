@@ -91,7 +91,6 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
     queryFn: () => api('/api/public/info', { token: token! }),
     enabled: !!token,
   })
-  })
 
   const primaryColor = tenantConfig?.config?.branding?.primaryColor || '#635BFF'
   const secondaryColor = tenantConfig?.config?.branding?.secondaryColor || '#0A2540'
