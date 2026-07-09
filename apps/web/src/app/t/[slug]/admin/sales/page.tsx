@@ -171,11 +171,11 @@ export default function SalesPage() {
                 {saleDetail.items.map((item: any) => (
                   <div key={item.id} className="flex justify-between text-sm py-2 border-b border-[var(--color-border)] last:border-0">
                     <div>
-                      <p className="text-[var(--color-text-dark)]">x{item.quantity}</p>
+                      <p className="text-[var(--color-text-dark)] font-medium">{item.product?.name ?? 'Producto'}</p>
+                      <p className="text-xs text-[var(--color-text)]">x{item.quantity} · ${Number(item.unitPrice).toFixed(2)} c/u</p>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">${Number(item.subtotal).toFixed(2)}</p>
-                      <p className="text-xs text-[var(--color-text)]">${Number(item.unitPrice).toFixed(2)} c/u</p>
                     </div>
                   </div>
                 ))}

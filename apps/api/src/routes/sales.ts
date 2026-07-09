@@ -29,7 +29,7 @@ export async function saleRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string }
     const sale = await db.query.sales.findFirst({
       where: (s, { eq, and }) => and(eq(s.id, id), eq(s.tenantId, request.tenant.id)),
-      with: { items: true },
+      with: { items: { with: { product: { columns: { id: true, name: true } } } } },
     })
     if (!sale) return reply.code(404).send({ error: 'Not found' })
 
