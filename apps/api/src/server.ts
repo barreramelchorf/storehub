@@ -15,6 +15,7 @@ import { analyticsRoutes } from './routes/analytics.js'
 import { documentRoutes } from './routes/documents.js'
 import { uploadRoutes } from './routes/upload.js'
 import { userRoutes } from './routes/users.js'
+import { profileRoutes } from './routes/profile.js'
 import { auditRoutes } from './routes/audit.js'
 import { settingsRoutes } from './routes/settings.js'
 import { platformRoutes } from "./routes/platform.js"
@@ -59,6 +60,7 @@ await app.register(async (tenantApp) => {
   await tenantApp.register(documentRoutes)
   await tenantApp.register(uploadRoutes)
   await tenantApp.register(userRoutes)
+  await tenantApp.register(profileRoutes)
   await tenantApp.register(auditRoutes)
   await tenantApp.register(settingsRoutes)
 })

@@ -34,11 +34,12 @@ export async function userRoutes(app: FastifyInstance) {
 
   app.put('/api/admin/users/:id', { preHandler: requirePermission('users.manage') }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { email, username, password, roleId } = request.body as any
+    const { email, username, password, roleId, mustChangePassword } = request.body as any
     const updates: any = {}
     if (email) updates.email = email
     if (username !== undefined) updates.username = username || null
     if (roleId) updates.roleId = roleId
+    if (mustChangePassword !== undefined) updates.mustChangePassword = mustChangePassword
     if (password) {
       const passwordResult = passwordSchema.safeParse(password)
       if (!passwordResult.success) return reply.code(400).send({ error: passwordResult.error.errors[0].message })

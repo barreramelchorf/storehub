@@ -111,7 +111,10 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
             </Link>
           ))}
         </nav>
-        <button onClick={() => { setToken(null); router.push(`${base}/login`) }} className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 transition-colors mt-4">
+        <Link href={`${base}/profile`} className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 transition-colors mt-4">
+          👤 Mi perfil
+        </Link>
+        <button onClick={() => { setToken(null); router.push(`${base}/login`) }} className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 transition-colors">
           🚪 Cerrar sesión
         </button>
       </aside>
