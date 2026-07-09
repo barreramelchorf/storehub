@@ -57,6 +57,13 @@
       "when": 1783850880000,
       "tag": "0007_rename_roles_spanish",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783851005000,
+      "tag": "0008_fix_cajero_almacenista_perms",
+      "breakpoints": true
     }
   ]
 }

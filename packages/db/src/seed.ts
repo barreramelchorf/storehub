@@ -68,7 +68,7 @@ async function seed() {
   await db.insert(roles).values({
     tenantId: tenant.id,
     name: 'cajero_almacenista',
-    permissions: ['sales.create', 'inventory.view', 'inventory.restock'],
+    permissions: ['sales.create', 'sales.delete', 'inventory.view', 'inventory.restock'],
     isDefault: true,
   })
 

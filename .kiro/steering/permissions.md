@@ -8,7 +8,7 @@
 | **gerente** | `sales.create`, `sales.view`, `sales.delete`, `sales.override_price`, `sales.backdate`, `inventory.view`, `inventory.manage`, `inventory.restock`, `analytics.view`, `audit.view`, `documents.manage` |
 | **cajero** | `sales.create`, `sales.delete` |
 | **almacenista** | `inventory.view`, `inventory.restock` |
-| **cajero_almacenista** | `sales.create`, `inventory.view`, `inventory.restock` |
+| **cajero_almacenista** | `sales.create`, `sales.delete`, `inventory.view`, `inventory.restock` |
 
 ## Qué puede hacer cada rol
 
@@ -25,9 +25,10 @@
 
 ### Cajero + Almacenista
 - POS: ver productos, crear ventas
+- Ventas: ver historial de ventas, solicitar eliminación (va a aprobaciones)
 - Inventario: ver productos, reabastecer stock
 - Perfil: ver su info, cambiar su contraseña
-- **NO puede**: backdatear ventas, eliminar ventas, ver analytics, gestionar usuarios
+- **NO puede**: backdatear ventas, ver analytics, gestionar usuarios
 
 ### Gerente
 - Todo lo del cajero + almacenista
