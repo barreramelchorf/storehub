@@ -75,6 +75,22 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   if (isLoginPage) return <>{children}</>
   if (!hydrated || !token) return null
 
+  // Check if user must change password
+  const isChangePasswordPage = pathname.endsWith('/change-password')
+  const mustChangePassword = (() => {
+    try {
+      const payload = token.split('.')[1]
+      const padded = payload + '='.repeat((4 - payload.length % 4) % 4)
+      return JSON.parse(atob(padded)).mustChangePassword ?? false
+    } catch { return false }
+  })()
+
+  if (mustChangePassword && !isChangePasswordPage) {
+    router.push(`${base}/change-password`)
+    return null
+  }
+  if (isChangePasswordPage) return <>{children}</>
+
   const cssVars = { '--color-primary': primaryColor, '--color-secondary': secondaryColor, '--color-text-dark': secondaryColor } as React.CSSProperties
   const ready = !!tenantConfig
 

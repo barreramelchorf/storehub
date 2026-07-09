@@ -6,12 +6,14 @@ export const passwordSchema = z.string()
   .regex(/[A-Z]/, 'Debe incluir al menos una mayúscula')
   .regex(/[a-z]/, 'Debe incluir al menos una minúscula')
   .regex(/[0-9]/, 'Debe incluir al menos un número')
+  .regex(/[^A-Za-z0-9]/, 'Debe incluir al menos un símbolo')
 
 export const passwordRequirements = [
   { key: 'min', label: 'Mínimo 8 caracteres', test: (p: string) => p.length >= 8 },
   { key: 'upper', label: 'Al menos una mayúscula', test: (p: string) => /[A-Z]/.test(p) },
   { key: 'lower', label: 'Al menos una minúscula', test: (p: string) => /[a-z]/.test(p) },
   { key: 'number', label: 'Al menos un número', test: (p: string) => /[0-9]/.test(p) },
+  { key: 'symbol', label: 'Al menos un símbolo (!@#$...)', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
 ]
 
 export const loginSchema = z.object({

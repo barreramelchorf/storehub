@@ -30,7 +30,12 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.error ?? 'Login failed')
       setToken(data.accessToken)
       const isCustomDomain = !window.location.pathname.startsWith('/t/')
-      router.push(isCustomDomain ? '/admin' : `/t/${slug}/admin`)
+      const base = isCustomDomain ? '/admin' : `/t/${slug}/admin`
+      if (data.mustChangePassword) {
+        router.push(`${base}/change-password`)
+      } else {
+        router.push(base)
+      }
     } catch (err: any) { setError(err.message) }
     finally { setLoading(false) }
   }

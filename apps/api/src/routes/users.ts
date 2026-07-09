@@ -28,7 +28,7 @@ export async function userRoutes(app: FastifyInstance) {
     if (!passwordResult.success) return reply.code(400).send({ error: passwordResult.error.errors[0].message })
 
     const passwordHash = await bcrypt.hash(password, 10)
-    const [user] = await db.insert(users).values({ tenantId: request.tenant.id, email, username: username || null, passwordHash, roleId }).returning()
+    const [user] = await db.insert(users).values({ tenantId: request.tenant.id, email, username: username || null, passwordHash, roleId, mustChangePassword: true }).returning()
     return reply.code(201).send({ id: user.id, email: user.email, username: user.username, roleId: user.roleId, active: user.active })
   })
 
