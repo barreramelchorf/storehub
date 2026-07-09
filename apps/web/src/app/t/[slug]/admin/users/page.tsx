@@ -10,7 +10,7 @@ export default function UsersPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
   const [modal, setModal] = useState<{ id: string | null } | null>(null)
-  const [form, setForm] = useState({ email: '', username: '', password: '', roleId: '' })
+  const [form, setForm] = useState({ email: '', username: '', password: '', roleId: '', mustChangePassword: true })
 
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: () => api('/api/admin/users', { token }) })
   const { data: roles } = useQuery({ queryKey: ['roles'], queryFn: () => api('/api/admin/roles', { token }) })
@@ -28,8 +28,8 @@ export default function UsersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   })
 
-  const openNew = () => { setForm({ email: '', username: '', password: '', roleId: '' }); setModal({ id: null }) }
-  const openEdit = (u: any) => { setForm({ email: u.email, username: u.username ?? '', password: '', roleId: u.roleId }); setModal({ id: u.id }) }
+  const openNew = () => { setForm({ email: '', username: '', password: '', roleId: '', mustChangePassword: true }); setModal({ id: null }) }
+  const openEdit = (u: any) => { setForm({ email: u.email, username: u.username ?? '', password: '', roleId: u.roleId, mustChangePassword: false }); setModal({ id: u.id }) }
 
   return (
     <div>
@@ -64,7 +64,7 @@ export default function UsersPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-[var(--color-text-dark)]">{modal.id ? 'Editar usuario' : 'Nuevo usuario'}</h2>
-            <form onSubmit={e => { e.preventDefault(); const body: any = { email: form.email, username: form.username, roleId: form.roleId }; if (form.password) body.password = form.password; saveMutation.mutate(body) }} className="space-y-3">
+            <form onSubmit={e => { e.preventDefault(); const body: any = { email: form.email, username: form.username, roleId: form.roleId, mustChangePassword: form.mustChangePassword }; if (form.password) body.password = form.password; saveMutation.mutate(body) }} className="space-y-3">
               <div><label className="label">Nombre de usuario</label><input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') }))} className="input" placeholder="jose_perez" autoComplete="off" pattern="[a-z0-9_\-]+" title="Solo letras minúsculas, números, guiones y guiones bajos" /></div>
               <div><label className="label">Email</label><input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input" required autoComplete="off" /></div>
               <div>
@@ -86,6 +86,10 @@ export default function UsersPage() {
                   {roles?.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
+              <label className="flex items-center gap-2 cursor-pointer pt-1">
+                <input type="checkbox" checked={form.mustChangePassword} onChange={e => setForm(f => ({ ...f, mustChangePassword: e.target.checked }))} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                <span className="text-sm text-[var(--color-text-dark)]">Pedir cambio de contraseña en próximo inicio de sesión</span>
+              </label>
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={saveMutation.isPending} className="btn-primary flex-1">{saveMutation.isPending ? 'Guardando...' : 'Guardar'}</button>
                 <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>
