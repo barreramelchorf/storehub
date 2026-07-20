@@ -12,6 +12,7 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [selectedHour, setSelectedHour] = useState<number | null>(null)
 
   const getRange = () => {
     const now = new Date()
@@ -144,18 +145,30 @@ export default function AnalyticsPage() {
             {/* Hours heatmap */}
             {data.salesByHour?.length > 0 && (
               <div className="card p-5">
-                <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Horas pico</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-sm font-semibold text-[var(--color-text-dark)]">Horas pico</h2>
+                  {selectedHour !== null && (() => {
+                    const hourData = data.salesByHour.find((x: any) => Number(x.hour) === selectedHour)
+                    return hourData ? (
+                      <div className="text-right">
+                        <span className="text-xs text-[var(--color-text)]">{selectedHour}:00 — </span>
+                        <span className="text-sm font-bold text-[var(--color-primary)]">${Number(hourData.total).toLocaleString('es-MX')} · {hourData.count} ventas</span>
+                      </div>
+                    ) : null
+                  })()}
+                </div>
                 <div className="grid grid-cols-6 gap-1">
                   {Array.from({ length: 24 }, (_, h) => {
                     const hourData = data.salesByHour.find((x: any) => Number(x.hour) === h)
                     const maxHour = Math.max(...data.salesByHour.map((x: any) => Number(x.count)), 1)
                     const intensity = hourData ? Number(hourData.count) / maxHour : 0
+                    const isSelected = selectedHour === h
                     return (
-                      <div key={h} className="flex flex-col items-center">
-                        <div className={`w-full aspect-square rounded ${intensity === 0 ? 'bg-gray-100' : ''}`}
+                      <div key={h} className="flex flex-col items-center cursor-pointer" onClick={() => setSelectedHour(isSelected ? null : h)}>
+                        <div className={`w-full aspect-square rounded transition-all ${intensity === 0 ? 'bg-gray-100' : ''} ${isSelected ? 'ring-2 ring-[var(--color-primary)] ring-offset-1' : ''}`}
                           style={intensity > 0 ? { backgroundColor: `var(--color-primary)`, opacity: intensity * 0.85 + 0.15 } : undefined}
                           title={`${h}:00 - ${hourData?.count ?? 0} ventas · $${Number(hourData?.total ?? 0).toFixed(0)}`} />
-                        <span className="text-[8px] text-[var(--color-text)] mt-0.5">{h}</span>
+                        <span className={`text-[8px] mt-0.5 ${isSelected ? 'font-bold text-[var(--color-primary)]' : 'text-[var(--color-text)]'}`}>{h}</span>
                       </div>
                     )
                   })}
