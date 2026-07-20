@@ -129,12 +129,13 @@ export default function AnalyticsPage() {
                 <div className="grid grid-cols-6 gap-1">
                   {Array.from({ length: 24 }, (_, h) => {
                     const hourData = data.salesByHour.find((x: any) => Number(x.hour) === h)
-                    const maxHour = Math.max(...data.salesByHour.map((x: any) => Number(x.count)))
+                    const maxHour = Math.max(...data.salesByHour.map((x: any) => Number(x.count)), 1)
                     const intensity = hourData ? Number(hourData.count) / maxHour : 0
                     return (
                       <div key={h} className="flex flex-col items-center">
-                        <div className="w-full aspect-square rounded" style={{ backgroundColor: `rgba(99, 91, 255, ${intensity * 0.8 + 0.05})` }}
-                          title={`${h}:00 - ${hourData?.count ?? 0} ventas`} />
+                        <div className={`w-full aspect-square rounded ${intensity === 0 ? 'bg-gray-100' : ''}`}
+                          style={intensity > 0 ? { backgroundColor: `var(--color-primary)`, opacity: intensity * 0.85 + 0.15 } : undefined}
+                          title={`${h}:00 - ${hourData?.count ?? 0} ventas · $${Number(hourData?.total ?? 0).toFixed(0)}`} />
                         <span className="text-[8px] text-[var(--color-text)] mt-0.5">{h}</span>
                       </div>
                     )

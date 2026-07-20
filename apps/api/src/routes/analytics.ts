@@ -169,14 +169,14 @@ export async function analyticsRoutes(app: FastifyInstance) {
     }).from(sales).where(baseWhere)
       .groupBy(sales.paymentMethod)
 
-    // Sales by hour
+    // Sales by hour (use createdAt for actual time, converted to business timezone)
     const salesByHour = await db.select({
-      hour: sql<number>`EXTRACT(HOUR FROM ${sales.saleDate})`,
+      hour: sql<number>`EXTRACT(HOUR FROM ${sales.createdAt} AT TIME ZONE 'America/Mexico_City')`,
       total: sql<number>`SUM(${sales.total}::numeric)`,
       count: sql<number>`COUNT(*)`,
     }).from(sales).where(baseWhere)
-      .groupBy(sql`EXTRACT(HOUR FROM ${sales.saleDate})`)
-      .orderBy(sql`EXTRACT(HOUR FROM ${sales.saleDate})`)
+      .groupBy(sql`EXTRACT(HOUR FROM ${sales.createdAt} AT TIME ZONE 'America/Mexico_City')`)
+      .orderBy(sql`EXTRACT(HOUR FROM ${sales.createdAt} AT TIME ZONE 'America/Mexico_City')`)
 
     // Top products
     const topProducts = await db.select({

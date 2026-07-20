@@ -94,7 +94,7 @@ export default function SalesPage() {
               return (
                 <tr key={s.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)] transition-colors">
                   <td className="p-3">
-                    <p className="text-sm text-[var(--color-text-dark)]">{new Date(s.saleDate).toLocaleDateString('es-MX')}</p>
+                    <p className="text-sm text-[var(--color-text-dark)]">{new Date(s.saleDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })}</p>
                     <p className="text-xs text-[var(--color-text)]">{new Date(s.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                   </td>
                   <td className="p-3 text-center font-bold">${Number(s.total).toFixed(2)}</td>
@@ -127,7 +127,7 @@ export default function SalesPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-bold text-[var(--color-text-dark)]">${Number(s.total).toFixed(2)}</p>
-                  <p className="text-xs text-[var(--color-text)]">{new Date(s.saleDate).toLocaleDateString('es-MX')} · {paymentLabels[s.paymentMethod] ?? s.paymentMethod}</p>
+                  <p className="text-xs text-[var(--color-text)]">{new Date(s.saleDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })} · {paymentLabels[s.paymentMethod] ?? s.paymentMethod}</p>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
               </div>
@@ -161,7 +161,7 @@ export default function SalesPage() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h2 className="text-lg font-bold text-[var(--color-text-dark)]">Detalle de venta</h2>
-                <p className="text-xs text-[var(--color-text)]">{new Date(selectedSale.saleDate).toLocaleDateString('es-MX')} · {new Date(selectedSale.createdAt).toLocaleTimeString('es-MX')}</p>
+                <p className="text-xs text-[var(--color-text)]">{new Date(selectedSale.saleDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })} · {new Date(selectedSale.createdAt).toLocaleTimeString('es-MX')}</p>
               </div>
               <button onClick={() => setSelectedSale(null)} className="text-xl text-[var(--color-text)]">✕</button>
             </div>
