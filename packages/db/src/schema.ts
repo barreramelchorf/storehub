@@ -141,6 +141,37 @@ export const auditLog = pgTable('audit_log', {
   index('audit_log_created_idx').on(t.createdAt),
 ])
 
+// Modifier Groups
+export const modifierGroups = pgTable('modifier_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  required: boolean('required').notNull().default(false),
+  multiple: boolean('multiple').notNull().default(true),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [index('modifier_groups_tenant_idx').on(t.tenantId)])
+
+// Modifier Options
+export const modifierOptions = pgTable('modifier_options', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => modifierGroups.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  price: numeric('price', { precision: 10, scale: 2 }).notNull().default('0'),
+  active: boolean('active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, (t) => [index('modifier_options_group_idx').on(t.groupId)])
+
+// Product ↔ Modifier Group (many-to-many)
+export const productModifierGroups = pgTable('product_modifier_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  groupId: uuid('group_id').notNull().references(() => modifierGroups.id, { onDelete: 'cascade' }),
+}, (t) => [
+  unique('product_modifier_groups_unique').on(t.productId, t.groupId),
+  index('product_modifier_groups_product_idx').on(t.productId),
+])
+
 // Relations
 export const usersRelations = relations(users, ({ one }) => ({
   role: one(roles, { fields: [users.roleId], references: [roles.id] }),
@@ -157,4 +188,18 @@ export const salesRelations = relations(sales, ({ many }) => ({
 export const saleItemsRelations = relations(saleItems, ({ one }) => ({
   sale: one(sales, { fields: [saleItems.saleId], references: [sales.id] }),
   product: one(products, { fields: [saleItems.productId], references: [products.id] }),
+}))
+
+export const modifierGroupsRelations = relations(modifierGroups, ({ many }) => ({
+  options: many(modifierOptions),
+  productLinks: many(productModifierGroups),
+}))
+
+export const modifierOptionsRelations = relations(modifierOptions, ({ one }) => ({
+  group: one(modifierGroups, { fields: [modifierOptions.groupId], references: [modifierGroups.id] }),
+}))
+
+export const productModifierGroupsRelations = relations(productModifierGroups, ({ one }) => ({
+  product: one(products, { fields: [productModifierGroups.productId], references: [products.id] }),
+  group: one(modifierGroups, { fields: [productModifierGroups.groupId], references: [modifierGroups.id] }),
 }))

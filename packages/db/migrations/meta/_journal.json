@@ -64,6 +64,13 @@
       "when": 1783851005000,
       "tag": "0008_fix_cajero_almacenista_perms",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784826900000,
+      "tag": "0009_add_modifiers",
+      "breakpoints": true
     }
   ]
 }
