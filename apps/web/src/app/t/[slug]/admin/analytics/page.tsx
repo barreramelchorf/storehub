@@ -10,10 +10,15 @@ const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct'
 export default function AnalyticsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const [period, setPeriod] = useState('month')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
 
   const getRange = () => {
     const now = new Date()
     let from: Date
+    if (period === 'custom' && customFrom && customTo) {
+      return { from: new Date(customFrom + 'T00:00:00.000Z').toISOString(), to: new Date(customTo + 'T23:59:59.999Z').toISOString() }
+    }
     if (period === 'day') { from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) }
     else if (period === 'week') { const d = new Date(now); d.setDate(now.getDate() - now.getDay()); from = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) }
     else { from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)) }
@@ -22,7 +27,7 @@ export default function AnalyticsPage() {
   }
 
   const range = getRange()
-  const { data } = useQuery({ queryKey: ['analytics', period], queryFn: () => api(`/api/admin/analytics?from=${range.from}&to=${range.to}`, { token }), enabled: period !== 'year' })
+  const { data } = useQuery({ queryKey: ['analytics', period, customFrom, customTo], queryFn: () => api(`/api/admin/analytics?from=${range.from}&to=${range.to}`, { token }), enabled: period !== 'year' && (period !== 'custom' || (!!customFrom && !!customTo)) })
 
   // Fill all days in the range (so days without sales show as empty bars)
   const filledSalesByDay = (() => {
@@ -59,11 +64,25 @@ export default function AnalyticsPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-[var(--color-text-dark)]">Analytics</h1>
         <div className="flex gap-2">
-          {[{k:'day',l:'Hoy'},{k:'week',l:'Semana'},{k:'month',l:'Mes'},{k:'year',l:'Año'}].map(p => (
+          {[{k:'day',l:'Hoy'},{k:'week',l:'Semana'},{k:'month',l:'Mes'},{k:'year',l:'Año'},{k:'custom',l:'Rango'}].map(p => (
             <button key={p.k} onClick={() => setPeriod(p.k)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${period === p.k ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>{p.l}</button>
           ))}
         </div>
       </div>
+
+      {/* Custom date range picker */}
+      {period === 'custom' && (
+        <div className="flex gap-3 mb-6 items-end flex-wrap">
+          <div>
+            <label className="label">Desde</label>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input" />
+          </div>
+          <div>
+            <label className="label">Hasta</label>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input" />
+          </div>
+        </div>
+      )}
 
       {/* Yearly view */}
       {period === 'year' && yearData && <YearlyView data={yearData} />}
@@ -159,6 +178,27 @@ export default function AnalyticsPage() {
                     <div className="text-right">
                       <span className="text-sm font-medium">${Number(p.totalRevenue).toFixed(0)}</span>
                       <span className="text-xs text-[var(--color-text)] ml-2">{p.totalQty} uds</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sales by employee */}
+          {data.salesByEmployee?.length > 0 && (
+            <div className="card p-5">
+              <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Ventas por empleado</h2>
+              <div className="space-y-3">
+                {data.salesByEmployee.map((e: any) => (
+                  <div key={e.userId} className="flex items-center justify-between py-2 border-b border-[var(--color-border)] last:border-0">
+                    <div>
+                      <p className="text-sm font-medium text-[var(--color-text-dark)]">{e.username || e.email}</p>
+                      <p className="text-xs text-[var(--color-text)]">{e.totalTransactions} ventas</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">${Number(e.totalSales).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                      {Number(e.totalTips) > 0 && <p className="text-xs text-green-600">+${Number(e.totalTips).toFixed(2)} propinas</p>}
                     </div>
                   </div>
                 ))}

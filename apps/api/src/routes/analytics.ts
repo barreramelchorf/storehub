@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, products } from '@storehub/db'
+import { db, sales, saleItems, products, users } from '@storehub/db'
 import { eq, and, gte, lte, sql, desc } from 'drizzle-orm'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
@@ -213,12 +213,27 @@ export async function analyticsRoutes(app: FastifyInstance) {
       lte(sales.saleDate, prevTo),
     ))
 
+    // Sales by employee
+    const salesByEmployee = await db.select({
+      userId: sales.userId,
+      username: users.username,
+      email: users.email,
+      totalSales: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      totalTips: sql<number>`COALESCE(SUM(${sales.tip}::numeric), 0)`,
+      totalTransactions: sql<number>`COUNT(*)::int`,
+    }).from(sales)
+      .innerJoin(users, eq(sales.userId, users.id))
+      .where(baseWhere)
+      .groupBy(sales.userId, users.username, users.email)
+      .orderBy(desc(sql`SUM(${sales.total}::numeric)`))
+
     return {
       summary: salesData[0],
       previousPeriod: prevData[0],
       salesByDay,
       salesByPayment,
       salesByHour,
+      salesByEmployee: salesByEmployee.map(e => ({ ...e, totalSales: Number(e.totalSales), totalTips: Number(e.totalTips) })),
       topProducts,
       lowStock,
       period: { from: dateFrom, to: dateTo },
