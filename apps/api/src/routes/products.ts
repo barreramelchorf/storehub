@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db, products } from '@storehub/db'
-import { eq, and, asc, sql } from 'drizzle-orm'
+import { db, products, productModifierGroups } from '@storehub/db'
+import { eq, and, asc, sql, inArray } from 'drizzle-orm'
 import { productSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission, requireAnyPermission } from '../middleware/permissions.js'
@@ -22,7 +22,18 @@ export async function productRoutes(app: FastifyInstance) {
       },
       limit, offset, orderBy: (p) => [asc(p.name)]
     })
-    return { items, page: Number(page), pageSize: limit }
+
+    // Check which products have modifiers
+    const productIds = items.map(p => p.id)
+    const modifierLinks = productIds.length > 0
+      ? await db.query.productModifierGroups.findMany({
+          where: (pmg, { inArray }) => inArray(pmg.productId, productIds),
+          columns: { productId: true },
+        })
+      : []
+    const productsWithModifiers = new Set(modifierLinks.map(l => l.productId))
+
+    return { items: items.map(p => ({ ...p, hasModifiers: productsWithModifiers.has(p.id) })), page: Number(page), pageSize: limit }
   })
 
   app.post('/api/admin/products', { preHandler: requirePermission('inventory.manage') }, async (request, reply) => {
