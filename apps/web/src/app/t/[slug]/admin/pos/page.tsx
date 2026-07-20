@@ -5,7 +5,7 @@ import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 
-interface CartItem { productId: string; name: string; price: number; quantity: number }
+interface CartItem { productId: string; name: string; price: number; quantity: number; modifiers?: Array<{ id: string; name: string; price: number }> }
 interface Comanda { id: string; name: string; cart: CartItem[] }
 interface ComandasState { comandas: Comanda[]; activeId: string }
 
@@ -47,6 +47,10 @@ export default function POSPage() {
   // Single cart state (used when multicomanda OFF)
   const [singleCart, setSingleCart] = useState<CartItem[]>([])
   const [singleCartLoaded, setSingleCartLoaded] = useState(false)
+
+  // Modifier modal state
+  const [modifierModal, setModifierModal] = useState<{ product: any; groups: any[] } | null>(null)
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({})
 
   // Load tenant config for multicomanda flag
   const { data: tenantConfig } = useQuery({
@@ -117,17 +121,65 @@ export default function POSPage() {
   })
 
   const addToCart = (p: any) => {
+    if (p.hasModifiers) {
+      // Fetch modifiers and show modal
+      api(`/api/admin/products/${p.id}/modifiers`, { token }).then(groups => {
+        if (groups.length > 0) {
+          setModifierModal({ product: p, groups })
+          setSelectedModifiers({})
+        } else {
+          addToCartDirect(p)
+        }
+      }).catch(() => addToCartDirect(p))
+      return
+    }
+    addToCartDirect(p)
+  }
+
+  const addToCartDirect = (p: any, modifiers?: Array<{ id: string; name: string; price: number }>) => {
     setCart(prev => {
-      const existing = prev.find(i => i.productId === p.id)
-      if (existing) return prev.map(i => i.productId === p.id ? { ...i, quantity: i.quantity + 1 } : i)
+      // If item has modifiers, it's always a new line (different combo = different item)
+      if (modifiers && modifiers.length > 0) {
+        const modKey = modifiers.map(m => m.id).sort().join(',')
+        const existing = prev.find(i => i.productId === p.id && i.modifiers?.map(m => m.id).sort().join(',') === modKey)
+        if (existing) return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1 } : i)
+        const modifiersTotal = modifiers.reduce((s, m) => s + m.price, 0)
+        return [...prev, { productId: p.id, name: p.name, price: Number(p.price) + modifiersTotal, quantity: 1, modifiers }]
+      }
+      // No modifiers — same logic as before
+      const existing = prev.find(i => i.productId === p.id && !i.modifiers?.length)
+      if (existing) return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1 } : i)
       return [...prev, { productId: p.id, name: p.name, price: Number(p.price), quantity: 1 }]
     })
   }
 
-  const removeFromCart = (productId: string) => setCart(prev => prev.filter(i => i.productId !== productId))
-  const updateQty = (productId: string, qty: number) => {
-    if (qty <= 0) return removeFromCart(productId)
-    setCart(prev => prev.map(i => i.productId === productId ? { ...i, quantity: qty } : i))
+  const handleAddWithModifiers = () => {
+    if (!modifierModal) return
+    const selected = Object.entries(selectedModifiers)
+      .filter(([_, v]) => v)
+      .map(([id]) => {
+        for (const g of modifierModal.groups) {
+          const opt = g.options.find((o: any) => o.id === id)
+          if (opt) return { id: opt.id, name: opt.name, price: Number(opt.price) }
+        }
+        return null
+      })
+      .filter(Boolean) as Array<{ id: string; name: string; price: number }>
+
+    addToCartDirect(modifierModal.product, selected)
+    setModifierModal(null)
+  }
+
+  const handleAddWithoutModifiers = () => {
+    if (!modifierModal) return
+    addToCartDirect(modifierModal.product)
+    setModifierModal(null)
+  }
+
+  const removeFromCart = (index: number) => setCart(prev => prev.filter((_, i) => i !== index))
+  const updateQty = (index: number, qty: number) => {
+    if (qty <= 0) return removeFromCart(index)
+    setCart(prev => prev.map((item, i) => i === index ? { ...item, quantity: qty } : item))
   }
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0)
@@ -140,7 +192,12 @@ export default function POSPage() {
     const isToday = saleDate === today || !saleDate
 
     saleMutation.mutate({
-      items: cart.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.price })),
+      items: cart.map(i => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        unitPrice: i.price,
+        ...(i.modifiers?.length && { modifiers: i.modifiers }),
+      })),
       paymentMethod, discount, tip,
       ...(!isToday && { saleDate: new Date(saleDate).toISOString() }),
     })
@@ -214,25 +271,28 @@ export default function POSPage() {
       <div className="overflow-y-auto flex-1 min-h-0">
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {data?.items?.map((p: any) => {
-          const inCart = cart.find(i => i.productId === p.id)
+          const inCartItems = cart.filter(i => i.productId === p.id)
+          const totalQty = inCartItems.reduce((s, i) => s + i.quantity, 0)
+          const simpleItem = inCartItems.find(i => !i.modifiers?.length)
+          const simpleIdx = simpleItem ? cart.indexOf(simpleItem) : -1
           return (
             <div key={p.id} className={`card overflow-hidden cursor-pointer transition-all hover:border-[var(--color-primary)] hover:shadow-md ${p.stock <= 0 ? 'opacity-40 pointer-events-none' : ''}`}
               onClick={() => addToCart(p)}>
               <div className="relative">
                 {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-full h-16 md:h-28 object-cover" /> : <div className="w-full h-16 md:h-28 bg-gray-100 flex items-center justify-center text-xl md:text-2xl">📦</div>}
-                {inCart && (
-                  <span className="absolute top-1 right-1 bg-[var(--color-primary)] text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">{inCart.quantity}</span>
+                {totalQty > 0 && (
+                  <span className="absolute top-1 right-1 bg-[var(--color-primary)] text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">{totalQty}</span>
                 )}
               </div>
               <div className="p-2">
                 <p className="font-medium text-[11px] md:text-xs text-[var(--color-text-dark)] line-clamp-2 leading-tight">{p.name}</p>
                 <div className="flex items-center justify-between mt-1">
                   <p className="text-[var(--color-primary)] font-bold text-xs md:text-sm">${Number(p.price).toFixed(2)}</p>
-                  {inCart && (
+                  {simpleItem && !p.hasModifiers && (
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => updateQty(p.id, inCart.quantity - 1)} className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] md:text-xs flex items-center justify-center hover:bg-gray-100">−</button>
-                      <span className="text-[10px] md:text-xs font-bold w-3 md:w-4 text-center">{inCart.quantity}</span>
-                      <button onClick={() => updateQty(p.id, inCart.quantity + 1)} className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] md:text-xs flex items-center justify-center hover:bg-gray-100">+</button>
+                      <button onClick={() => updateQty(simpleIdx, simpleItem.quantity - 1)} className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] md:text-xs flex items-center justify-center hover:bg-gray-100">−</button>
+                      <span className="text-[10px] md:text-xs font-bold w-3 md:w-4 text-center">{simpleItem.quantity}</span>
+                      <button onClick={() => updateQty(simpleIdx, simpleItem.quantity + 1)} className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] md:text-xs flex items-center justify-center hover:bg-gray-100">+</button>
                     </div>
                   )}
                 </div>
@@ -263,16 +323,19 @@ export default function POSPage() {
             <p className="text-sm text-[var(--color-text)]">Sin productos en la venta</p>
           </div>
         )}
-        {cart.map(item => (
-          <div key={item.productId} className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-0">
+        {cart.map((item, idx) => (
+          <div key={`${item.productId}-${idx}`} className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-0">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-[var(--color-text-dark)] truncate">{item.name}</p>
+              {item.modifiers?.length ? (
+                <p className="text-[10px] text-[var(--color-primary)] truncate">+ {item.modifiers.map(m => m.name).join(', ')}</p>
+              ) : null}
               <p className="text-xs text-[var(--color-text)]">${item.price.toFixed(2)} c/u</p>
             </div>
             <div className="flex items-center gap-2 ml-3">
-              <button onClick={() => updateQty(item.productId, item.quantity - 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">−</button>
+              <button onClick={() => updateQty(idx, item.quantity - 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">−</button>
               <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
-              <button onClick={() => updateQty(item.productId, item.quantity + 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">+</button>
+              <button onClick={() => updateQty(idx, item.quantity + 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">+</button>
             </div>
             <p className="text-sm font-bold ml-3 w-16 text-right">${(item.price * item.quantity).toFixed(2)}</p>
           </div>
@@ -371,6 +434,55 @@ export default function POSPage() {
           </div>
         )}
       </div>
+
+      {/* Modifier modal */}
+      {modifierModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModifierModal(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-1">{modifierModal.product.name}</h2>
+            <p className="text-sm text-[var(--color-text)] mb-4">${Number(modifierModal.product.price).toFixed(2)}</p>
+
+            <button onClick={handleAddWithoutModifiers}
+              className="w-full py-3 mb-4 rounded-lg border-2 border-[var(--color-border)] text-sm font-medium text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] transition-colors">
+              Agregar sin extras
+            </button>
+
+            <div className="space-y-3">
+              {modifierModal.groups.map((group: any) => (
+                <div key={group.id}>
+                  <p className="text-xs font-semibold text-[var(--color-text)] uppercase tracking-wide mb-2">{group.name}</p>
+                  <div className="space-y-1.5">
+                    {group.options.map((opt: any) => (
+                      <label key={opt.id} className="flex items-center justify-between py-2 px-3 rounded-lg border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" checked={selectedModifiers[opt.id] ?? false}
+                            onChange={e => setSelectedModifiers(prev => ({ ...prev, [opt.id]: e.target.checked }))}
+                            className="w-4 h-4 rounded border-[var(--color-border)]" />
+                          <span className="text-sm text-[var(--color-text-dark)]">{opt.name}</span>
+                        </div>
+                        {Number(opt.price) > 0 && <span className="text-xs font-medium text-[var(--color-primary)]">+${Number(opt.price).toFixed(2)}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {Object.values(selectedModifiers).some(v => v) && (
+              <button onClick={handleAddWithModifiers}
+                className="w-full py-3 mt-4 rounded-lg bg-[var(--color-primary)] text-white font-medium text-sm hover:opacity-90 transition-opacity">
+                Agregar con extras (+${Object.entries(selectedModifiers).filter(([_, v]) => v).reduce((s, [id]) => {
+                  for (const g of modifierModal.groups) {
+                    const opt = g.options.find((o: any) => o.id === id)
+                    if (opt) return s + Number(opt.price)
+                  }
+                  return s
+                }, 0).toFixed(2)})
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </>
   )
 }
