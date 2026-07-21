@@ -8,7 +8,7 @@ import { useParams } from 'next/navigation'
 export default function SettingsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '', multicomanda: false })
+  const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '', multicomanda: false, modifiers: false })
 
   const { data: info } = useQuery({ queryKey: ['settings'], queryFn: () => api('/api/admin/settings', { token }) })
 
@@ -23,6 +23,7 @@ export default function SettingsPage() {
         instagram: c.social?.instagram ?? '', facebook: c.social?.facebook ?? '', tiktok: c.social?.tiktok ?? '', website: c.social?.website ?? '',
         metaTitle: c.meta?.title ?? '', metaDescription: c.meta?.description ?? '',
         multicomanda: c.modules?.multicomanda ?? false,
+        modifiers: c.modules?.modifiers ?? false,
       })
     }
   }, [info])
@@ -37,7 +38,7 @@ export default function SettingsPage() {
           contact: { address: form.address, phone: form.phone, whatsapp: form.whatsapp, email: form.email, hours: form.hours },
           social: { instagram: form.instagram, facebook: form.facebook, tiktok: form.tiktok, website: form.website },
           meta: { title: form.metaTitle, description: form.metaDescription },
-          modules: { ...info?.config?.modules, pos: true, inventory: true, analytics: true, multicomanda: form.multicomanda },
+          modules: { ...info?.config?.modules, pos: true, inventory: true, analytics: true, multicomanda: form.multicomanda, modifiers: form.modifiers },
         },
       }),
     }),
@@ -102,6 +103,13 @@ export default function SettingsPage() {
                 <p className="text-xs text-[var(--color-text)]">Permite manejar múltiples cuentas/mesas simultáneas en el POS</p>
               </div>
               <input type="checkbox" checked={form.multicomanda} onChange={e => setForm(f => ({ ...f, multicomanda: e.target.checked }))} className="w-5 h-5 rounded border-[var(--color-border)] text-[var(--color-primary)]" />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <p className="text-sm font-medium text-[var(--color-text-dark)]">Modificadores / Extras</p>
+                <p className="text-xs text-[var(--color-text)]">Permite agregar extras o toppings a los productos en el POS</p>
+              </div>
+              <input type="checkbox" checked={form.modifiers} onChange={e => setForm(f => ({ ...f, modifiers: e.target.checked }))} className="w-5 h-5 rounded border-[var(--color-border)] text-[var(--color-primary)]" />
             </label>
           </div>
         </div>

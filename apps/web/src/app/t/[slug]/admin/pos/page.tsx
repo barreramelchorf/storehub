@@ -59,6 +59,7 @@ export default function POSPage() {
     enabled: !!token,
   })
   const multicomandaEnabled = tenantConfig?.config?.modules?.multicomanda ?? false
+  const modifiersEnabled = tenantConfig?.config?.modules?.modifiers ?? false
 
   // Initialize date
   useEffect(() => {
@@ -121,7 +122,7 @@ export default function POSPage() {
   })
 
   const addToCart = (p: any) => {
-    if (p.hasModifiers) {
+    if (modifiersEnabled && p.hasModifiers) {
       // Fetch modifiers and show modal
       api(`/api/admin/products/${p.id}/modifiers`, { token }).then(groups => {
         if (groups.length > 0) {
