@@ -198,6 +198,27 @@ export default function AnalyticsPage() {
             </div>
           )}
 
+          {/* Top modifiers */}
+          {data.topModifiers?.length > 0 && (
+            <div className="card p-5">
+              <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Top modificadores</h2>
+              <div className="space-y-2">
+                {data.topModifiers.map((m: any, i: number) => (
+                  <div key={m.name} className="flex items-center justify-between py-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-[var(--color-text)] w-5">{i + 1}</span>
+                      <span className="text-sm text-[var(--color-text-dark)]">{m.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-medium">${Number(m.total_revenue).toLocaleString('es-MX')}</span>
+                      <span className="text-xs text-[var(--color-text)] ml-2">{m.times_sold}x</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Sales by employee */}
           {data.salesByEmployee?.length > 0 && (
             <div className="card p-5">

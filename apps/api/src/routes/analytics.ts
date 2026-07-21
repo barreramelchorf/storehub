@@ -227,6 +227,24 @@ export async function analyticsRoutes(app: FastifyInstance) {
       .groupBy(sales.userId, users.username, users.email)
       .orderBy(desc(sql`SUM(${sales.total}::numeric)`))
 
+    // Top modifiers (from JSONB in sale_items)
+    const topModifiers = await db.execute(sql`
+      SELECT
+        m->>'name' as name,
+        SUM((m->>'price')::numeric) as total_revenue,
+        COUNT(*)::int as times_sold
+      FROM ${saleItems}
+      INNER JOIN ${sales} ON ${saleItems.saleId} = ${sales.id}
+      CROSS JOIN jsonb_array_elements(${saleItems.modifiers}) AS m
+      WHERE ${sales.tenantId} = ${tenantId}
+        AND ${sales.status} = 'approved'
+        AND ${sales.saleDate} >= ${dateFrom}
+        AND ${sales.saleDate} <= ${dateTo}
+      GROUP BY m->>'name'
+      ORDER BY times_sold DESC
+      LIMIT 10
+    `)
+
     return {
       summary: salesData[0],
       previousPeriod: prevData[0],
@@ -235,6 +253,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
       salesByHour,
       salesByEmployee: salesByEmployee.map(e => ({ ...e, totalSales: Number(e.totalSales), totalTips: Number(e.totalTips) })),
       topProducts,
+      topModifiers: topModifiers ?? [],
       lowStock,
       period: { from: dateFrom, to: dateTo },
     }
