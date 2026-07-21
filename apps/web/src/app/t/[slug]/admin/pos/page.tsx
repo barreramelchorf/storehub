@@ -323,12 +323,18 @@ export default function POSPage() {
             <p className="text-sm text-[var(--color-text)]">Sin productos en la venta</p>
           </div>
         )}
-        {cart.map((item, idx) => (
+        {cart.map((item, idx) => {
+          const basePrice = item.modifiers?.length ? item.price - item.modifiers.reduce((s, m) => s + m.price, 0) : item.price
+          return (
           <div key={`${item.productId}-${idx}`} className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-0">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[var(--color-text-dark)] truncate">{item.name}</p>
+              <p className="text-sm font-medium text-[var(--color-text-dark)] truncate">{item.name} {item.modifiers?.length ? <span className="text-xs text-[var(--color-text)]">${basePrice.toFixed(2)}</span> : null}</p>
               {item.modifiers?.length ? (
-                <p className="text-[10px] text-[var(--color-primary)] truncate">+ {item.modifiers.map(m => m.name).join(', ')}</p>
+                <div className="space-y-0.5">
+                  {item.modifiers.map(m => (
+                    <p key={m.id} className="text-[10px] text-[var(--color-primary)]">+ {m.name} ${m.price.toFixed(2)}</p>
+                  ))}
+                </div>
               ) : null}
               <p className="text-xs text-[var(--color-text)]">${item.price.toFixed(2)} c/u</p>
             </div>
@@ -338,6 +344,9 @@ export default function POSPage() {
               <button onClick={() => updateQty(idx, item.quantity + 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">+</button>
             </div>
             <p className="text-sm font-bold ml-3 w-16 text-right">${(item.price * item.quantity).toFixed(2)}</p>
+          </div>
+          )
+        })}
           </div>
         ))}
       </div>
