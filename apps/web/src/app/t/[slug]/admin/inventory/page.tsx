@@ -13,7 +13,9 @@ export default function InventoryPage() {
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<'products' | 'categories'>('products')
   const [modal, setModal] = useState<{ type: 'product' | 'category' | 'restock'; id: string | null } | null>(null)
+  const [modalTab, setModalTab] = useState<'product' | 'modifier'>('product')
   const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true })
+  const [modifierForm, setModifierForm] = useState({ name: '', price: '', groupId: '', newGroupName: '' })
   const [catForm, setCatForm] = useState({ name: '', description: '' })
   const [restockForm, setRestockForm] = useState({ quantity: '', reason: '' })
   const [search, setSearch] = useState('')
@@ -77,7 +79,7 @@ export default function InventoryPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['products'] }); setModal(null) },
   })
 
-  const openNewProduct = () => { setForm({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true }); setProductModifiers([]); setNewGroupForm(null); setModal({ type: 'product', id: null }) }
+  const openNewProduct = () => { setForm({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true }); setProductModifiers([]); setNewGroupForm(null); setModalTab('product'); setModifierForm({ name: '', price: '', groupId: '', newGroupName: '' }); setModal({ type: 'product', id: null }) }
   const openEditProduct = (p: any) => {
     setForm({ name: p.name, price: String(Number(p.price)), stock: String(p.stock), minStock: String(p.minStock), categoryId: p.categoryId, description: p.description ?? '', active: p.active, visible: p.visible })
     setNewGroupForm(null)
@@ -210,7 +212,56 @@ export default function InventoryPage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
             {modal.type === 'product' && (
               <>
-                <h2 className="text-lg font-bold text-[var(--color-text-dark)]">{modal.id ? 'Editar producto' : 'Nuevo producto'}</h2>
+                <h2 className="text-lg font-bold text-[var(--color-text-dark)]">{modal.id ? 'Editar producto' : 'Nuevo'}</h2>
+                {/* Tabs only when creating new */}
+                {!modal.id && (
+                  <div className="flex gap-2 mb-2">
+                    <button type="button" onClick={() => setModalTab('product')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${modalTab === 'product' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)]'}`}>Producto</button>
+                    <button type="button" onClick={() => setModalTab('modifier')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${modalTab === 'modifier' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)]'}`}>Modificador</button>
+                  </div>
+                )}
+
+                {/* Modifier form */}
+                {!modal.id && modalTab === 'modifier' && (
+                  <form onSubmit={async (e) => {
+                    e.preventDefault()
+                    let groupId = modifierForm.groupId
+                    // Create new group if needed
+                    if (groupId === '__new' && modifierForm.newGroupName) {
+                      const group = await api('/api/admin/modifiers', { method: 'POST', body: JSON.stringify({ name: modifierForm.newGroupName, multiple: true }), token })
+                      groupId = group.id
+                    }
+                    if (!groupId || groupId === '__new') return
+                    // Add option to the group
+                    await api(`/api/admin/modifiers/${groupId}/options`, { method: 'POST', body: JSON.stringify({ name: modifierForm.name, price: Number(modifierForm.price) || 0 }), token })
+                    queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+                    setModifierForm({ name: '', price: '', groupId: '', newGroupName: '' })
+                    setModal(null)
+                  }} className="space-y-3">
+                    <div><label className="label">Nombre del modificador</label><input value={modifierForm.name} onChange={e => setModifierForm(f => ({ ...f, name: e.target.value }))} className="input" placeholder="Ej: Tapioca" required /></div>
+                    <div><label className="label">Precio adicional</label><input type="number" step="0.01" value={modifierForm.price} onChange={e => setModifierForm(f => ({ ...f, price: e.target.value }))} className="input" placeholder="12.00" required /></div>
+                    <div>
+                      <label className="label">Grupo</label>
+                      <select value={modifierForm.groupId} onChange={e => setModifierForm(f => ({ ...f, groupId: e.target.value }))} className="input" required>
+                        <option value="">Seleccionar grupo...</option>
+                        {modifierGroups?.filter((g: any) => g.active).map((g: any) => (
+                          <option key={g.id} value={g.id}>{g.name} ({g.options?.length ?? 0} opciones)</option>
+                        ))}
+                        <option value="__new">+ Crear nuevo grupo</option>
+                      </select>
+                    </div>
+                    {modifierForm.groupId === '__new' && (
+                      <div><label className="label">Nombre del nuevo grupo</label><input value={modifierForm.newGroupName} onChange={e => setModifierForm(f => ({ ...f, newGroupName: e.target.value }))} className="input" placeholder="Ej: Extras frappé" required /></div>
+                    )}
+                    <div className="flex gap-2 pt-2">
+                      <button type="submit" className="btn-primary flex-1">Guardar modificador</button>
+                      <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Product form (shown when editing OR when tab is 'product') */}
+                {(modal.id || modalTab === 'product') && (
                 <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate({ ...form, price: Number(form.price), stock: Number(form.stock), minStock: Number(form.minStock), active: form.active, visible: form.visible }) }} className="space-y-3">
                   <div><label className="label">Nombre</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input" required /></div>
                   <div className="grid grid-cols-2 gap-3">
@@ -306,6 +357,7 @@ export default function InventoryPage() {
                     <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>
                   </div>
                 </form>
+                )}
               </>
             )}
 
