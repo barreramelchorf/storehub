@@ -182,8 +182,9 @@ export const rolesRelations = relations(roles, ({ many }) => ({
   users: many(users),
 }))
 
-export const salesRelations = relations(sales, ({ many }) => ({
+export const salesRelations = relations(sales, ({ many, one }) => ({
   items: many(saleItems),
+  user: one(users, { fields: [sales.userId], references: [users.id] }),
 }))
 
 export const saleItemsRelations = relations(saleItems, ({ one }) => ({

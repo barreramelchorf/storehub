@@ -85,7 +85,7 @@ export default function AdminDashboard() {
                     <div key={s.id} className="flex justify-between items-center py-1 border-b border-[var(--color-border)] last:border-0">
                       <div>
                         <p className="text-sm font-medium text-[var(--color-text-dark)]">${Number(s.total).toFixed(2)}</p>
-                        <p className="text-xs text-[var(--color-text)]">{new Date(s.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-[var(--color-text)]">{s.user?.username || s.user?.email || '—'} · {new Date(s.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
                       <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">{s.paymentMethod}</span>
                     </div>

@@ -19,6 +19,7 @@ export async function saleRoutes(app: FastifyInstance) {
         if (statusFilter) conditions.push(eq(s.status, statusFilter as any))
         return and(...conditions)
       },
+      with: { user: { columns: { id: true, username: true, email: true } } },
       limit, offset,
       orderBy: (s, { desc }) => [desc(s.createdAt)],
     })
@@ -29,7 +30,7 @@ export async function saleRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string }
     const sale = await db.query.sales.findFirst({
       where: (s, { eq, and }) => and(eq(s.id, id), eq(s.tenantId, request.tenant.id)),
-      with: { items: { with: { product: { columns: { id: true, name: true } } } } },
+      with: { items: { with: { product: { columns: { id: true, name: true } } } }, user: { columns: { id: true, username: true, email: true } } },
     })
     if (!sale) return reply.code(404).send({ error: 'Not found' })
 

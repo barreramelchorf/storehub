@@ -83,6 +83,7 @@ export default function SalesPage() {
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
               <th className="p-3 text-left table-header">Fecha</th>
               <th className="p-3 table-header">Total</th>
+              <th className="p-3 table-header">Cajero</th>
               <th className="p-3 table-header">Método</th>
               <th className="p-3 table-header">Estado</th>
               <th className="p-3 table-header">Acciones</th>
@@ -98,6 +99,7 @@ export default function SalesPage() {
                     <p className="text-xs text-[var(--color-text)]">{new Date(s.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                   </td>
                   <td className="p-3 text-center font-bold">${Number(s.total).toFixed(2)}</td>
+                  <td className="p-3 text-center text-xs text-[var(--color-text)]">{s.user?.username || s.user?.email || '—'}</td>
                   <td className="p-3 text-center text-xs text-[var(--color-text)]">{paymentLabels[s.paymentMethod] ?? s.paymentMethod}</td>
                   <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span></td>
                   <td className="p-3 text-center">
@@ -127,7 +129,7 @@ export default function SalesPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-bold text-[var(--color-text-dark)]">${Number(s.total).toFixed(2)}</p>
-                  <p className="text-xs text-[var(--color-text)]">{new Date(s.saleDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })} · {paymentLabels[s.paymentMethod] ?? s.paymentMethod}</p>
+                  <p className="text-xs text-[var(--color-text)]">{new Date(s.saleDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })} · {s.user?.username || s.user?.email || '—'} · {paymentLabels[s.paymentMethod] ?? s.paymentMethod}</p>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
               </div>
@@ -190,6 +192,7 @@ export default function SalesPage() {
             )}
 
             <div className="space-y-1 pt-3 border-t border-[var(--color-border)]">
+              {saleDetail?.user && <div className="flex justify-between text-sm mb-2"><span className="text-[var(--color-text)]">Cajero</span><span className="font-medium">{saleDetail.user.username || saleDetail.user.email}</span></div>}
               {Number(selectedSale.discount) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Descuento</span><span className="text-green-600">-${Number(selectedSale.discount).toFixed(2)}</span></div>}
               {Number(selectedSale.tip) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Propina</span><span>+${Number(selectedSale.tip).toFixed(2)}</span></div>}
               <div className="flex justify-between font-bold text-lg pt-2"><span>Total</span><span>${Number(selectedSale.total).toFixed(2)}</span></div>
