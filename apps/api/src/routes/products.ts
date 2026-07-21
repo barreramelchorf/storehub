@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, products, productModifierGroups } from '@storehub/db'
+import { db, products, productModifierGroups, categoryModifierGroups } from '@storehub/db'
 import { eq, and, asc, sql, inArray } from 'drizzle-orm'
 import { productSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
@@ -23,17 +23,28 @@ export async function productRoutes(app: FastifyInstance) {
       limit, offset, orderBy: (p) => [asc(p.name)]
     })
 
-    // Check which products have modifiers
+    // Check which products have modifiers (product-level OR category-level)
     const productIds = items.map(p => p.id)
+    const categoryIds = [...new Set(items.map(p => p.categoryId))]
+
     const modifierLinks = productIds.length > 0
       ? await db.query.productModifierGroups.findMany({
           where: (pmg, { inArray }) => inArray(pmg.productId, productIds),
           columns: { productId: true },
         })
       : []
-    const productsWithModifiers = new Set(modifierLinks.map(l => l.productId))
 
-    return { items: items.map(p => ({ ...p, hasModifiers: productsWithModifiers.has(p.id) })), page: Number(page), pageSize: limit }
+    const categoryModLinks = categoryIds.length > 0
+      ? await db.query.categoryModifierGroups.findMany({
+          where: (cmg, { inArray }) => inArray(cmg.categoryId, categoryIds),
+          columns: { categoryId: true },
+        })
+      : []
+
+    const productsWithDirectModifiers = new Set(modifierLinks.map(l => l.productId))
+    const categoriesWithModifiers = new Set(categoryModLinks.map(l => l.categoryId))
+
+    return { items: items.map(p => ({ ...p, hasModifiers: productsWithDirectModifiers.has(p.id) || categoriesWithModifiers.has(p.categoryId) })), page: Number(page), pageSize: limit }
   })
 
   app.post('/api/admin/products', { preHandler: requirePermission('inventory.manage') }, async (request, reply) => {
