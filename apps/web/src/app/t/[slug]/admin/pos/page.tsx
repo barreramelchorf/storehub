@@ -347,8 +347,6 @@ export default function POSPage() {
           </div>
           )
         })}
-          </div>
-        ))}
       </div>
 
       {cart.length > 0 && (
