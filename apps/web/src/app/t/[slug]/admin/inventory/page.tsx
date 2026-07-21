@@ -16,6 +16,7 @@ export default function InventoryPage() {
   const [modalTab, setModalTab] = useState<'product' | 'modifier'>('product')
   const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true })
   const [modifierForm, setModifierForm] = useState({ name: '', price: '', groupId: '', newGroupName: '' })
+  const [categoryModifiers, setCategoryModifiers] = useState<string[]>([])
   const [catForm, setCatForm] = useState({ name: '', description: '' })
   const [restockForm, setRestockForm] = useState({ quantity: '', reason: '' })
   const [search, setSearch] = useState('')
@@ -61,9 +62,26 @@ export default function InventoryPage() {
   })
 
   const catSaveMutation = useMutation({
-    mutationFn: (body: any) => {
-      if (modal?.id) return api(`/api/admin/categories/${modal.id}`, { method: 'PUT', body: JSON.stringify(body), token })
-      return api('/api/admin/categories', { method: 'POST', body: JSON.stringify(body), token })
+    mutationFn: async (body: any) => {
+      let category: any
+      if (modal?.id) {
+        category = await api(`/api/admin/categories/${modal.id}`, { method: 'PUT', body: JSON.stringify(body), token })
+      } else {
+        category = await api('/api/admin/categories', { method: 'POST', body: JSON.stringify(body), token })
+      }
+      // Save category modifier assignments
+      const categoryId = category.id
+      if (categoryId && modifierGroups) {
+        for (const g of modifierGroups) {
+          if (!categoryModifiers.includes(g.id)) {
+            await api(`/api/admin/modifiers/${g.id}/assign-category/${categoryId}`, { method: 'DELETE', token }).catch(() => {})
+          }
+        }
+        for (const groupId of categoryModifiers) {
+          await api(`/api/admin/modifiers/${groupId}/assign-category`, { method: 'POST', body: JSON.stringify({ categoryIds: [categoryId] }), token }).catch(() => {})
+        }
+      }
+      return category
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['categories'] }); setModal(null) },
   })
@@ -90,8 +108,12 @@ export default function InventoryPage() {
     setModal({ type: 'product', id: p.id })
   }
   const openRestock = (p: any) => { setRestockForm({ quantity: '', reason: '' }); setModal({ type: 'restock', id: p.id }) }
-  const openNewCategory = () => { setCatForm({ name: '', description: '' }); setModal({ type: 'category', id: null }) }
-  const openEditCategory = (c: any) => { setCatForm({ name: c.name, description: c.description ?? '' }); setModal({ type: 'category', id: c.id }) }
+  const openNewCategory = () => { setCatForm({ name: '', description: '' }); setCategoryModifiers([]); setModal({ type: 'category', id: null }) }
+  const openEditCategory = (c: any) => {
+    setCatForm({ name: c.name, description: c.description ?? '' })
+    api(`/api/admin/categories/${c.id}/modifiers`, { token }).then((ids: string[]) => setCategoryModifiers(ids)).catch(() => setCategoryModifiers([]))
+    setModal({ type: 'category', id: c.id })
+  }
 
   const getCategoryName = (id: string) => categories?.find((c: any) => c.id === id)?.name ?? '-'
   const currentProduct = modal?.type === 'product' && modal.id ? products?.items?.find((p: any) => p.id === modal.id) : null
@@ -367,6 +389,24 @@ export default function InventoryPage() {
                 <form onSubmit={(e) => { e.preventDefault(); catSaveMutation.mutate(catForm) }} className="space-y-3">
                   <div><label className="label">Nombre</label><input value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} className="input" required /></div>
                   <div><label className="label">Descripción</label><input value={catForm.description} onChange={e => setCatForm(f => ({ ...f, description: e.target.value }))} className="input" /></div>
+                  {modifierGroups?.length > 0 && (
+                    <div>
+                      <label className="label">Modificadores (aplican a todos los productos de esta categoría)</label>
+                      <div className="space-y-2">
+                        {modifierGroups.filter((g: any) => g.active).map((g: any) => (
+                          <label key={g.id} className="flex items-center justify-between py-2 px-3 rounded-lg border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface)]">
+                            <div className="flex items-center gap-2">
+                              <input type="checkbox" checked={categoryModifiers.includes(g.id)}
+                                onChange={e => setCategoryModifiers(prev => e.target.checked ? [...prev, g.id] : prev.filter(id => id !== g.id))}
+                                className="w-4 h-4 rounded border-[var(--color-border)]" />
+                              <span className="text-sm text-[var(--color-text-dark)]">{g.name}</span>
+                            </div>
+                            <span className="text-xs text-[var(--color-text)]">{g.options?.length ?? 0} opciones</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-2 pt-2">
                     <button type="submit" disabled={catSaveMutation.isPending} className="btn-primary flex-1">{catSaveMutation.isPending ? 'Guardando...' : 'Guardar'}</button>
                     <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>

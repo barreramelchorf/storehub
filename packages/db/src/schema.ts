@@ -173,6 +173,16 @@ export const productModifierGroups = pgTable('product_modifier_groups', {
   index('product_modifier_groups_product_idx').on(t.productId),
 ])
 
+// Category ↔ Modifier Group (many-to-many, products inherit from category)
+export const categoryModifierGroups = pgTable('category_modifier_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  categoryId: uuid('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
+  groupId: uuid('group_id').notNull().references(() => modifierGroups.id, { onDelete: 'cascade' }),
+}, (t) => [
+  unique('category_modifier_groups_unique').on(t.categoryId, t.groupId),
+  index('category_modifier_groups_category_idx').on(t.categoryId),
+])
+
 // Relations
 export const usersRelations = relations(users, ({ one }) => ({
   role: one(roles, { fields: [users.roleId], references: [roles.id] }),
@@ -204,4 +214,9 @@ export const modifierOptionsRelations = relations(modifierOptions, ({ one }) => 
 export const productModifierGroupsRelations = relations(productModifierGroups, ({ one }) => ({
   product: one(products, { fields: [productModifierGroups.productId], references: [products.id] }),
   group: one(modifierGroups, { fields: [productModifierGroups.groupId], references: [modifierGroups.id] }),
+}))
+
+export const categoryModifierGroupsRelations = relations(categoryModifierGroups, ({ one }) => ({
+  category: one(categories, { fields: [categoryModifierGroups.categoryId], references: [categories.id] }),
+  group: one(modifierGroups, { fields: [categoryModifierGroups.groupId], references: [modifierGroups.id] }),
 }))
