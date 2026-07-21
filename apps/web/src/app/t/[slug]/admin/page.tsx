@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 
 export default function AdminDashboard() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)
+  const [selectedSale, setSelectedSale] = useState<any>(null)
   const { data, isLoading } = useQuery({ queryKey: ['analytics'], queryFn: () => {
     const now = new Date()
     const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1))
@@ -24,6 +25,7 @@ export default function AdminDashboard() {
   })
   const { data: products } = useQuery({ queryKey: ['products'], queryFn: () => api('/api/admin/products?pageSize=500', { token: token! }), enabled: !!token })
   const { data: recentSales } = useQuery({ queryKey: ['recent-sales'], queryFn: () => api('/api/admin/sales?pageSize=5', { token: token! }), enabled: !!token })
+  const { data: saleDetail } = useQuery({ queryKey: ['sale-detail', selectedSale?.id], queryFn: () => api(`/api/admin/sales/${selectedSale.id}`, { token: token! }), enabled: !!selectedSale })
 
   const prevChange = data?.previousPeriod?.totalSales > 0
     ? (((Number(data.summary?.totalSales ?? 0) - Number(data.previousPeriod.totalSales)) / Number(data.previousPeriod.totalSales)) * 100).toFixed(0)
@@ -87,7 +89,10 @@ export default function AdminDashboard() {
                         <p className="text-sm font-medium text-[var(--color-text-dark)]">${Number(s.total).toFixed(2)}</p>
                         <p className="text-xs text-[var(--color-text)]">{s.user?.username || s.user?.email || '—'} · {new Date(s.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
-                      <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">{s.paymentMethod}</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setSelectedSale(s)} className="text-xs text-[var(--color-primary)] hover:underline">Ver</button>
+                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">{s.paymentMethod}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -132,6 +137,49 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Sale detail modal */}
+      {selectedSale && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSelectedSale(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--color-text-dark)]">Detalle de venta</h2>
+                <p className="text-xs text-[var(--color-text)]">{new Date(selectedSale.saleDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })} · {new Date(selectedSale.createdAt).toLocaleTimeString('es-MX')}</p>
+              </div>
+              <button onClick={() => setSelectedSale(null)} className="text-xl text-[var(--color-text)]">✕</button>
+            </div>
+            {saleDetail?.items && (
+              <div className="space-y-2 mb-4">
+                {saleDetail.items.map((item: any) => (
+                  <div key={item.id} className="flex justify-between text-sm py-2 border-b border-[var(--color-border)] last:border-0">
+                    <div>
+                      <p className="text-[var(--color-text-dark)] font-medium">{item.product?.name ?? 'Producto'}</p>
+                      {item.modifiers?.length > 0 && (
+                        <div className="space-y-0.5">
+                          {item.modifiers.map((m: any, i: number) => (
+                            <p key={i} className="text-[10px] text-[var(--color-primary)]">+ {m.name} ${Number(m.price).toFixed(2)}</p>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-[var(--color-text)]">x{item.quantity} · ${Number(item.unitPrice).toFixed(2)} c/u</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">${Number(item.subtotal).toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="space-y-1 pt-3 border-t border-[var(--color-border)]">
+              {saleDetail?.user && <div className="flex justify-between text-sm mb-2"><span className="text-[var(--color-text)]">Cajero</span><span className="font-medium">{saleDetail.user.username || saleDetail.user.email}</span></div>}
+              {Number(selectedSale.discount) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Descuento</span><span className="text-green-600">-${Number(selectedSale.discount).toFixed(2)}</span></div>}
+              {Number(selectedSale.tip) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Propina</span><span>+${Number(selectedSale.tip).toFixed(2)}</span></div>}
+              <div className="flex justify-between font-bold text-lg pt-2"><span>Total</span><span>${Number(selectedSale.total).toFixed(2)}</span></div>
+            </div>
+          </div>
         </div>
       )}
     </div>
