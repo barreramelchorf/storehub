@@ -99,6 +99,7 @@ export const saleItems = pgTable('sale_items', {
   unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
   originalPrice: numeric('original_price', { precision: 10, scale: 2 }).notNull(),
   overrideReason: text('override_reason'),
+  modifiers: jsonb('modifiers').notNull().default([]),
   subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(),
 }, (t) => [index('sale_items_product_idx').on(t.productId)])
 

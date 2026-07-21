@@ -84,7 +84,7 @@ export async function saleRoutes(app: FastifyInstance) {
         }
       }
 
-      saleItemValues.push({ productId: item.productId, quantity: item.quantity, unitPrice: String(unitPrice), originalPrice: String(originalPrice), overrideReason: item.overrideReason ?? null, subtotal: String(subtotal) })
+      saleItemValues.push({ productId: item.productId, quantity: item.quantity, unitPrice: String(unitPrice), originalPrice: String(originalPrice), overrideReason: item.overrideReason ?? null, modifiers: item.modifiers ?? [], subtotal: String(subtotal) })
     }
 
     total = total - discount + tip

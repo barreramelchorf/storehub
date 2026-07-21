@@ -81,6 +81,7 @@ export const saleItemSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.number().positive(),
   overrideReason: z.string().max(500).nullable().optional(),
+  modifiers: z.array(z.object({ id: z.string(), name: z.string(), price: z.number() })).optional(),
 })
 
 export const saleSchema = z.object({

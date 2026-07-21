@@ -172,6 +172,13 @@ export default function SalesPage() {
                   <div key={item.id} className="flex justify-between text-sm py-2 border-b border-[var(--color-border)] last:border-0">
                     <div>
                       <p className="text-[var(--color-text-dark)] font-medium">{item.product?.name ?? 'Producto'}</p>
+                      {item.modifiers?.length > 0 && (
+                        <div className="space-y-0.5">
+                          {item.modifiers.map((m: any, i: number) => (
+                            <p key={i} className="text-[10px] text-[var(--color-primary)]">+ {m.name} ${Number(m.price).toFixed(2)}</p>
+                          ))}
+                        </div>
+                      )}
                       <p className="text-xs text-[var(--color-text)]">x{item.quantity} · ${Number(item.unitPrice).toFixed(2)} c/u</p>
                     </div>
                     <div className="text-right">
