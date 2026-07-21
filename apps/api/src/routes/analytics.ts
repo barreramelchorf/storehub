@@ -238,8 +238,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
       CROSS JOIN jsonb_array_elements(${saleItems.modifiers}) AS m
       WHERE ${sales.tenantId} = ${tenantId}
         AND ${sales.status} = 'approved'
-        AND ${sales.saleDate} >= ${dateFrom}
-        AND ${sales.saleDate} <= ${dateTo}
+        AND ${sales.saleDate} >= ${dateFrom.toISOString()}
+        AND ${sales.saleDate} <= ${dateTo.toISOString()}
       GROUP BY m->>'name'
       ORDER BY times_sold DESC
       LIMIT 10
