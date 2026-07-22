@@ -120,7 +120,8 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          {/* Top products */}
+          {/* Top products + Top modifiers side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {data.topProducts?.length > 0 && (
             <div className="card p-5">
               <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-3">Top productos del mes</h2>
@@ -137,6 +138,23 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+          {data.topModifiers?.length > 0 && (
+            <div className="card p-5">
+              <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-3">Top modificadores del mes</h2>
+              <div className="space-y-2">
+                {data.topModifiers.slice(0, 5).map((m: any, i: number) => (
+                  <div key={m.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-[var(--color-text)] w-5">{i + 1}</span>
+                      <span className="text-sm text-[var(--color-text-dark)]">{m.name}</span>
+                    </div>
+                    <span className="text-sm font-medium">{m.times_sold}x</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          </div>
         </div>
       )}
 

@@ -177,7 +177,8 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          {/* Top products */}
+          {/* Top products + Top modifiers side by side on desktop */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {data.topProducts?.length > 0 && (
             <div className="card p-5">
               <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Top productos</h2>
@@ -198,7 +199,6 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          {/* Top modifiers */}
           {data.topModifiers?.length > 0 && (
             <div className="card p-5">
               <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Top modificadores</h2>
@@ -218,6 +218,7 @@ export default function AnalyticsPage() {
               </div>
             </div>
           )}
+          </div>
 
           {/* Sales by employee */}
           {data.salesByEmployee?.length > 0 && (
