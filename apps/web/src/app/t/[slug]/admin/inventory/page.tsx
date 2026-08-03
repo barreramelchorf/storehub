@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 import { ImageUpload } from '@/components/ImageUpload'
+import { AssignModal } from '@/components/AssignModal'
 
 import Link from 'next/link'
 
@@ -17,6 +18,7 @@ export default function InventoryPage() {
   const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true })
   const [modifierForm, setModifierForm] = useState({ name: '', price: '', groupId: '', newGroupName: '' })
   const [categoryModifiers, setCategoryModifiers] = useState<string[]>([])
+  const [assignModal, setAssignModal] = useState<{ groupId: string; type: 'categories' | 'products'; assignedIds: string[] } | null>(null)
   const [catForm, setCatForm] = useState({ name: '', description: '' })
   const [restockForm, setRestockForm] = useState({ quantity: '', reason: '' })
   const [search, setSearch] = useState('')
@@ -296,31 +298,28 @@ export default function InventoryPage() {
                   {/* Assignments */}
                   <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
                     <p className="text-xs font-medium text-[var(--color-text)] mb-2">📂 Asignado a:</p>
-                    <div className="space-y-1">
-                      {categories?.filter((c: any) => {
-                        // Check if this group is assigned to this category via productLinks data
-                        return false // Will be populated by async check below
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {g.productLinks?.map((l: any) => {
+                        const product = products?.items?.find((p: any) => p.id === l.productId)
+                        return product ? <span key={l.productId} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{product.name}</span> : null
                       })}
+                      {!g.productLinks?.length && <span className="text-[10px] text-[var(--color-text)]">Sin asignaciones directas</span>}
                     </div>
-                    <div className="flex gap-2 mt-2">
-                      <select className="input text-xs flex-1" onChange={async (e) => {
-                        if (!e.target.value) return
-                        await api(`/api/admin/modifiers/${g.id}/assign-category`, { method: 'POST', body: JSON.stringify({ categoryIds: [e.target.value] }), token })
-                        queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-                        e.target.value = ''
-                      }}>
-                        <option value="">+ Asignar a categoría...</option>
-                        {categories?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                      <select className="input text-xs flex-1" onChange={async (e) => {
-                        if (!e.target.value) return
-                        await api(`/api/admin/modifiers/${g.id}/assign`, { method: 'POST', body: JSON.stringify({ productIds: [e.target.value] }), token })
-                        queryClient.invalidateQueries({ queryKey: ['modifiers', 'products'] })
-                        e.target.value = ''
-                      }}>
-                        <option value="">+ Asignar a producto...</option>
-                        {products?.items?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
+                    <div className="flex gap-2">
+                      <button onClick={async () => {
+                        const res = await api(`/api/admin/categories/${categories?.[0]?.id ?? ''}/modifiers`, { token }).catch(() => []) as string[]
+                        // Load all category assignments for this group
+                        const assignedCatIds: string[] = []
+                        for (const c of categories ?? []) {
+                          const catMods = await api(`/api/admin/categories/${c.id}/modifiers`, { token }).catch(() => []) as string[]
+                          if (catMods.includes(g.id)) assignedCatIds.push(c.id)
+                        }
+                        setAssignModal({ groupId: g.id, type: 'categories', assignedIds: assignedCatIds })
+                      }} className="text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-surface)]">Categorías</button>
+                      <button onClick={() => {
+                        const assignedProductIds = g.productLinks?.map((l: any) => l.productId) ?? []
+                        setAssignModal({ groupId: g.id, type: 'products', assignedIds: assignedProductIds })
+                      }} className="text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-surface)]">Productos</button>
                     </div>
                   </div>
                 </div>
@@ -335,6 +334,37 @@ export default function InventoryPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Assign Modal */}
+      {assignModal && (
+        <AssignModal
+          title={assignModal.type === 'categories' ? 'Asignar a categorías' : 'Asignar a productos'}
+          items={assignModal.type === 'categories'
+            ? (categories ?? []).map((c: any) => ({ id: c.id, name: c.name }))
+            : (products?.items ?? []).map((p: any) => ({ id: p.id, name: p.name, extra: `$${Number(p.price).toFixed(2)}` }))
+          }
+          assignedIds={assignModal.assignedIds}
+          onToggle={async (id, isAssigned) => {
+            if (assignModal.type === 'categories') {
+              if (isAssigned) {
+                await api(`/api/admin/modifiers/${assignModal.groupId}/assign-category/${id}`, { method: 'DELETE', token })
+              } else {
+                await api(`/api/admin/modifiers/${assignModal.groupId}/assign-category`, { method: 'POST', body: JSON.stringify({ categoryIds: [id] }), token })
+              }
+            } else {
+              if (isAssigned) {
+                await api(`/api/admin/modifiers/${assignModal.groupId}/assign/${id}`, { method: 'DELETE', token })
+              } else {
+                await api(`/api/admin/modifiers/${assignModal.groupId}/assign`, { method: 'POST', body: JSON.stringify({ productIds: [id] }), token })
+              }
+            }
+            setAssignModal(prev => prev ? { ...prev, assignedIds: isAssigned ? prev.assignedIds.filter(x => x !== id) : [...prev.assignedIds, id] } : null)
+            queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+            queryClient.invalidateQueries({ queryKey: ['products'] })
+          }}
+          onClose={() => setAssignModal(null)}
+        />
       )}
 
       {/* Modal */}
