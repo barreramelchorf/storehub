@@ -168,7 +168,7 @@ export default function InventoryPage() {
                     <td className="p-3 text-center text-xs text-[var(--color-text)]">{getCategoryName(p.categoryId)}</td>
                     <td className="p-3 text-center font-medium">${Number(p.price).toFixed(2)}</td>
                     <td className="p-3 text-center">{p.stock}</td>
-                    <td className="p-3 text-center">{p.stock <= p.minStock ? <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">Bajo</span> : <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">OK</span>}</td>
+                    <td className="p-3 text-center">{!p.active ? <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactivo</span> : p.stock <= p.minStock ? <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">Bajo</span> : <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">OK</span>}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-1">
                         <button onClick={() => openRestock(p)} className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+Stock</button>
@@ -194,7 +194,8 @@ export default function InventoryPage() {
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-sm font-bold text-[var(--color-primary)]">${Number(p.price).toFixed(2)}</span>
                       <span className="text-xs text-[var(--color-text)]">Stock: <strong className={p.stock <= p.minStock ? 'text-amber-600' : ''}>{p.stock}</strong></span>
-                      {p.stock <= p.minStock && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full">Bajo</span>}
+                      {!p.active && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">Inactivo</span>}
+                      {p.active && p.stock <= p.minStock && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full">Bajo</span>}
                     </div>
                   </div>
                 </div>
