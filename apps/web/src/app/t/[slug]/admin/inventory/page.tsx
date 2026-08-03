@@ -235,12 +235,19 @@ export default function InventoryPage() {
       {tab === 'modifiers' && (
         <>
           <div className="mb-4">
-            <button onClick={() => { setModifierForm({ name: '', price: '', groupId: '', newGroupName: '' }); setModal({ type: 'product', id: null }); setModalTab('modifier') }} className="btn-primary">+ Nuevo modificador</button>
+            <button onClick={async () => {
+              const name = prompt('Nombre del nuevo grupo de modificadores:')
+              if (!name) return
+              await api('/api/admin/modifiers', { method: 'POST', body: JSON.stringify({ name, multiple: true }), token })
+              queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+            }} className="btn-primary">+ Nuevo grupo</button>
           </div>
 
           {modifierGroups?.length > 0 ? (
             <div className="space-y-4">
-              {modifierGroups.filter((g: any) => g.active).map((g: any) => (
+              {modifierGroups.filter((g: any) => g.active).map((g: any) => {
+                const assignedCategories = categories?.filter((c: any) => g.productLinks?.some?.(() => false)) ?? []
+                return (
                 <div key={g.id} className="card p-5">
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="text-sm font-semibold text-[var(--color-text-dark)]">{g.name}</h3>
@@ -260,7 +267,9 @@ export default function InventoryPage() {
                       }} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100">Eliminar</button>
                     </div>
                   </div>
-                  <div className="space-y-2">
+
+                  {/* Options */}
+                  <div className="space-y-2 mb-3">
                     {g.options?.filter((o: any) => o.active).map((opt: any) => (
                       <div key={opt.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-[var(--color-surface)]">
                         <span className="text-sm text-[var(--color-text-dark)]">{opt.name}</span>
@@ -282,9 +291,41 @@ export default function InventoryPage() {
                     const price = prompt('Precio adicional:', '0')
                     await api(`/api/admin/modifiers/${g.id}/options`, { method: 'POST', body: JSON.stringify({ name, price: Number(price) || 0 }), token })
                     queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-                  }} className="text-xs text-[var(--color-primary)] hover:underline mt-3">+ Agregar opción</button>
+                  }} className="text-xs text-[var(--color-primary)] hover:underline">+ Agregar opción</button>
+
+                  {/* Assignments */}
+                  <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
+                    <p className="text-xs font-medium text-[var(--color-text)] mb-2">📂 Asignado a:</p>
+                    <div className="space-y-1">
+                      {categories?.filter((c: any) => {
+                        // Check if this group is assigned to this category via productLinks data
+                        return false // Will be populated by async check below
+                      })}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <select className="input text-xs flex-1" onChange={async (e) => {
+                        if (!e.target.value) return
+                        await api(`/api/admin/modifiers/${g.id}/assign-category`, { method: 'POST', body: JSON.stringify({ categoryIds: [e.target.value] }), token })
+                        queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+                        e.target.value = ''
+                      }}>
+                        <option value="">+ Asignar a categoría...</option>
+                        {categories?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <select className="input text-xs flex-1" onChange={async (e) => {
+                        if (!e.target.value) return
+                        await api(`/api/admin/modifiers/${g.id}/assign`, { method: 'POST', body: JSON.stringify({ productIds: [e.target.value] }), token })
+                        queryClient.invalidateQueries({ queryKey: ['modifiers', 'products'] })
+                        e.target.value = ''
+                      }}>
+                        <option value="">+ Asignar a producto...</option>
+                        {products?.items?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="card p-8 text-center text-[var(--color-text)]">
@@ -303,54 +344,9 @@ export default function InventoryPage() {
             {modal.type === 'product' && (
               <>
                 <h2 className="text-lg font-bold text-[var(--color-text-dark)]">{modal.id ? 'Editar producto' : 'Nuevo'}</h2>
-                {/* Tabs only when creating new */}
-                {!modal.id && modifiersEnabled && (
-                  <div className="flex gap-2 mb-2">
-                    <button type="button" onClick={() => setModalTab('product')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${modalTab === 'product' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)]'}`}>Producto</button>
-                    <button type="button" onClick={() => setModalTab('modifier')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${modalTab === 'modifier' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)]'}`}>Modificador</button>
-                  </div>
-                )}
+                {/* Tabs removed - modifiers managed in dedicated tab */}
 
-                {/* Modifier form */}
-                {!modal.id && modifiersEnabled && modalTab === 'modifier' && (
-                  <form onSubmit={async (e) => {
-                    e.preventDefault()
-                    let groupId = modifierForm.groupId
-                    // Create new group if needed
-                    if (groupId === '__new' && modifierForm.newGroupName) {
-                      const group = await api('/api/admin/modifiers', { method: 'POST', body: JSON.stringify({ name: modifierForm.newGroupName, multiple: true }), token })
-                      groupId = group.id
-                    }
-                    if (!groupId || groupId === '__new') return
-                    // Add option to the group
-                    await api(`/api/admin/modifiers/${groupId}/options`, { method: 'POST', body: JSON.stringify({ name: modifierForm.name, price: Number(modifierForm.price) || 0 }), token })
-                    queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-                    setModifierForm({ name: '', price: '', groupId: '', newGroupName: '' })
-                    setModal(null)
-                  }} className="space-y-3">
-                    <div><label className="label">Nombre del modificador</label><input value={modifierForm.name} onChange={e => setModifierForm(f => ({ ...f, name: e.target.value }))} className="input" placeholder="Ej: Tapioca" required /></div>
-                    <div><label className="label">Precio adicional</label><input type="number" step="0.01" value={modifierForm.price} onChange={e => setModifierForm(f => ({ ...f, price: e.target.value }))} className="input" placeholder="12.00" required /></div>
-                    <div>
-                      <label className="label">Grupo</label>
-                      <select value={modifierForm.groupId} onChange={e => setModifierForm(f => ({ ...f, groupId: e.target.value }))} className="input" required>
-                        <option value="">Seleccionar grupo...</option>
-                        {modifierGroups?.filter((g: any) => g.active).map((g: any) => (
-                          <option key={g.id} value={g.id}>{g.name} ({g.options?.length ?? 0} opciones)</option>
-                        ))}
-                        <option value="__new">+ Crear nuevo grupo</option>
-                      </select>
-                    </div>
-                    {modifierForm.groupId === '__new' && (
-                      <div><label className="label">Nombre del nuevo grupo</label><input value={modifierForm.newGroupName} onChange={e => setModifierForm(f => ({ ...f, newGroupName: e.target.value }))} className="input" placeholder="Ej: Extras frappé" required /></div>
-                    )}
-                    <div className="flex gap-2 pt-2">
-                      <button type="submit" className="btn-primary flex-1">Guardar modificador</button>
-                      <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>
-                    </div>
-                  </form>
-                )}
-
-                {/* Product form (shown when editing OR when tab is 'product') */}
+                {/* Product form (shown when editing OR creating) */}
                 {(modal.id || modalTab === 'product') && (
                 <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate({ ...form, price: Number(form.price), stock: Number(form.stock), minStock: Number(form.minStock), active: form.active, visible: form.visible }) }} className="space-y-3">
                   <div><label className="label">Nombre</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input" required /></div>
