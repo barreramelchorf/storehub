@@ -11,10 +11,16 @@ interface ComandasState { comandas: Comanda[]; activeId: string }
 
 const CART_KEY = 'storehub-cart'
 const COMANDAS_KEY = 'storehub-comandas'
+const POS_EXTRAS_KEY = 'storehub-pos-extras'
 
 // Legacy single-cart helpers (used when multicomanda is OFF)
 function loadCart(): CartItem[] { try { return JSON.parse(localStorage.getItem(CART_KEY) ?? '[]') } catch { return [] } }
 function saveCart(cart: CartItem[]) { localStorage.setItem(CART_KEY, JSON.stringify(cart)) }
+function loadPosExtras(): { discount: number; tip: number; paymentMethod: string } {
+  try { return JSON.parse(localStorage.getItem(POS_EXTRAS_KEY) ?? 'null') ?? { discount: 0, tip: 0, paymentMethod: 'cash' } } catch { return { discount: 0, tip: 0, paymentMethod: 'cash' } }
+}
+function savePosExtras(extras: { discount: number; tip: number; paymentMethod: string }) { localStorage.setItem(POS_EXTRAS_KEY, JSON.stringify(extras)) }
+function clearPosExtras() { localStorage.removeItem(POS_EXTRAS_KEY) }
 
 // Multi-comanda helpers
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }
@@ -36,6 +42,17 @@ export default function POSPage() {
   const [discount, setDiscount] = useState(0)
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
+
+  // Load persisted extras on mount
+  useEffect(() => {
+    const extras = loadPosExtras()
+    setDiscount(extras.discount)
+    setTip(extras.tip)
+    setPaymentMethod(extras.paymentMethod)
+  }, [])
+
+  // Persist extras on change
+  useEffect(() => { savePosExtras({ discount, tip, paymentMethod }) }, [discount, tip, paymentMethod])
   const [saleDate, setSaleDate] = useState('')
 
   // Multicomanda state
@@ -117,6 +134,7 @@ export default function POSPage() {
         setSingleCart([])
       }
       setDiscount(0); setTip(0); setMobileCartOpen(false)
+      clearPosExtras()
       queryClient.invalidateQueries({ queryKey: ['products'] })
     },
   })
