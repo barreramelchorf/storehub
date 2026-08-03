@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
+import { DatePicker } from '@/components/DatePicker'
 
 interface CartItem { productId: string; name: string; price: number; quantity: number; modifiers?: Array<{ id: string; name: string; price: number }> }
 interface Comanda { id: string; name: string; cart: CartItem[]; discount: number; tip: number; paymentMethod: string }
@@ -397,7 +398,7 @@ export default function POSPage() {
               </select>
             </div>
             <div><label className="label">Fecha</label>
-              <input type="date" value={saleDate} onChange={e => setSaleDate(e.target.value)} className="input" />
+              <DatePicker value={saleDate} onChange={setSaleDate} />
             </div>
           </div>
 

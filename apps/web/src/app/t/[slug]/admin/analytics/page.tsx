@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
+import { DatePicker } from '@/components/DatePicker'
 
 const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
@@ -77,11 +78,11 @@ export default function AnalyticsPage() {
         <div className="flex gap-3 mb-6 items-end flex-wrap">
           <div>
             <label className="label">Desde</label>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input" />
+            <DatePicker value={customFrom} onChange={setCustomFrom} />
           </div>
           <div>
             <label className="label">Hasta</label>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input" />
+            <DatePicker value={customTo} onChange={setCustomTo} />
           </div>
         </div>
       )}
