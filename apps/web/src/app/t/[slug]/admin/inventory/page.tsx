@@ -11,7 +11,7 @@ import Link from 'next/link'
 export default function InventoryPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<'products' | 'categories'>('products')
+  const [tab, setTab] = useState<'products' | 'categories' | 'modifiers'>('products')
   const [modal, setModal] = useState<{ type: 'product' | 'category' | 'restock'; id: string | null } | null>(null)
   const [modalTab, setModalTab] = useState<'product' | 'modifier'>('product')
   const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true })
@@ -127,6 +127,7 @@ export default function InventoryPage() {
         <div className="flex gap-2">
           <button onClick={() => setTab('products')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'products' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>Productos</button>
           <button onClick={() => setTab('categories')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'categories' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>Categorías</button>
+          {modifiersEnabled && <button onClick={() => setTab('modifiers')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'modifiers' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>Modificadores</button>}
         </div>
       </div>
 
@@ -227,6 +228,71 @@ export default function InventoryPage() {
               </tbody>
             </table>
           </div>
+        </>
+      )}
+
+      {/* Modifiers tab */}
+      {tab === 'modifiers' && (
+        <>
+          <div className="mb-4">
+            <button onClick={() => { setModifierForm({ name: '', price: '', groupId: '', newGroupName: '' }); setModal({ type: 'product', id: null }); setModalTab('modifier') }} className="btn-primary">+ Nuevo modificador</button>
+          </div>
+
+          {modifierGroups?.length > 0 ? (
+            <div className="space-y-4">
+              {modifierGroups.filter((g: any) => g.active).map((g: any) => (
+                <div key={g.id} className="card p-5">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-sm font-semibold text-[var(--color-text-dark)]">{g.name}</h3>
+                    <div className="flex gap-1">
+                      <button onClick={async () => {
+                        const name = prompt('Nuevo nombre del grupo:', g.name)
+                        if (name && name !== g.name) {
+                          await api(`/api/admin/modifiers/${g.id}`, { method: 'PUT', body: JSON.stringify({ name }), token })
+                          queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+                        }
+                      }} className="btn-secondary text-xs px-2 py-1">Renombrar</button>
+                      <button onClick={async () => {
+                        if (confirm(`¿Eliminar grupo "${g.name}" y todas sus opciones?`)) {
+                          await api(`/api/admin/modifiers/${g.id}`, { method: 'DELETE', token })
+                          queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+                        }
+                      }} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100">Eliminar</button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {g.options?.filter((o: any) => o.active).map((opt: any) => (
+                      <div key={opt.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-[var(--color-surface)]">
+                        <span className="text-sm text-[var(--color-text-dark)]">{opt.name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-[var(--color-primary)]">+${Number(opt.price).toFixed(2)}</span>
+                          <button onClick={async () => {
+                            if (confirm(`¿Eliminar "${opt.name}"?`)) {
+                              await api(`/api/admin/modifiers/options/${opt.id}`, { method: 'DELETE', token })
+                              queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+                            }
+                          }} className="text-xs text-red-500 hover:text-red-700">✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={async () => {
+                    const name = prompt('Nombre de la nueva opción:')
+                    if (!name) return
+                    const price = prompt('Precio adicional:', '0')
+                    await api(`/api/admin/modifiers/${g.id}/options`, { method: 'POST', body: JSON.stringify({ name, price: Number(price) || 0 }), token })
+                    queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+                  }} className="text-xs text-[var(--color-primary)] hover:underline mt-3">+ Agregar opción</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card p-8 text-center text-[var(--color-text)]">
+              <p className="text-3xl mb-2">🧩</p>
+              <p>No hay grupos de modificadores creados</p>
+              <p className="text-xs mt-1">Crea uno para empezar a agregar extras a tus productos</p>
+            </div>
+          )}
         </>
       )}
 
