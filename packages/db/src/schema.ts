@@ -205,6 +205,7 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
 export const modifierGroupsRelations = relations(modifierGroups, ({ many }) => ({
   options: many(modifierOptions),
   productLinks: many(productModifierGroups),
+  categoryLinks: many(categoryModifierGroups),
 }))
 
 export const modifierOptionsRelations = relations(modifierOptions, ({ one }) => ({

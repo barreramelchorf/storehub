@@ -303,7 +303,7 @@ export default function InventoryPage() {
                     <p className="text-xs font-medium text-[var(--color-text)] mb-2">📂 Asignado a:</p>
                     <div className="mb-2">
                       <span className="text-[10px] text-[var(--color-text)] font-medium">Categorías: </span>
-                      <CategoryBadges groupId={g.id} categories={categories ?? []} token={token} />
+                      <CategoryBadges groupId={g.id} categories={categories ?? []} categoryLinks={g.categoryLinks} />
                     </div>
                     <div className="mb-2">
                       <span className="text-[10px] text-[var(--color-text)] font-medium">Productos: </span>
@@ -317,14 +317,8 @@ export default function InventoryPage() {
                       ) : <span className="text-[10px] text-[var(--color-text)]">Ninguno</span>}
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={async () => {
-                        const res = await api(`/api/admin/categories/${categories?.[0]?.id ?? ''}/modifiers`, { token }).catch(() => []) as string[]
-                        // Load all category assignments for this group
-                        const assignedCatIds: string[] = []
-                        for (const c of categories ?? []) {
-                          const catMods = await api(`/api/admin/categories/${c.id}/modifiers`, { token }).catch(() => []) as string[]
-                          if (catMods.includes(g.id)) assignedCatIds.push(c.id)
-                        }
+                      <button onClick={() => {
+                        const assignedCatIds = (g.categoryLinks ?? []).map((l: any) => l.categoryId)
                         setAssignModal({ groupId: g.id, type: 'categories', assignedIds: assignedCatIds })
                       }} className="text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-surface)]">Categorías</button>
                       <button onClick={() => {
@@ -583,21 +577,9 @@ export default function InventoryPage() {
   )
 }
 
-function CategoryBadges({ groupId, categories, token }: { groupId: string; categories: any[]; token: string }) {
-  const { data } = useQuery({
-    queryKey: ['group-categories', groupId],
-    queryFn: async () => {
-      const result: string[] = []
-      for (const c of categories) {
-        const mods = await api(`/api/admin/categories/${c.id}/modifiers`, { token }).catch(() => []) as string[]
-        if (mods.includes(groupId)) result.push(c.id)
-      }
-      return result
-    },
-    enabled: categories.length > 0,
-  })
-
-  const assignedCategories = categories.filter(c => data?.includes(c.id))
+function CategoryBadges({ groupId, categories, categoryLinks }: { groupId: string; categories: any[]; categoryLinks?: any[] }) {
+  const assignedCategoryIds = (categoryLinks ?? []).map((l: any) => l.categoryId)
+  const assignedCategories = categories.filter(c => assignedCategoryIds.includes(c.id))
 
   if (!assignedCategories.length) return <span className="text-[10px] text-[var(--color-text)]">Ninguna</span>
   return (

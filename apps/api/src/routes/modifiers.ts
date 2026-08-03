@@ -11,7 +11,7 @@ export async function modifierRoutes(app: FastifyInstance) {
   app.get('/api/admin/modifiers', { preHandler: requirePermission('inventory.manage') }, async (request) => {
     return db.query.modifierGroups.findMany({
       where: (g, { eq }) => eq(g.tenantId, request.tenant.id),
-      with: { options: true, productLinks: true },
+      with: { options: true, productLinks: true, categoryLinks: true },
       orderBy: (g, { asc }) => [asc(g.name)],
     })
   })
