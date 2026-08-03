@@ -298,12 +298,20 @@ export default function InventoryPage() {
                   {/* Assignments */}
                   <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
                     <p className="text-xs font-medium text-[var(--color-text)] mb-2">📂 Asignado a:</p>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {g.productLinks?.map((l: any) => {
-                        const product = products?.items?.find((p: any) => p.id === l.productId)
-                        return product ? <span key={l.productId} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{product.name}</span> : null
-                      })}
-                      {!g.productLinks?.length && <span className="text-[10px] text-[var(--color-text)]">Sin asignaciones directas</span>}
+                    <div className="mb-2">
+                      <span className="text-[10px] text-[var(--color-text)] font-medium">Categorías: </span>
+                      <CategoryBadges groupId={g.id} categories={categories ?? []} token={token} />
+                    </div>
+                    <div className="mb-2">
+                      <span className="text-[10px] text-[var(--color-text)] font-medium">Productos: </span>
+                      {g.productLinks?.length > 0 ? (
+                        <span className="inline-flex flex-wrap gap-1">
+                          {g.productLinks.map((l: any) => {
+                            const product = products?.items?.find((p: any) => p.id === l.productId)
+                            return product ? <span key={l.productId} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{product.name}</span> : null
+                          })}
+                        </span>
+                      ) : <span className="text-[10px] text-[var(--color-text)]">Ninguno</span>}
                     </div>
                     <div className="flex gap-2">
                       <button onClick={async () => {
@@ -549,5 +557,31 @@ export default function InventoryPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function CategoryBadges({ groupId, categories, token }: { groupId: string; categories: any[]; token: string }) {
+  const { data } = useQuery({
+    queryKey: ['group-categories', groupId],
+    queryFn: async () => {
+      const result: string[] = []
+      for (const c of categories) {
+        const mods = await api(`/api/admin/categories/${c.id}/modifiers`, { token }).catch(() => []) as string[]
+        if (mods.includes(groupId)) result.push(c.id)
+      }
+      return result
+    },
+    enabled: categories.length > 0,
+  })
+
+  const assignedCategories = categories.filter(c => data?.includes(c.id))
+
+  if (!assignedCategories.length) return <span className="text-[10px] text-[var(--color-text)]">Ninguna</span>
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {assignedCategories.map(c => (
+        <span key={c.id} className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full">{c.name}</span>
+      ))}
+    </span>
   )
 }
