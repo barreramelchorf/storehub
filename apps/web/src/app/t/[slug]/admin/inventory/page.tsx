@@ -26,6 +26,8 @@ export default function InventoryPage() {
   const { data: products } = useQuery({ queryKey: ['products', search], queryFn: () => api(`/api/admin/products?pageSize=500&search=${search}`, { token }) })
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: () => api('/api/admin/categories', { token }) })
   const { data: modifierGroups } = useQuery({ queryKey: ['modifiers'], queryFn: () => api('/api/admin/modifiers', { token }) })
+  const { data: tenantConfig } = useQuery({ queryKey: ['tenant-config'], queryFn: () => api('/api/public/info', { token }), enabled: !!token })
+  const modifiersEnabled = tenantConfig?.config?.modules?.modifiers ?? false
 
   const saveMutation = useMutation({
     mutationFn: async (body: any) => {
@@ -236,7 +238,7 @@ export default function InventoryPage() {
               <>
                 <h2 className="text-lg font-bold text-[var(--color-text-dark)]">{modal.id ? 'Editar producto' : 'Nuevo'}</h2>
                 {/* Tabs only when creating new */}
-                {!modal.id && (
+                {!modal.id && modifiersEnabled && (
                   <div className="flex gap-2 mb-2">
                     <button type="button" onClick={() => setModalTab('product')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${modalTab === 'product' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)]'}`}>Producto</button>
                     <button type="button" onClick={() => setModalTab('modifier')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${modalTab === 'modifier' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)]'}`}>Modificador</button>
@@ -244,7 +246,7 @@ export default function InventoryPage() {
                 )}
 
                 {/* Modifier form */}
-                {!modal.id && modalTab === 'modifier' && (
+                {!modal.id && modifiersEnabled && modalTab === 'modifier' && (
                   <form onSubmit={async (e) => {
                     e.preventDefault()
                     let groupId = modifierForm.groupId
@@ -325,6 +327,7 @@ export default function InventoryPage() {
                   )}
 
                   {/* Modifier groups */}
+                  {modifiersEnabled && (
                   <div>
                     <label className="label">Modificadores</label>
                     {modifierGroups?.length > 0 ? (
@@ -373,6 +376,7 @@ export default function InventoryPage() {
                       </div>
                     )}
                   </div>
+                  )}
 
                   <div className="flex gap-2 pt-2">
                     <button type="submit" disabled={saveMutation.isPending} className="btn-primary flex-1">{saveMutation.isPending ? 'Guardando...' : 'Guardar'}</button>
@@ -389,7 +393,7 @@ export default function InventoryPage() {
                 <form onSubmit={(e) => { e.preventDefault(); catSaveMutation.mutate(catForm) }} className="space-y-3">
                   <div><label className="label">Nombre</label><input value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} className="input" required /></div>
                   <div><label className="label">Descripción</label><input value={catForm.description} onChange={e => setCatForm(f => ({ ...f, description: e.target.value }))} className="input" /></div>
-                  {modifierGroups?.length > 0 && (
+                  {modifiersEnabled && modifierGroups?.length > 0 && (
                     <div>
                       <label className="label">Modificadores (aplican a todos los productos de esta categoría)</label>
                       <div className="space-y-2">
