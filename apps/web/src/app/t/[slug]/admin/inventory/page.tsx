@@ -353,15 +353,12 @@ export default function InventoryPage() {
           items={(products?.items ?? []).map((p: any) => ({
             id: p.id,
             name: p.name,
-            extra: p.categoryId === categoryProductsModal.categoryId ? undefined : `En: ${categories?.find((c: any) => c.id === p.categoryId)?.name ?? 'Otra'}`,
+            extra: p.categoryId === categoryProductsModal.categoryId ? 'En esta categoría' : `Mover desde: ${categories?.find((c: any) => c.id === p.categoryId)?.name ?? 'Otra'}`,
           }))}
           assignedIds={(products?.items ?? []).filter((p: any) => p.categoryId === categoryProductsModal.categoryId).map((p: any) => p.id)}
           onToggle={async (productId, isAssigned) => {
-            if (isAssigned) {
-              // Can't unassign from category (product must belong to one) - ignore or show message
-              return
-            }
-            // Assign product to this category
+            if (isAssigned) return // Already in this category, do nothing
+            // Move product to this category
             await api(`/api/admin/products/${productId}`, { method: 'PUT', body: JSON.stringify({ categoryId: categoryProductsModal.categoryId }), token })
             queryClient.invalidateQueries({ queryKey: ['products'] })
           }}
