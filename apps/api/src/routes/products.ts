@@ -75,8 +75,19 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.delete('/api/admin/products/:id', { preHandler: requirePermission('inventory.manage') }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const [deleted] = await db.delete(products).where(and(eq(products.id, id), eq(products.tenantId, request.tenant.id))).returning()
-    if (!deleted) return reply.code(404).send({ error: 'Not found' })
-    return { ok: true }
+    // Try hard delete first; if foreign key prevents it, soft delete (deactivate)
+    try {
+      const [deleted] = await db.delete(products).where(and(eq(products.id, id), eq(products.tenantId, request.tenant.id))).returning()
+      if (!deleted) return reply.code(404).send({ error: 'Not found' })
+      return { ok: true }
+    } catch (e: any) {
+      if (e.code === '23503') {
+        // Foreign key constraint — product has sales, soft delete instead
+        const [deactivated] = await db.update(products).set({ active: false }).where(and(eq(products.id, id), eq(products.tenantId, request.tenant.id))).returning()
+        if (!deactivated) return reply.code(404).send({ error: 'Not found' })
+        return { ok: true, softDeleted: true }
+      }
+      throw e
+    }
   })
 }
