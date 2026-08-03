@@ -6,7 +6,7 @@ import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 
 interface CartItem { productId: string; name: string; price: number; quantity: number; modifiers?: Array<{ id: string; name: string; price: number }> }
-interface Comanda { id: string; name: string; cart: CartItem[] }
+interface Comanda { id: string; name: string; cart: CartItem[]; discount: number; tip: number; paymentMethod: string }
 interface ComandasState { comandas: Comanda[]; activeId: string }
 
 const CART_KEY = 'storehub-cart'
@@ -29,7 +29,7 @@ function loadComandas(): ComandasState {
     const raw = JSON.parse(localStorage.getItem(COMANDAS_KEY) ?? 'null')
     if (raw && raw.comandas?.length > 0) return raw
   } catch {}
-  const initial: Comanda = { id: generateId(), name: 'Comanda 1', cart: [] }
+  const initial: Comanda = { id: generateId(), name: 'Comanda 1', cart: [], discount: 0, tip: 0, paymentMethod: 'cash' }
   return { comandas: [initial], activeId: initial.id }
 }
 function saveComandas(state: ComandasState) { localStorage.setItem(COMANDAS_KEY, JSON.stringify(state)) }
@@ -43,16 +43,6 @@ export default function POSPage() {
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
 
-  // Load persisted extras on mount
-  useEffect(() => {
-    const extras = loadPosExtras()
-    setDiscount(extras.discount)
-    setTip(extras.tip)
-    setPaymentMethod(extras.paymentMethod)
-  }, [])
-
-  // Persist extras on change
-  useEffect(() => { savePosExtras({ discount, tip, paymentMethod }) }, [discount, tip, paymentMethod])
   const [saleDate, setSaleDate] = useState('')
 
   // Multicomanda state
@@ -100,6 +90,33 @@ export default function POSPage() {
 
   // Determine active cart based on mode
   const activeComanda = comandasState.comandas.find(c => c.id === comandasState.activeId)
+
+  // Extras persistence: single cart uses localStorage, multicomanda stores per-comanda
+  useEffect(() => {
+    if (!multicomandaEnabled) {
+      const extras = loadPosExtras()
+      setDiscount(extras.discount)
+      setTip(extras.tip)
+      setPaymentMethod(extras.paymentMethod)
+    }
+  }, [multicomandaEnabled])
+  useEffect(() => { if (!multicomandaEnabled) savePosExtras({ discount, tip, paymentMethod }) }, [discount, tip, paymentMethod, multicomandaEnabled])
+  useEffect(() => {
+    if (multicomandaEnabled && activeComanda) {
+      setDiscount(activeComanda.discount ?? 0)
+      setTip(activeComanda.tip ?? 0)
+      setPaymentMethod(activeComanda.paymentMethod ?? 'cash')
+    }
+  }, [comandasState.activeId, multicomandaEnabled])
+  useEffect(() => {
+    if (multicomandaEnabled && comandasLoaded) {
+      setComandasState(prev => ({
+        ...prev,
+        comandas: prev.comandas.map(c => c.id === prev.activeId ? { ...c, discount, tip, paymentMethod } : c),
+      }))
+    }
+  }, [discount, tip, paymentMethod])
+
   const cart = multicomandaEnabled ? (activeComanda?.cart ?? []) : singleCart
 
   const setCart = (updater: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
@@ -125,7 +142,7 @@ export default function POSPage() {
         setComandasState(prev => {
           const remaining = prev.comandas.filter(c => c.id !== prev.activeId)
           if (remaining.length === 0) {
-            const newComanda: Comanda = { id: generateId(), name: 'Comanda 1', cart: [] }
+            const newComanda: Comanda = { id: generateId(), name: 'Comanda 1', cart: [], discount: 0, tip: 0, paymentMethod: 'cash' }
             return { comandas: [newComanda], activeId: newComanda.id }
           }
           return { comandas: remaining, activeId: remaining[0].id }
@@ -225,13 +242,12 @@ export default function POSPage() {
   // Multicomanda actions
   const addComanda = () => {
     const num = comandasState.comandas.length + 1
-    const newComanda: Comanda = { id: generateId(), name: `Comanda ${num}`, cart: [] }
+    const newComanda: Comanda = { id: generateId(), name: `Comanda ${num}`, cart: [], discount: 0, tip: 0, paymentMethod: 'cash' }
     setComandasState(prev => ({ comandas: [...prev.comandas, newComanda], activeId: newComanda.id }))
   }
 
   const switchComanda = (id: string) => {
     setComandasState(prev => ({ ...prev, activeId: id }))
-    setDiscount(0); setTip(0)
   }
 
   const renameComanda = (id: string, name: string) => {
@@ -246,7 +262,7 @@ export default function POSPage() {
     setComandasState(prev => {
       const remaining = prev.comandas.filter(c => c.id !== id)
       if (remaining.length === 0) {
-        const newComanda: Comanda = { id: generateId(), name: 'Comanda 1', cart: [] }
+        const newComanda: Comanda = { id: generateId(), name: 'Comanda 1', cart: [], discount: 0, tip: 0, paymentMethod: 'cash' }
         return { comandas: [newComanda], activeId: newComanda.id }
       }
       const newActiveId = prev.activeId === id ? remaining[0].id : prev.activeId
