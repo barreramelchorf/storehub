@@ -139,7 +139,10 @@ export default function AdminDashboard() {
                       <span className="text-xs font-bold text-[var(--color-text)] w-5">{i + 1}</span>
                       <span className="text-sm text-[var(--color-text-dark)]">{p.name}</span>
                     </div>
-                    <span className="text-sm font-medium">{topSort === 'revenue' ? `$${Number(p.totalRevenue).toLocaleString('es-MX')}` : `${p.totalQty} uds`}</span>
+                    <div className="text-right">
+                      <span className="text-sm font-medium">{topSort === 'revenue' ? `$${Number(p.totalRevenue).toLocaleString('es-MX')}` : `${p.totalQty} uds`}</span>
+                      <span className="text-xs text-[var(--color-text)] ml-2">{topSort === 'revenue' ? `${p.totalQty} uds` : `$${Number(p.totalRevenue).toFixed(0)}`}</span>
+                    </div>
                   </div>
                 ))}
               </div>
