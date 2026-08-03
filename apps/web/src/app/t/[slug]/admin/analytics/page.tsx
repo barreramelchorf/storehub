@@ -13,6 +13,7 @@ export default function AnalyticsPage() {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
+  const [topProductsSort, setTopProductsSort] = useState<'qty' | 'revenue'>('qty')
 
   const getRange = () => {
     const now = new Date()
@@ -181,17 +182,23 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {data.topProducts?.length > 0 && (
             <div className="card p-5">
-              <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Top productos</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-sm font-semibold text-[var(--color-text-dark)]">Top productos</h2>
+                <div className="flex gap-1">
+                  <button onClick={() => setTopProductsSort('qty')} className={`text-[10px] px-2 py-1 rounded ${topProductsSort === 'qty' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text)]'}`}>Cantidad</button>
+                  <button onClick={() => setTopProductsSort('revenue')} className={`text-[10px] px-2 py-1 rounded ${topProductsSort === 'revenue' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text)]'}`}>Ingresos</button>
+                </div>
+              </div>
               <div className="space-y-2">
-                {data.topProducts.map((p: any, i: number) => (
+                {[...data.topProducts].sort((a: any, b: any) => topProductsSort === 'revenue' ? Number(b.totalRevenue) - Number(a.totalRevenue) : Number(b.totalQty) - Number(a.totalQty)).map((p: any, i: number) => (
                   <div key={p.productId} className="flex items-center justify-between py-1">
                     <div className="flex items-center gap-3">
                       <span className="text-xs font-bold text-[var(--color-text)] w-5">{i + 1}</span>
                       <span className="text-sm text-[var(--color-text-dark)]">{p.name}</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-sm font-medium">${Number(p.totalRevenue).toFixed(0)}</span>
-                      <span className="text-xs text-[var(--color-text)] ml-2">{p.totalQty} uds</span>
+                      <span className="text-sm font-medium">{topProductsSort === 'revenue' ? `$${Number(p.totalRevenue).toLocaleString('es-MX')}` : `${p.totalQty} uds`}</span>
+                      <span className="text-xs text-[var(--color-text)] ml-2">{topProductsSort === 'revenue' ? `${p.totalQty} uds` : `$${Number(p.totalRevenue).toFixed(0)}`}</span>
                     </div>
                   </div>
                 ))}

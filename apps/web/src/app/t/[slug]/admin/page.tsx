@@ -8,6 +8,7 @@ import { useParams } from 'next/navigation'
 export default function AdminDashboard() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)
   const [selectedSale, setSelectedSale] = useState<any>(null)
+  const [topSort, setTopSort] = useState<'qty' | 'revenue'>('qty')
   const { data, isLoading } = useQuery({ queryKey: ['analytics'], queryFn: () => {
     const now = new Date()
     const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1))
@@ -124,15 +125,21 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {data.topProducts?.length > 0 && (
             <div className="card p-5">
-              <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-3">Top productos del mes</h2>
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-sm font-semibold text-[var(--color-text-dark)]">Top productos del mes</h2>
+                <div className="flex gap-1">
+                  <button onClick={() => setTopSort('qty')} className={`text-[10px] px-2 py-1 rounded ${topSort === 'qty' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text)]'}`}>Cantidad</button>
+                  <button onClick={() => setTopSort('revenue')} className={`text-[10px] px-2 py-1 rounded ${topSort === 'revenue' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text)]'}`}>Ingresos</button>
+                </div>
+              </div>
               <div className="space-y-2">
-                {data.topProducts.slice(0, 5).map((p: any, i: number) => (
+                {[...data.topProducts].sort((a: any, b: any) => topSort === 'revenue' ? Number(b.totalRevenue) - Number(a.totalRevenue) : Number(b.totalQty) - Number(a.totalQty)).slice(0, 5).map((p: any, i: number) => (
                   <div key={p.productId} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <span className="text-xs font-bold text-[var(--color-text)] w-5">{i + 1}</span>
                       <span className="text-sm text-[var(--color-text-dark)]">{p.name}</span>
                     </div>
-                    <span className="text-sm font-medium">{p.totalQty} uds</span>
+                    <span className="text-sm font-medium">{topSort === 'revenue' ? `$${Number(p.totalRevenue).toLocaleString('es-MX')}` : `${p.totalQty} uds`}</span>
                   </div>
                 ))}
               </div>
