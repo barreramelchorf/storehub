@@ -20,6 +20,7 @@ export default function InventoryPage() {
   const [categoryModifiers, setCategoryModifiers] = useState<string[]>([])
   const [assignModal, setAssignModal] = useState<{ groupId: string; type: 'categories' | 'products'; assignedIds: string[] } | null>(null)
   const [categoryProductsModal, setCategoryProductsModal] = useState<{ categoryId: string; categoryName: string } | null>(null)
+  const [modifierModalForm, setModifierModalForm] = useState<{ type: 'group' | 'option' | 'rename'; groupId?: string; groupName?: string; name: string; price: string } | null>(null)
   const [catForm, setCatForm] = useState({ name: '', description: '' })
   const [restockForm, setRestockForm] = useState({ quantity: '', reason: '' })
   const [search, setSearch] = useState('')
@@ -240,12 +241,7 @@ export default function InventoryPage() {
       {tab === 'modifiers' && (
         <>
           <div className="mb-4">
-            <button onClick={async () => {
-              const name = prompt('Nombre del nuevo grupo de modificadores:')
-              if (!name) return
-              await api('/api/admin/modifiers', { method: 'POST', body: JSON.stringify({ name, multiple: true }), token })
-              queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-            }} className="btn-primary">+ Nuevo grupo</button>
+            <button onClick={() => setModifierModalForm({ type: 'group', name: '', price: '' })} className="btn-primary">+ Nuevo grupo</button>
           </div>
 
           {modifierGroups?.length > 0 ? (
@@ -257,13 +253,7 @@ export default function InventoryPage() {
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="text-sm font-semibold text-[var(--color-text-dark)]">{g.name}</h3>
                     <div className="flex gap-1">
-                      <button onClick={async () => {
-                        const name = prompt('Nuevo nombre del grupo:', g.name)
-                        if (name && name !== g.name) {
-                          await api(`/api/admin/modifiers/${g.id}`, { method: 'PUT', body: JSON.stringify({ name }), token })
-                          queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-                        }
-                      }} className="btn-secondary text-xs px-2 py-1">Renombrar</button>
+                      <button onClick={() => setModifierModalForm({ type: 'rename', groupId: g.id, groupName: g.name, name: g.name, price: '' })} className="btn-secondary text-xs px-2 py-1">Renombrar</button>
                       <button onClick={async () => {
                         if (confirm(`¿Eliminar grupo "${g.name}" y todas sus opciones?`)) {
                           await api(`/api/admin/modifiers/${g.id}`, { method: 'DELETE', token })
@@ -290,13 +280,7 @@ export default function InventoryPage() {
                       </div>
                     ))}
                   </div>
-                  <button onClick={async () => {
-                    const name = prompt('Nombre de la nueva opción:')
-                    if (!name) return
-                    const price = prompt('Precio adicional:', '0')
-                    await api(`/api/admin/modifiers/${g.id}/options`, { method: 'POST', body: JSON.stringify({ name, price: Number(price) || 0 }), token })
-                    queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-                  }} className="text-xs text-[var(--color-primary)] hover:underline">+ Agregar opción</button>
+                  <button onClick={() => setModifierModalForm({ type: 'option', groupId: g.id, name: '', price: '' })} className="text-xs text-[var(--color-primary)] hover:underline">+ Agregar opción</button>
 
                   {/* Assignments */}
                   <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
@@ -339,6 +323,44 @@ export default function InventoryPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Modifier Form Modal (create group, add option, rename) */}
+      {modifierModalForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModifierModalForm(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--color-text-dark)]">
+              {modifierModalForm.type === 'group' ? 'Nuevo grupo' : modifierModalForm.type === 'rename' ? 'Renombrar grupo' : 'Nueva opción'}
+            </h2>
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              if (modifierModalForm.type === 'group') {
+                await api('/api/admin/modifiers', { method: 'POST', body: JSON.stringify({ name: modifierModalForm.name, multiple: true }), token })
+              } else if (modifierModalForm.type === 'rename') {
+                await api(`/api/admin/modifiers/${modifierModalForm.groupId}`, { method: 'PUT', body: JSON.stringify({ name: modifierModalForm.name }), token })
+              } else if (modifierModalForm.type === 'option') {
+                await api(`/api/admin/modifiers/${modifierModalForm.groupId}/options`, { method: 'POST', body: JSON.stringify({ name: modifierModalForm.name, price: Number(modifierModalForm.price) || 0 }), token })
+              }
+              queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+              setModifierModalForm(null)
+            }} className="space-y-3">
+              <div>
+                <label className="label">{modifierModalForm.type === 'group' ? 'Nombre del grupo' : modifierModalForm.type === 'rename' ? 'Nuevo nombre' : 'Nombre de la opción'}</label>
+                <input value={modifierModalForm.name} onChange={e => setModifierModalForm(f => f ? { ...f, name: e.target.value } : f)} className="input" placeholder={modifierModalForm.type === 'group' ? 'Ej: Extras café' : modifierModalForm.type === 'rename' ? '' : 'Ej: Leche almendra'} required autoFocus />
+              </div>
+              {modifierModalForm.type === 'option' && (
+                <div>
+                  <label className="label">Precio adicional</label>
+                  <input type="number" step="0.01" value={modifierModalForm.price} onChange={e => setModifierModalForm(f => f ? { ...f, price: e.target.value } : f)} className="input" placeholder="0.00" />
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button type="submit" className="btn-primary flex-1">{modifierModalForm.type === 'rename' ? 'Renombrar' : 'Guardar'}</button>
+                <button type="button" onClick={() => setModifierModalForm(null)} className="btn-secondary">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Category Products Modal */}
