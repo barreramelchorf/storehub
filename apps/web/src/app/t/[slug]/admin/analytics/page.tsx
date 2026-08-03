@@ -271,6 +271,7 @@ export default function AnalyticsPage() {
 
 function YearlyView({ data }: { data: any }) {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
+  const [topYearSort, setTopYearSort] = useState<'qty' | 'revenue'>('qty')
   const maxMonthTotal = Math.max(...(data.monthlyData?.map((m: any) => m.total) ?? [1]), 1)
   const labels: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' }
 
@@ -374,17 +375,23 @@ function YearlyView({ data }: { data: any }) {
       {/* Year-wide top products */}
       {data.topProductsYear?.length > 0 && (
         <div className="card p-5">
-          <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Top productos del año</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-sm font-semibold text-[var(--color-text-dark)]">Top productos del año</h2>
+            <div className="flex gap-1">
+              <button onClick={() => setTopYearSort('qty')} className={`text-[10px] px-2 py-1 rounded ${topYearSort === 'qty' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text)]'}`}>Cantidad</button>
+              <button onClick={() => setTopYearSort('revenue')} className={`text-[10px] px-2 py-1 rounded ${topYearSort === 'revenue' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text)]'}`}>Ingresos</button>
+            </div>
+          </div>
           <div className="space-y-2">
-            {data.topProductsYear.map((p: any, i: number) => (
+            {[...data.topProductsYear].sort((a: any, b: any) => topYearSort === 'revenue' ? Number(b.totalRevenue) - Number(a.totalRevenue) : Number(b.totalQty) - Number(a.totalQty)).map((p: any, i: number) => (
               <div key={p.productId} className="flex items-center justify-between py-1">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-[var(--color-text)] w-5">{i + 1}</span>
                   <span className="text-sm text-[var(--color-text-dark)]">{p.name}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-medium">${Number(p.totalRevenue).toLocaleString('es-MX')}</span>
-                  <span className="text-xs text-[var(--color-text)] ml-2">{p.totalQty} uds</span>
+                  <span className="text-sm font-medium">{topYearSort === 'revenue' ? `$${Number(p.totalRevenue).toLocaleString('es-MX')}` : `${p.totalQty} uds`}</span>
+                  <span className="text-xs text-[var(--color-text)] ml-2">{topYearSort === 'revenue' ? `${p.totalQty} uds` : `$${Number(p.totalRevenue).toLocaleString('es-MX')}`}</span>
                 </div>
               </div>
             ))}
