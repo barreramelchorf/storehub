@@ -19,6 +19,7 @@ export default function InventoryPage() {
   const [modifierForm, setModifierForm] = useState({ name: '', price: '', groupId: '', newGroupName: '' })
   const [categoryModifiers, setCategoryModifiers] = useState<string[]>([])
   const [assignModal, setAssignModal] = useState<{ groupId: string; type: 'categories' | 'products'; assignedIds: string[] } | null>(null)
+  const [categoryProductsModal, setCategoryProductsModal] = useState<{ categoryId: string; categoryName: string } | null>(null)
   const [catForm, setCatForm] = useState({ name: '', description: '' })
   const [restockForm, setRestockForm] = useState({ quantity: '', reason: '' })
   const [search, setSearch] = useState('')
@@ -221,6 +222,7 @@ export default function InventoryPage() {
                     <td className="p-3 text-[var(--color-text)]">{c.description ?? '-'}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-1">
+                        <button onClick={() => setCategoryProductsModal({ categoryId: c.id, categoryName: c.name })} className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">Productos</button>
                         <button onClick={() => openEditCategory(c)} className="btn-secondary text-xs px-2 py-1">Editar</button>
                         <button onClick={() => { if(confirm('¿Eliminar?')) catDeleteMutation.mutate(c.id) }} className="btn-danger">Eliminar</button>
                       </div>
@@ -342,6 +344,29 @@ export default function InventoryPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Category Products Modal */}
+      {categoryProductsModal && (
+        <AssignModal
+          title={`Productos en "${categoryProductsModal.categoryName}"`}
+          items={(products?.items ?? []).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            extra: p.categoryId === categoryProductsModal.categoryId ? undefined : `En: ${categories?.find((c: any) => c.id === p.categoryId)?.name ?? 'Otra'}`,
+          }))}
+          assignedIds={(products?.items ?? []).filter((p: any) => p.categoryId === categoryProductsModal.categoryId).map((p: any) => p.id)}
+          onToggle={async (productId, isAssigned) => {
+            if (isAssigned) {
+              // Can't unassign from category (product must belong to one) - ignore or show message
+              return
+            }
+            // Assign product to this category
+            await api(`/api/admin/products/${productId}`, { method: 'PUT', body: JSON.stringify({ categoryId: categoryProductsModal.categoryId }), token })
+            queryClient.invalidateQueries({ queryKey: ['products'] })
+          }}
+          onClose={() => setCategoryProductsModal(null)}
+        />
       )}
 
       {/* Assign Modal */}
