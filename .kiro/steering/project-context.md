@@ -22,13 +22,38 @@ SaaS whitelabel multi-tenant platform for store management (POS, inventory, anal
 - Cluster: k3s on `5.189.172.140`, kubectl context `default`
 - Registry: `ghcr.io/barreramelchorf/storehub-*`
 - Pulumi stacks: `cert-manager/support`, `storehub/prod`, `storehub/staging`
+- **Current prod version**: v0.23.1
+- **Repo is PUBLIC** (unlimited GitHub Actions minutes)
 
 ## Deployment Flow
-1. Make changes → commit → push to main (triggers GitHub Action build with tag `latest`)
-2. To deploy: create git tag `vX.Y.Z` → Action builds with that tag
-3. Update Pulumi YAML: `pulumi config set version vX.Y.Z`
-4. `pulumi up` deploys to the selected stack
-5. **Always test in staging first**, then promote to prod
+1. Make changes → commit → push to main (triggers GitHub Action build with SHA tag + auto-deploy staging)
+2. To deploy to prod: create git tag `vX.Y.Z` → Action re-tags images + auto-deploys prod (~2 min)
+3. **Always verify local build before pushing**: `pnpm --filter @storehub/web build`
+4. **No manual Pulumi commands needed** — CI/CD handles everything
+
+### Deploy to Staging (automatic)
+```bash
+git add . && git commit -m "feat: description" && git push origin main
+# → GitHub Action builds images with short SHA → auto deploys staging
+```
+
+### Promote to Prod
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z
+# → GitHub Action re-tags existing images → auto deploys prod (~2 min)
+```
+
+### Verify deployment
+```bash
+kubectl get pods -n storehub-staging  # or storehub-prod
+kubectl logs -n storehub-staging -l app=storehub-api --tail=5
+```
+
+### If migration job gets stuck
+```bash
+kubectl delete jobs --all -n storehub-staging
+# Then re-run the GitHub Action or push another commit
+```
 
 ## Multi-Tenancy
 - Tenants resolved by: subdomain, custom domain (DB lookup), `x-tenant-slug` header, or `DEFAULT_TENANT_SLUG` env
