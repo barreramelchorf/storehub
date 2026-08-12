@@ -119,6 +119,80 @@ export default function AnalyticsPage() {
             <SalesByDayChart salesByDay={filledSalesByDay} maxDaySale={maxDaySale} />
           )}
 
+          {/* Day of week analysis + Top days */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {data.salesByDayOfWeek?.length > 0 && (
+              <div className="card p-5">
+                <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Ventas promedio por día de la semana</h2>
+                <div className="space-y-2">
+                  {(() => {
+                    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+                    const maxAvg = Math.max(...data.salesByDayOfWeek.map((d: any) => d.avgSales), 1)
+                    const sorted = [...data.salesByDayOfWeek].sort((a: any, b: any) => b.avgSales - a.avgSales)
+                    return sorted.map((d: any, i: number) => (
+                      <div key={d.dayOfWeek} className="flex items-center gap-3">
+                        <span className={`text-xs font-medium w-8 ${i === 0 ? 'text-green-600' : i === sorted.length - 1 ? 'text-red-500' : 'text-[var(--color-text)]'}`}>{dayNames[d.dayOfWeek]}</span>
+                        <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${i === 0 ? 'bg-green-500' : i === sorted.length - 1 ? 'bg-red-400' : 'bg-[var(--color-primary)] opacity-70'}`} style={{ width: `${(d.avgSales / maxAvg) * 100}%` }} />
+                        </div>
+                        <span className="text-xs font-medium w-16 text-right">${d.avgSales.toFixed(0)}</span>
+                      </div>
+                    ))
+                  })()}
+                  <p className="text-[10px] text-[var(--color-text)] mt-2">🟢 Más ventas · 🔴 Menos ventas · Promedio por día</p>
+                </div>
+              </div>
+            )}
+
+            {(data.topDays?.length > 0 || data.bottomDays?.length > 0) && (
+              <div className="card p-5">
+                <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Días con más y menos ventas</h2>
+                {data.topDays?.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-medium text-green-600 mb-2">🟢 Más ventas</p>
+                    <div className="space-y-2">
+                      {data.topDays.map((d: any, i: number) => {
+                        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+                        const date = new Date(d.date + 'T12:00:00')
+                        const dayName = dayNames[date.getDay()]
+                        return (
+                          <div key={d.date} className="flex items-center justify-between">
+                            <div>
+                              <span className="text-sm text-[var(--color-text-dark)]">{new Date(d.date + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>
+                              <span className="text-xs text-[var(--color-text)] ml-2">{dayName} · {d.count}v</span>
+                            </div>
+                            <span className="text-sm font-bold text-green-600">${d.total.toLocaleString('es-MX')}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {data.bottomDays?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-red-500 mb-2">🔴 Menos ventas</p>
+                    <div className="space-y-2">
+                      {data.bottomDays.map((d: any) => {
+                        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+                        const date = new Date(d.date + 'T12:00:00')
+                        const dayName = dayNames[date.getDay()]
+                        return (
+                          <div key={d.date} className="flex items-center justify-between">
+                            <div>
+                              <span className="text-sm text-[var(--color-text-dark)]">{new Date(d.date + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>
+                              <span className="text-xs text-[var(--color-text)] ml-2">{dayName} · {d.count}v</span>
+                            </div>
+                            <span className="text-sm font-bold text-red-500">${d.total.toLocaleString('es-MX')}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Payment methods */}
             {data.salesByPayment?.length > 0 && (

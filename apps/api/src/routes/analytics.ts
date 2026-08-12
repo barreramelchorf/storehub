@@ -245,12 +245,45 @@ export async function analyticsRoutes(app: FastifyInstance) {
       LIMIT 10
     `)
 
+    // Sales by day of week (average per weekday: Mon, Tue, etc.)
+    const salesByDayOfWeek = await db.select({
+      dayOfWeek: sql<number>`EXTRACT(DOW FROM ${sales.saleDate})::int`,
+      totalSales: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      totalTransactions: sql<number>`COUNT(*)::int`,
+      daysCount: sql<number>`COUNT(DISTINCT DATE(${sales.saleDate}))::int`,
+    }).from(sales).where(baseWhere)
+      .groupBy(sql`EXTRACT(DOW FROM ${sales.saleDate})`)
+      .orderBy(sql`EXTRACT(DOW FROM ${sales.saleDate})`)
+
+    // Top 3 days with most sales in the period
+    const topDays = await db.select({
+      date: sql<string>`DATE(${sales.saleDate})`,
+      total: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      count: sql<number>`COUNT(*)::int`,
+    }).from(sales).where(baseWhere)
+      .groupBy(sql`DATE(${sales.saleDate})`)
+      .orderBy(desc(sql`SUM(${sales.total}::numeric)`))
+      .limit(3)
+
+    // Bottom 3 days with least sales in the period
+    const bottomDays = await db.select({
+      date: sql<string>`DATE(${sales.saleDate})`,
+      total: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      count: sql<number>`COUNT(*)::int`,
+    }).from(sales).where(baseWhere)
+      .groupBy(sql`DATE(${sales.saleDate})`)
+      .orderBy(sql`SUM(${sales.total}::numeric)`)
+      .limit(3)
+
     return {
       summary: salesData[0],
       previousPeriod: prevData[0],
       salesByDay,
       salesByPayment,
       salesByHour,
+      salesByDayOfWeek: salesByDayOfWeek.map(d => ({ ...d, totalSales: Number(d.totalSales), avgSales: d.daysCount > 0 ? Number(d.totalSales) / d.daysCount : 0 })),
+      topDays: topDays.map(d => ({ ...d, total: Number(d.total) })),
+      bottomDays: bottomDays.map(d => ({ ...d, total: Number(d.total) })),
       salesByEmployee: salesByEmployee.map(e => ({ ...e, totalSales: Number(e.totalSales), totalTips: Number(e.totalTips) })),
       topProducts,
       topModifiers: topModifiers ?? [],
