@@ -116,6 +116,19 @@ export async function analyticsRoutes(app: FastifyInstance) {
       sql`EXTRACT(YEAR FROM ${sales.saleDate}) = ${targetYear}`,
     )).groupBy(sales.paymentMethod)
 
+    // Sales by day of week for the year
+    const salesByDayOfWeekYear = await db.select({
+      dayOfWeek: sql<number>`EXTRACT(DOW FROM ${sales.saleDate})::int`,
+      totalSales: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      totalTransactions: sql<number>`COUNT(*)::int`,
+      daysCount: sql<number>`COUNT(DISTINCT DATE(${sales.saleDate}))::int`,
+    }).from(sales).where(and(
+      eq(sales.tenantId, tenantId),
+      eq(sales.status, 'approved'),
+      sql`EXTRACT(YEAR FROM ${sales.saleDate}) = ${targetYear}`,
+    )).groupBy(sql`EXTRACT(DOW FROM ${sales.saleDate})`)
+      .orderBy(sql`EXTRACT(DOW FROM ${sales.saleDate})`)
+
     return {
       year: targetYear,
       summary: {
@@ -126,6 +139,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
       monthlyData,
       topProductsByMonth,
       topProductsYear: topProductsYear.map(p => ({ ...p, totalQty: Number(p.totalQty), totalRevenue: Number(p.totalRevenue) })),
+      salesByDayOfWeek: salesByDayOfWeekYear.map(d => ({ ...d, totalSales: Number(d.totalSales), avgSales: d.daysCount > 0 ? Number(d.totalSales) / d.daysCount : 0 })),
       paymentMethods,
     }
   })

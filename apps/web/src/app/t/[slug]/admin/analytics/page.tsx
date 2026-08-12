@@ -473,6 +473,30 @@ function YearlyView({ data }: { data: any }) {
         </div>
       )}
 
+      {/* Day of week analysis for the year */}
+      {data.salesByDayOfWeek?.length > 0 && (
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Ventas promedio por día de la semana ({data.year})</h2>
+          <div className="space-y-2">
+            {(() => {
+              const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+              const maxAvg = Math.max(...data.salesByDayOfWeek.map((d: any) => d.avgSales), 1)
+              const sorted = [...data.salesByDayOfWeek].sort((a: any, b: any) => b.avgSales - a.avgSales)
+              return sorted.map((d: any, i: number) => (
+                <div key={d.dayOfWeek} className="flex items-center gap-3">
+                  <span className={`text-xs font-medium w-8 ${i === 0 ? 'text-green-600' : i === sorted.length - 1 ? 'text-red-500' : 'text-[var(--color-text)]'}`}>{dayNames[d.dayOfWeek]}</span>
+                  <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${i === 0 ? 'bg-green-500' : i === sorted.length - 1 ? 'bg-red-400' : 'bg-[var(--color-primary)] opacity-70'}`} style={{ width: `${(d.avgSales / maxAvg) * 100}%` }} />
+                  </div>
+                  <span className="text-xs font-medium w-16 text-right">${d.avgSales.toFixed(0)}</span>
+                </div>
+              ))
+            })()}
+            <p className="text-[10px] text-[var(--color-text)] mt-2">🟢 Más ventas · 🔴 Menos ventas · Promedio por día</p>
+          </div>
+        </div>
+      )}
+
       {/* Payment methods for the year */}
       {data.paymentMethods?.length > 0 && (
         <div className="card p-5">
