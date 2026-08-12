@@ -87,6 +87,27 @@ export async function analyticsRoutes(app: FastifyInstance) {
       if (!topProductsByMonth[m]) topProductsByMonth[m] = []
     }
 
+    // Day of week stats per month
+    const dayOfWeekByMonthRaw = await db.select({
+      month: sql<number>`EXTRACT(MONTH FROM ${sales.saleDate})::int`,
+      dayOfWeek: sql<number>`EXTRACT(DOW FROM ${sales.saleDate})::int`,
+      totalSales: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      daysCount: sql<number>`COUNT(DISTINCT DATE(${sales.saleDate}))::int`,
+    }).from(sales).where(and(
+      eq(sales.tenantId, tenantId),
+      eq(sales.status, 'approved'),
+      sql`EXTRACT(YEAR FROM ${sales.saleDate}) = ${targetYear}`,
+    )).groupBy(sql`EXTRACT(MONTH FROM ${sales.saleDate})`, sql`EXTRACT(DOW FROM ${sales.saleDate})`)
+
+    const dayOfWeekByMonth: Record<number, Array<{ dayOfWeek: number; avgSales: number }>> = {}
+    for (const row of dayOfWeekByMonthRaw) {
+      if (!dayOfWeekByMonth[row.month]) dayOfWeekByMonth[row.month] = []
+      dayOfWeekByMonth[row.month].push({ dayOfWeek: row.dayOfWeek, avgSales: row.daysCount > 0 ? Number(row.totalSales) / row.daysCount : 0 })
+    }
+    for (const m of months) {
+      if (!dayOfWeekByMonth[m]) dayOfWeekByMonth[m] = []
+    }
+
     // Year-wide top products (overall)
     const topProductsYear = await db.select({
       productId: saleItems.productId,
@@ -138,6 +159,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
       },
       monthlyData,
       topProductsByMonth,
+      dayOfWeekByMonth,
       topProductsYear: topProductsYear.map(p => ({ ...p, totalQty: Number(p.totalQty), totalRevenue: Number(p.totalRevenue) })),
       salesByDayOfWeek: salesByDayOfWeekYear.map(d => ({ ...d, totalSales: Number(d.totalSales), avgSales: d.daysCount > 0 ? Number(d.totalSales) / d.daysCount : 0 })),
       paymentMethods,

@@ -438,6 +438,28 @@ function YearlyView({ data }: { data: any }) {
                     </div>
                   </div>
                 )}
+                {data.dayOfWeekByMonth?.[selectedMonth]?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-[var(--color-text)] mb-2">Ventas promedio por día de la semana</p>
+                    <div className="space-y-1">
+                      {(() => {
+                        const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+                        const monthDow = data.dayOfWeekByMonth[selectedMonth]
+                        const maxAvg = Math.max(...monthDow.map((d: any) => d.avgSales), 1)
+                        const sorted = [...monthDow].sort((a: any, b: any) => b.avgSales - a.avgSales)
+                        return sorted.map((d: any, i: number) => (
+                          <div key={d.dayOfWeek} className="flex items-center gap-2">
+                            <span className={`text-[10px] font-medium w-7 ${i === 0 ? 'text-green-600' : i === sorted.length - 1 ? 'text-red-500' : 'text-[var(--color-text)]'}`}>{dayNames[d.dayOfWeek]}</span>
+                            <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${i === 0 ? 'bg-green-500' : i === sorted.length - 1 ? 'bg-red-400' : 'bg-[var(--color-primary)] opacity-70'}`} style={{ width: `${(d.avgSales / maxAvg) * 100}%` }} />
+                            </div>
+                            <span className="text-[10px] font-medium w-12 text-right">${d.avgSales.toFixed(0)}</span>
+                          </div>
+                        ))
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-[var(--color-text)]">Sin datos para este mes.</p>
