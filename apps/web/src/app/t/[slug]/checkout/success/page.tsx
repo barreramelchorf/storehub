@@ -1,5 +1,6 @@
 'use client'
 import { useParams } from 'next/navigation'
+import { useEffect } from 'react'
 import Link from 'next/link'
 
 export default function CheckoutSuccessPage() {
@@ -7,6 +8,11 @@ export default function CheckoutSuccessPage() {
   const slug = params.slug as string
   const isCustomDomain = typeof window !== 'undefined' && !window.location.pathname.startsWith('/t/')
   const storeUrl = isCustomDomain ? '/' : `/t/${slug}`
+
+  // Clear cart on successful payment
+  useEffect(() => {
+    localStorage.removeItem('storehub-public-cart')
+  }, [])
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-white p-6">
