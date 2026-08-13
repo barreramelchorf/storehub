@@ -460,6 +460,40 @@ function YearlyView({ data }: { data: any }) {
                     </div>
                   </div>
                 )}
+                {(data.topDaysByMonth?.[selectedMonth]?.length > 0 || data.bottomDaysByMonth?.[selectedMonth]?.length > 0) && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {data.topDaysByMonth?.[selectedMonth]?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-medium text-green-600 mb-1">🟢 Días con más ventas</p>
+                        {data.topDaysByMonth[selectedMonth].map((d: any) => {
+                          const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+                          const date = new Date(d.date + 'T12:00:00')
+                          return (
+                            <div key={d.date} className="flex justify-between text-[10px] py-0.5">
+                              <span className="text-[var(--color-text)]">{date.getDate()} ({dayNames[date.getDay()]})</span>
+                              <span className="font-medium text-green-600">${d.total.toLocaleString('es-MX')}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {data.bottomDaysByMonth?.[selectedMonth]?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-medium text-red-500 mb-1">🔴 Días con menos ventas</p>
+                        {data.bottomDaysByMonth[selectedMonth].map((d: any) => {
+                          const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+                          const date = new Date(d.date + 'T12:00:00')
+                          return (
+                            <div key={d.date} className="flex justify-between text-[10px] py-0.5">
+                              <span className="text-[var(--color-text)]">{date.getDate()} ({dayNames[date.getDay()]})</span>
+                              <span className="font-medium text-red-500">${d.total.toLocaleString('es-MX')}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-[var(--color-text)]">Sin datos para este mes.</p>

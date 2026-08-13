@@ -108,6 +108,40 @@ export async function analyticsRoutes(app: FastifyInstance) {
       if (!dayOfWeekByMonth[m]) dayOfWeekByMonth[m] = []
     }
 
+    // Top 3 and bottom 3 days per month
+    const topBottomDaysRaw = await db.select({
+      month: sql<number>`EXTRACT(MONTH FROM ${sales.saleDate})::int`,
+      date: sql<string>`DATE(${sales.saleDate})`,
+      total: sql<number>`COALESCE(SUM(${sales.total}::numeric), 0)`,
+      count: sql<number>`COUNT(*)::int`,
+    }).from(sales).where(and(
+      eq(sales.tenantId, tenantId),
+      eq(sales.status, 'approved'),
+      sql`EXTRACT(YEAR FROM ${sales.saleDate}) = ${targetYear}`,
+    )).groupBy(sql`EXTRACT(MONTH FROM ${sales.saleDate})`, sql`DATE(${sales.saleDate})`)
+      .orderBy(sql`EXTRACT(MONTH FROM ${sales.saleDate})`, desc(sql`SUM(${sales.total}::numeric)`))
+
+    const topDaysByMonth: Record<number, Array<{ date: string; total: number; count: number }>> = {}
+    const bottomDaysByMonth: Record<number, Array<{ date: string; total: number; count: number }>> = {}
+    for (const row of topBottomDaysRaw) {
+      if (!topDaysByMonth[row.month]) topDaysByMonth[row.month] = []
+      if (topDaysByMonth[row.month].length < 3) {
+        topDaysByMonth[row.month].push({ date: row.date, total: Number(row.total), count: row.count })
+      }
+    }
+    // Reverse sort for bottom days
+    const bottomSorted = [...topBottomDaysRaw].sort((a, b) => Number(a.total) - Number(b.total))
+    for (const row of bottomSorted) {
+      if (!bottomDaysByMonth[row.month]) bottomDaysByMonth[row.month] = []
+      if (bottomDaysByMonth[row.month].length < 3) {
+        bottomDaysByMonth[row.month].push({ date: row.date, total: Number(row.total), count: row.count })
+      }
+    }
+    for (const m of months) {
+      if (!topDaysByMonth[m]) topDaysByMonth[m] = []
+      if (!bottomDaysByMonth[m]) bottomDaysByMonth[m] = []
+    }
+
     // Year-wide top products (overall)
     const topProductsYear = await db.select({
       productId: saleItems.productId,
@@ -160,6 +194,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
       monthlyData,
       topProductsByMonth,
       dayOfWeekByMonth,
+      topDaysByMonth,
+      bottomDaysByMonth,
       topProductsYear: topProductsYear.map(p => ({ ...p, totalQty: Number(p.totalQty), totalRevenue: Number(p.totalRevenue) })),
       salesByDayOfWeek: salesByDayOfWeekYear.map(d => ({ ...d, totalSales: Number(d.totalSales), avgSales: d.daysCount > 0 ? Number(d.totalSales) / d.daysCount : 0 })),
       paymentMethods,
