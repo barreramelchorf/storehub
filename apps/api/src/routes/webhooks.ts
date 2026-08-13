@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, tenants, users, roles } from '@storehub/db'
+import { db, sales, saleItems, tenants, users } from '@storehub/db'
 import { eq, and } from 'drizzle-orm'
 
 export async function webhookRoutes(app: FastifyInstance) {
@@ -72,28 +72,13 @@ export async function webhookRoutes(app: FastifyInstance) {
     const tz = 'America/Mexico_City'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
 
-    // Find or create 'tienda_online' system user for this tenant
-    let onlineUser = await db.query.users.findFirst({
+    // Find 'tienda_online' system user for this tenant (created by migration)
+    const onlineUser = await db.query.users.findFirst({
       where: (u, { eq, and }) => and(eq(u.tenantId, tenantId), eq(u.username, 'tienda_online')),
     })
     if (!onlineUser) {
-      // Find any role for the tenant (needed for FK)
-      const anyRole = await db.query.roles.findFirst({ where: (r, { eq }) => eq(r.tenantId, tenantId) })
-      if (!anyRole) {
-        request.log.warn({ paymentId, tenantId }, '[webhook/mp] No roles found for tenant')
-        return reply.code(200).send({ ok: true, error: 'no_roles' })
-      }
-      const [created] = await db.insert(users).values({
-        tenantId,
-        email: `online@${matchedTenant.slug}.storehub`,
-        username: 'tienda_online',
-        passwordHash: 'SYSTEM_USER_NO_LOGIN',
-        roleId: anyRole.id,
-        active: false, // Can't login — system user only
-        mustChangePassword: false,
-      }).returning()
-      onlineUser = created
-      request.log.info({ tenantId, userId: created.id }, '[webhook/mp] Created tienda_online user')
+      request.log.warn({ paymentId, tenantId }, '[webhook/mp] tienda_online user not found - run migration 0012')
+      return reply.code(200).send({ ok: true, error: 'no_online_user' })
     }
 
     // Create the sale
