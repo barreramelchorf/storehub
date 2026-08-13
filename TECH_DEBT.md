@@ -73,6 +73,17 @@ Pendientes a resolver en siguientes iteraciones.
 - Con Cloudflare: wildcard automático, zero config por tenant
 - Actualmente cada custom domain necesita entrada en Pulumi YAML + DNS manual
 
+### Integración Mercado Pago Point (cobro presencial desde POS)
+- Conectar el POS del admin con la terminal física Point de MP
+- Al darle "Cobrar" con tarjeta, enviar la orden directo al Point vía API
+- El Point muestra el monto, cliente pasa tarjeta, pago procesado automáticamente
+- Elimina errores manuales (no hay que teclear monto en el Point)
+- Feature configurable on/off desde Configuración → Módulos
+- Requisitos: cuenta MP vinculada al Point, hardware Point (~$600-900 MXN)
+- API: POST /point/integration-api/devices/{device_id}/payment-intents
+- Flujo: POS cobra → API crea payment intent → Point recibe → cliente paga → webhook confirma
+- Investigar: vinculación de dispositivo, notificaciones de pago, manejo de errores/timeout
+
 ### APM / Monitoreo de errores
 - Actualmente no hay monitoreo de errores ni métricas de rendimiento
 - Opciones gratuitas: Sentry (free tier 5K eventos/mes), Grafana Cloud (free tier), Uptime Kuma (self-hosted)
