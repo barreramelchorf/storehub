@@ -11,6 +11,7 @@ import { productRoutes } from './routes/products.js'
 import { inventoryRoutes } from './routes/inventory.js'
 import { bulkRoutes } from './routes/bulk.js'
 import { modifierRoutes } from './routes/modifiers.js'
+import { pointRoutes } from './routes/point.js'
 import { saleRoutes } from './routes/sales.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { documentRoutes } from './routes/documents.js'
@@ -59,6 +60,7 @@ await app.register(async (tenantApp) => {
   await tenantApp.register(inventoryRoutes)
   await tenantApp.register(bulkRoutes)
   await tenantApp.register(modifierRoutes)
+  await tenantApp.register(pointRoutes)
   await tenantApp.register(saleRoutes)
   await tenantApp.register(analyticsRoutes)
   await tenantApp.register(documentRoutes)

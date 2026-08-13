@@ -25,6 +25,7 @@ export interface AppResourcesArgs {
   defaultTenantSlug?: string;
   resendApiKey?: pulumi.Input<string>;
   logLevel?: string;
+  pointPollingInterval?: string;
   ingressHost?: string;
   customDomains?: { host: string; tenantSlug: string }[];
 }
@@ -63,6 +64,7 @@ export function createAppResources(args: AppResourcesArgs) {
       MINIO_PUBLIC_URL: `https://${args.ingressHost ?? `storehub.${args.platformDomain}`}`,
       MINIO_USE_SSL: "false",
       LOG_LEVEL: args.logLevel ?? "info",
+      POINT_POLLING_INTERVAL: args.pointPollingInterval ?? "3000",
       PLATFORM_API_KEY: args.platformApiKey,
       DEFAULT_TENANT_SLUG: args.defaultTenantSlug ?? "",
       PORT: "3001",

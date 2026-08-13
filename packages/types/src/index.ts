@@ -16,7 +16,7 @@ export interface TenantConfig {
   contact: { address?: string; phone?: string; whatsapp?: string; email?: string; hours?: string }
   social: { instagram?: string; facebook?: string; tiktok?: string; website?: string }
   modules: { pos: boolean; inventory: boolean; analytics: boolean; multicomanda: boolean; modifiers: boolean; requireCashAmount: boolean }
-  payments: { mercadoPagoAccessToken?: string }
+  payments: { mercadoPagoAccessToken?: string; pointTerminalId?: string }
   meta: { title?: string; description?: string; ogImage?: string }
 }
 
