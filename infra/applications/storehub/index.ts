@@ -64,6 +64,7 @@ const app = createAppResources({
   platformApiKey: config.requireSecret("platformApiKey"),
   defaultTenantSlug: config.get("defaultTenantSlug") ?? "",
   resendApiKey: config.getSecret("resendApiKey"),
+  logLevel: config.get("logLevel") ?? (stack === "prod" ? "warn" : "debug"),
   ingressHost: config.get("ingressHost"),
   customDomains: config.getObject<{ host: string; tenantSlug: string }[]>("customDomains") ?? [],
   containers: config.requireObject("containers") as any,

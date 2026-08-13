@@ -24,6 +24,7 @@ export interface AppResourcesArgs {
   hpa: { minReplicas: number; maxReplicas: number; cpuTarget: number };
   defaultTenantSlug?: string;
   resendApiKey?: pulumi.Input<string>;
+  logLevel?: string;
   ingressHost?: string;
   customDomains?: { host: string; tenantSlug: string }[];
 }
@@ -61,7 +62,7 @@ export function createAppResources(args: AppResourcesArgs) {
       MINIO_BUCKET: "storehub",
       MINIO_PUBLIC_URL: `https://${args.ingressHost ?? `storehub.${args.platformDomain}`}`,
       MINIO_USE_SSL: "false",
-      LOG_LEVEL: "info",
+      LOG_LEVEL: args.logLevel ?? "info",
       PLATFORM_API_KEY: args.platformApiKey,
       DEFAULT_TENANT_SLUG: args.defaultTenantSlug ?? "",
       PORT: "3001",

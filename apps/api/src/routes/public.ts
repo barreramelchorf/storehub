@@ -102,19 +102,23 @@ export async function publicRoutes(app: FastifyInstance) {
       const client = new MercadoPagoConfig({ accessToken })
       const preference = new Preference(client)
 
+      const backUrls = {
+        success: `${backUrl}/checkout/success`,
+        failure: `${backUrl}/checkout/failure`,
+        pending: `${backUrl}/checkout/pending`,
+      }
+      request.log.debug({ backUrls, backUrl, itemCount: mpItems.length }, '[checkout] Creating MP preference')
+
       const result = await preference.create({
         body: {
           items: mpItems,
-          back_urls: {
-            success: `${backUrl}/checkout/success`,
-            failure: `${backUrl}/checkout/failure`,
-            pending: `${backUrl}/checkout/pending`,
-          },
+          back_urls: backUrls,
           auto_return: 'approved',
           statement_descriptor: tenant.name,
         },
       })
 
+      request.log.debug({ checkoutUrl: result.init_point, preferenceId: result.id, backUrls }, '[checkout] Preference created')
       return { checkoutUrl: result.init_point, preferenceId: result.id }
     } catch (e: any) {
       console.error('[mercadopago] Error creating preference:', e.message)
