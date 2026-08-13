@@ -29,7 +29,10 @@ export function StoreClient({ products, categories, info }: { products: Product[
 
   const addToCart = (p: Product) => {
     if (modifiersEnabled && p.hasModifiers) {
-      fetch(`/api/public/products/${p.id}/modifiers`, { headers: { 'x-tenant-slug': window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1] ?? '' } })
+      const slug = window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1]
+      const headers: Record<string, string> = {}
+      if (slug) headers['x-tenant-slug'] = slug
+      fetch(`/api/public/products/${p.id}/modifiers`, { headers })
         .then(r => r.json())
         .then(groups => {
           if (groups.length > 0) {
