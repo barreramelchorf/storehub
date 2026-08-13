@@ -20,6 +20,7 @@ import { profileRoutes } from './routes/profile.js'
 import { auditRoutes } from './routes/audit.js'
 import { settingsRoutes } from './routes/settings.js'
 import { platformRoutes } from "./routes/platform.js"
+import { webhookRoutes } from './routes/webhooks.js'
 import { publicRoutes } from './routes/public.js'
 import { resolveTenant } from './middleware/tenant.js'
 
@@ -47,6 +48,7 @@ await app.register(async (tenantApp) => {
 
 // Platform routes (no tenant needed, API key auth)
 await app.register(platformRoutes)
+await app.register(webhookRoutes)
 
 // Tenant-scoped routes
 await app.register(async (tenantApp) => {

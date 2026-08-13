@@ -109,12 +109,17 @@ export async function publicRoutes(app: FastifyInstance) {
       }
       request.log.debug({ backUrls, backUrl, itemCount: mpItems.length }, '[checkout] Creating MP preference')
 
+      const host = request.headers['x-forwarded-host'] ?? request.headers.host ?? ''
+      const webhookUrl = `https://${host}/api/webhooks/mercadopago`
+
       const result = await preference.create({
         body: {
           items: mpItems,
           back_urls: backUrls,
           auto_return: 'approved',
           statement_descriptor: tenant.name,
+          external_reference: JSON.stringify({ tenantId: tenant.id, items: items }),
+          notification_url: webhookUrl,
         },
       })
 
