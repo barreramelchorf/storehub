@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db } from '@storehub/db'
+import { db, productModifierGroups, categoryModifierGroups } from '@storehub/db'
 import { asc, sql } from 'drizzle-orm'
 
 export async function publicRoutes(app: FastifyInstance) {
@@ -18,7 +18,31 @@ export async function publicRoutes(app: FastifyInstance) {
       },
       limit, offset, orderBy: (p) => [asc(p.name)],
     })
-    return { items, page: Number(page), pageSize: limit }
+
+    // Add hasModifiers flag
+    const productIds = items.map(p => p.id)
+    const categoryIds = [...new Set(items.map(p => p.categoryId))]
+    const prodLinks = productIds.length > 0 ? await db.query.productModifierGroups.findMany({ where: (pmg, { inArray }) => inArray(pmg.productId, productIds), columns: { productId: true } }) : []
+    const catLinks = categoryIds.length > 0 ? await db.query.categoryModifierGroups.findMany({ where: (cmg, { inArray }) => inArray(cmg.categoryId, categoryIds), columns: { categoryId: true } }) : []
+    const prodsWithMods = new Set(prodLinks.map(l => l.productId))
+    const catsWithMods = new Set(catLinks.map(l => l.categoryId))
+
+    return { items: items.map(p => ({ ...p, hasModifiers: prodsWithMods.has(p.id) || catsWithMods.has(p.categoryId) })), page: Number(page), pageSize: limit }
+  })
+
+  // Public endpoint to get modifiers for a product (used by public store cart)
+  app.get('/api/public/products/:productId/modifiers', async (request) => {
+    const { productId } = request.params as { productId: string }
+    const product = await db.query.products.findFirst({ where: (p, { eq }) => eq(p.id, productId), columns: { categoryId: true } })
+
+    const productLinks = await db.query.productModifierGroups.findMany({ where: (pmg, { eq }) => eq(pmg.productId, productId), with: { group: { with: { options: true } } } })
+    const categoryLinks = product ? await db.query.categoryModifierGroups.findMany({ where: (cmg, { eq }) => eq(cmg.categoryId, product.categoryId), with: { group: { with: { options: true } } } }) : []
+
+    const allLinks = [...productLinks, ...categoryLinks]
+    const seen = new Set<string>()
+    return allLinks.filter(l => { if (seen.has(l.group.id)) return false; seen.add(l.group.id); return true })
+      .filter(l => l.group.active)
+      .map(l => ({ ...l.group, options: l.group.options.filter(o => o.active).sort((a, b) => a.sortOrder - b.sortOrder) }))
   })
 
   app.get('/api/public/info', async (request) => {

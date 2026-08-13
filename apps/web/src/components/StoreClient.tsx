@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-interface Product { id: string; name: string; description: string | null; price: string; images: string[]; stock: number; categoryId: string }
+interface Product { id: string; name: string; description: string | null; price: string; images: string[]; stock: number; categoryId: string; hasModifiers?: boolean }
 interface Category { id: string; name: string }
 interface Info { name: string; giro: string; config: any }
-interface CartItem { productId: string; name: string; price: number; quantity: number }
+interface CartItem { productId: string; name: string; price: number; quantity: number; modifiers?: Array<{ id: string; name: string; price: number }> }
 
 const CART_KEY = 'storehub-public-cart'
 function loadCart(): CartItem[] { try { return JSON.parse(localStorage.getItem(CART_KEY) ?? '[]') } catch { return [] } }
@@ -17,6 +17,10 @@ export function StoreClient({ products, categories, info }: { products: Product[
   const [cartLoaded, setCartLoaded] = useState(false)
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
   const [orderSent, setOrderSent] = useState(false)
+  const [modifierModal, setModifierModal] = useState<{ product: Product; groups: any[] } | null>(null)
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({})
+
+  const modifiersEnabled = info.config?.modules?.modifiers ?? false
 
   useEffect(() => { setCart(loadCart()); setCartLoaded(true) }, [])
   useEffect(() => { if (cartLoaded) saveCart(cart) }, [cart, cartLoaded])
@@ -24,11 +28,54 @@ export function StoreClient({ products, categories, info }: { products: Product[
   const filtered = activeCategory ? products.filter(p => p.categoryId === activeCategory) : products
 
   const addToCart = (p: Product) => {
+    if (modifiersEnabled && p.hasModifiers) {
+      fetch(`/api/public/products/${p.id}/modifiers`, { headers: { 'x-tenant-slug': window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1] ?? '' } })
+        .then(r => r.json())
+        .then(groups => {
+          if (groups.length > 0) {
+            setModifierModal({ product: p, groups })
+            setSelectedModifiers({})
+          } else {
+            addToCartDirect(p)
+          }
+        }).catch(() => addToCartDirect(p))
+      return
+    }
+    addToCartDirect(p)
+  }
+
+  const addToCartDirect = (p: Product, modifiers?: Array<{ id: string; name: string; price: number }>) => {
     setCart(prev => {
-      const existing = prev.find(i => i.productId === p.id)
-      if (existing) return prev.map(i => i.productId === p.id ? { ...i, quantity: i.quantity + 1 } : i)
+      if (modifiers && modifiers.length > 0) {
+        const modKey = modifiers.map(m => m.id).sort().join(',')
+        const existing = prev.find(i => i.productId === p.id && i.modifiers?.map(m => m.id).sort().join(',') === modKey)
+        if (existing) return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1 } : i)
+        const modifiersTotal = modifiers.reduce((s, m) => s + m.price, 0)
+        return [...prev, { productId: p.id, name: p.name, price: Number(p.price) + modifiersTotal, quantity: 1, modifiers }]
+      }
+      const existing = prev.find(i => i.productId === p.id && !i.modifiers?.length)
+      if (existing) return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1 } : i)
       return [...prev, { productId: p.id, name: p.name, price: Number(p.price), quantity: 1 }]
     })
+  }
+
+  const handleAddWithModifiers = () => {
+    if (!modifierModal) return
+    const selected = Object.entries(selectedModifiers).filter(([_, v]) => v).map(([id]) => {
+      for (const g of modifierModal.groups) {
+        const opt = g.options.find((o: any) => o.id === id)
+        if (opt) return { id: opt.id, name: opt.name, price: Number(opt.price) }
+      }
+      return null
+    }).filter(Boolean) as Array<{ id: string; name: string; price: number }>
+    addToCartDirect(modifierModal.product, selected)
+    setModifierModal(null)
+  }
+
+  const handleAddWithoutModifiers = () => {
+    if (!modifierModal) return
+    addToCartDirect(modifierModal.product)
+    setModifierModal(null)
   }
 
   const removeFromCart = (productId: string) => setCart(prev => prev.filter(i => i.productId !== productId))
@@ -48,7 +95,12 @@ export function StoreClient({ products, categories, info }: { products: Product[
     const lines = [
       `🛒 *Nuevo pedido — ${info.name}*`,
       '',
-      ...cart.map(i => `• ${i.name} x${i.quantity} — $${(i.price * i.quantity).toFixed(2)}`),
+      ...cart.map(i => {
+        let line = `• ${i.name}`
+        if (i.modifiers?.length) line += ` (${i.modifiers.map(m => m.name).join(', ')})`
+        line += ` x${i.quantity} — $${(i.price * i.quantity).toFixed(2)}`
+        return line
+      }),
       '',
       `*Total: $${total.toFixed(2)}*`,
       '',
@@ -140,10 +192,11 @@ export function StoreClient({ products, categories, info }: { products: Product[
             <button onClick={() => setOrderSent(false)} className="text-xs text-[var(--color-primary)] mt-3 hover:underline">Hacer otro pedido</button>
           </div>
         )}
-        {cart.map(item => (
-          <div key={item.productId} className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-0">
+        {cart.map((item, idx) => (
+          <div key={`${item.productId}-${idx}`} className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-0">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-[var(--color-text-dark)] truncate">{item.name}</p>
+              {item.modifiers?.length ? <p className="text-[10px] text-[var(--color-primary)] truncate">+ {item.modifiers.map(m => m.name).join(', ')}</p> : null}
               <p className="text-xs text-[var(--color-text)]">${item.price.toFixed(2)} c/u</p>
             </div>
             <div className="flex items-center gap-2 ml-3">
@@ -218,10 +271,11 @@ export function StoreClient({ products, categories, info }: { products: Product[
               <div className="flex flex-col h-full">
                 {/* Cart items */}
                 <div className="flex-1 space-y-3 min-h-0 overflow-y-auto">
-                  {cart.map(item => (
-                    <div key={item.productId} className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-0">
+                  {cart.map((item, idx) => (
+                    <div key={`${item.productId}-${idx}`} className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-0">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-[var(--color-text-dark)] truncate">{item.name}</p>
+                        {item.modifiers?.length ? <p className="text-[10px] text-[var(--color-primary)] truncate">+ {item.modifiers.map(m => m.name).join(', ')}</p> : null}
                         <p className="text-xs text-[var(--color-text)]">${item.price.toFixed(2)} c/u</p>
                       </div>
                       <div className="flex items-center gap-2 ml-3">
@@ -286,6 +340,55 @@ export function StoreClient({ products, categories, info }: { products: Product[
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modifier modal */}
+      {modifierModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setModifierModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-1">{modifierModal.product.name}</h2>
+            <p className="text-sm text-[var(--color-text)] mb-4">${Number(modifierModal.product.price).toFixed(2)}</p>
+
+            <button onClick={handleAddWithoutModifiers}
+              className="w-full py-3 mb-4 rounded-xl border-2 border-[var(--color-border)] text-sm font-medium text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] transition-colors">
+              Agregar sin extras
+            </button>
+
+            <div className="space-y-3">
+              {modifierModal.groups.map((group: any) => (
+                <div key={group.id}>
+                  <p className="text-xs font-semibold text-[var(--color-text)] uppercase tracking-wide mb-2">{group.name}</p>
+                  <div className="space-y-1.5">
+                    {group.options.map((opt: any) => (
+                      <label key={opt.id} className="flex items-center justify-between py-2.5 px-3 rounded-xl border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" checked={selectedModifiers[opt.id] ?? false}
+                            onChange={e => setSelectedModifiers(prev => ({ ...prev, [opt.id]: e.target.checked }))}
+                            className="w-4 h-4 rounded border-[var(--color-border)]" />
+                          <span className="text-sm text-[var(--color-text-dark)]">{opt.name}</span>
+                        </div>
+                        {Number(opt.price) > 0 && <span className="text-xs font-medium text-[var(--color-primary)]">+${Number(opt.price).toFixed(2)}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {Object.values(selectedModifiers).some(v => v) && (
+              <button onClick={handleAddWithModifiers}
+                className="w-full py-3 mt-4 rounded-xl bg-[var(--color-primary)] text-white font-medium text-sm hover:opacity-90 transition-opacity">
+                Agregar con extras (+${Object.entries(selectedModifiers).filter(([_, v]) => v).reduce((s, [id]) => {
+                  for (const g of modifierModal.groups) {
+                    const opt = g.options.find((o: any) => o.id === id)
+                    if (opt) return s + Number(opt.price)
+                  }
+                  return s
+                }, 0).toFixed(2)})
+              </button>
+            )}
           </div>
         </div>
       )}
