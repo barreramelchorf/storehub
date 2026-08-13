@@ -44,6 +44,7 @@ export default function POSPage() {
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paidWith, setPaidWith] = useState('')
+  const [pointModal, setPointModal] = useState<{ orderId: string; status: string } | null>(null)
 
   const [saleDate, setSaleDate] = useState('')
 
@@ -441,6 +442,16 @@ export default function POSPage() {
           <button onClick={() => setCart([])} className="w-full py-2 text-xs text-[var(--color-text)] hover:text-red-500 transition-colors">
             Vaciar carrito
           </button>
+          {tenantConfig?.config?.payments?.pointTerminalId && cart.length > 0 && (
+            <button onClick={async () => {
+              try {
+                const res = await api('/api/admin/point/charge', { method: 'POST', token, body: JSON.stringify({ amount: total, description: `Venta POS - ${itemCount} productos`, items: cart }) })
+                setPointModal({ orderId: res.orderId, status: 'created' })
+              } catch (e: any) { alert(e.message ?? 'Error al enviar a terminal') }
+            }} className="w-full py-2 rounded-lg bg-[#009ee3] text-white text-sm font-medium hover:bg-[#007eb5] transition-colors">
+              💳 Cobrar con terminal
+            </button>
+          )}
           {saleMutation.isError && <p className="text-red-500 text-xs text-center">{(saleMutation.error as Error).message}</p>}
           {saleMutation.isSuccess && <p className="text-green-600 text-xs text-center font-medium">✓ Venta registrada</p>}
         </div>
@@ -546,6 +557,78 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
+      {/* Point terminal modal with polling */}
+      {pointModal && (
+        <PointPaymentModal
+          orderId={pointModal.orderId}
+          token={token}
+          onSuccess={() => { setPointModal(null); setCart([]); setDiscount(0); setTip(0); setPaidWith('') }}
+          onCancel={() => setPointModal(null)}
+        />
+      )}
     </>
+  )
+}
+
+function PointPaymentModal({ orderId, token, onSuccess, onCancel }: { orderId: string; token: string; onSuccess: () => void; onCancel: () => void }) {
+  const [status, setStatus] = useState('created')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const interval = Number(process.env.NEXT_PUBLIC_POINT_POLLING_INTERVAL ?? '3000')
+
+    const poll = async () => {
+      try {
+        const res = await api(`/api/admin/point/status/${orderId}`, { token })
+        if (!active) return
+        setStatus(res.status)
+        if (res.status === 'processed' || res.paymentStatus === 'processed') {
+          onSuccess()
+          return
+        }
+        if (res.status === 'canceled' || res.status === 'expired') {
+          setError(res.status === 'expired' ? 'Tiempo de espera agotado' : 'Pago cancelado')
+          return
+        }
+        setTimeout(poll, interval)
+      } catch { if (active) setTimeout(poll, interval) }
+    }
+    setTimeout(poll, interval)
+    return () => { active = false }
+  }, [orderId])
+
+  const handleCancel = async () => {
+    try {
+      await api(`/api/admin/point/cancel/${orderId}`, { method: 'POST', token })
+    } catch {}
+    onCancel()
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 text-center">
+          <p className="text-4xl mb-3">❌</p>
+          <p className="text-sm font-medium text-red-600 mb-4">{error}</p>
+          <button onClick={onCancel} className="btn-primary w-full">Cerrar</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 text-center">
+        <div className="animate-pulse text-4xl mb-3">💳</div>
+        <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-2">Esperando pago...</h2>
+        <p className="text-sm text-[var(--color-text)] mb-4">Pide al cliente que pase su tarjeta en la terminal</p>
+        <p className="text-xs text-[var(--color-text)] mb-4">Estado: {status}</p>
+        <button onClick={handleCancel} className="w-full py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface)]">
+          Cancelar
+        </button>
+      </div>
+    </div>
   )
 }
