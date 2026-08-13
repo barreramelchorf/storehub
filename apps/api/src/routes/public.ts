@@ -74,4 +74,51 @@ export async function publicRoutes(app: FastifyInstance) {
     if (!doc) return reply.code(404).send({ error: 'Document not found' })
     return reply.redirect(doc.filePath)
   })
+
+  // Mercado Pago Checkout — creates a preference and returns the checkout URL
+  app.post('/api/public/checkout', async (request, reply) => {
+    const tenant = request.tenant
+    const config = tenant.config as any
+    const accessToken = config?.payments?.mercadoPagoAccessToken
+    if (!accessToken) return reply.code(400).send({ error: 'Pagos en línea no configurados para esta tienda' })
+
+    const { items, backUrl } = request.body as { items: Array<{ name: string; quantity: number; unitPrice: number; modifiers?: Array<{ name: string; price: number }> }>; backUrl: string }
+    if (!items?.length) return reply.code(400).send({ error: 'items required' })
+
+    // Build MP preference items
+    const mpItems = items.map((item, idx) => {
+      const modifiersText = item.modifiers?.length ? ` (${item.modifiers.map(m => m.name).join(', ')})` : ''
+      return {
+        id: `item-${idx}`,
+        title: `${item.name}${modifiersText}`,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        currency_id: 'MXN',
+      }
+    })
+
+    try {
+      const { MercadoPagoConfig, Preference } = await import('mercadopago')
+      const client = new MercadoPagoConfig({ accessToken })
+      const preference = new Preference(client)
+
+      const result = await preference.create({
+        body: {
+          items: mpItems,
+          back_urls: {
+            success: `${backUrl}/checkout/success`,
+            failure: `${backUrl}/checkout/failure`,
+            pending: `${backUrl}/checkout/pending`,
+          },
+          auto_return: 'approved',
+          statement_descriptor: tenant.name,
+        },
+      })
+
+      return { checkoutUrl: result.init_point, preferenceId: result.id }
+    } catch (e: any) {
+      console.error('[mercadopago] Error creating preference:', e.message)
+      return reply.code(500).send({ error: 'Error al crear el pago. Verifica tu Access Token de Mercado Pago.' })
+    }
+  })
 }

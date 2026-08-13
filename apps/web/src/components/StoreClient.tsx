@@ -119,6 +119,34 @@ export function StoreClient({ products, categories, info }: { products: Product[
     setCart([])
   }
 
+  const hasMercadoPago = !!info.config?.payments?.mercadoPagoAccessToken
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+
+  const handleMercadoPago = async () => {
+    setCheckoutLoading(true)
+    try {
+      const slug = window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1]
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (slug) headers['x-tenant-slug'] = slug
+
+      const backUrl = window.location.origin + window.location.pathname
+      const res = await fetch('/api/public/checkout', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          items: cart.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.price, modifiers: i.modifiers })),
+          backUrl,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      window.location.href = data.checkoutUrl
+    } catch (e: any) {
+      alert(e.message ?? 'Error al procesar el pago')
+    }
+    setCheckoutLoading(false)
+  }
+
   // Category navigation
   const categoryNav = (
     <nav className="flex gap-2 overflow-x-auto pb-4 mb-6 border-b border-[var(--color-border)] lg:flex-wrap lg:overflow-x-visible">
@@ -222,6 +250,12 @@ export function StoreClient({ products, categories, info }: { products: Product[
             className="w-full py-3 rounded-lg bg-green-500 text-white font-medium text-base hover:bg-green-600 transition-colors flex items-center justify-center gap-2">
             <span>📱</span> Ordenar por WhatsApp
           </button>
+          {hasMercadoPago && (
+            <button onClick={handleMercadoPago} disabled={checkoutLoading}
+              className="w-full py-3 rounded-lg bg-[#009ee3] text-white font-medium text-base hover:bg-[#007eb5] transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+              {checkoutLoading ? 'Procesando...' : '💳 Pagar con Mercado Pago'}
+            </button>
+          )}
           <button onClick={() => setCart([])} className="w-full py-2 text-xs text-[var(--color-text)] hover:text-red-500 transition-colors">
             Vaciar carrito
           </button>
@@ -303,6 +337,12 @@ export function StoreClient({ products, categories, info }: { products: Product[
                   className="w-full py-3.5 rounded-lg bg-green-500 text-white font-medium text-base hover:bg-green-600 transition-colors flex items-center justify-center gap-2">
                   <span>📱</span> Ordenar por WhatsApp
                 </button>
+                {hasMercadoPago && (
+                  <button onClick={handleMercadoPago} disabled={checkoutLoading}
+                    className="w-full py-3.5 rounded-lg bg-[#009ee3] text-white font-medium text-base hover:bg-[#007eb5] transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                    {checkoutLoading ? 'Procesando...' : '💳 Pagar con Mercado Pago'}
+                  </button>
+                )}
                 <button onClick={() => { setCart([]); setMobileCartOpen(false) }} className="w-full py-2 text-xs text-[var(--color-text)] hover:text-red-500 transition-colors">
                   Vaciar carrito
                 </button>

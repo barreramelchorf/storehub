@@ -24,6 +24,7 @@
     "fastify": "4.28.1",
     "ioredis": "5.3.2",
     "jose": "5.9.6",
+    "mercadopago": "^3.4.0",
     "minio": "8.0.2",
     "pino": "9.5.0",
     "postgres": "3.4.5",
