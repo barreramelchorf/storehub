@@ -43,6 +43,7 @@ export default function POSPage() {
   const [discount, setDiscount] = useState(0)
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [paidWith, setPaidWith] = useState('')
 
   const [saleDate, setSaleDate] = useState('')
 
@@ -151,7 +152,7 @@ export default function POSPage() {
       } else {
         setSingleCart([])
       }
-      setDiscount(0); setTip(0); setMobileCartOpen(false)
+      setDiscount(0); setTip(0); setPaidWith(''); setMobileCartOpen(false)
       clearPosExtras()
       queryClient.invalidateQueries({ queryKey: ['products'] })
     },
@@ -413,6 +414,24 @@ export default function POSPage() {
             <span className="text-[var(--color-primary)]">${total.toFixed(2)}</span>
           </div>
           <p className="text-xs text-[var(--color-text)] text-right">{itemCount} producto(s) · {cart.length} distinto(s)</p>
+
+          {paymentMethod === 'cash' && (
+            <div className="pt-2">
+              <div className="flex items-center gap-2">
+                <label className="label whitespace-nowrap text-xs">Paga con</label>
+                <input type="number" value={paidWith} onChange={e => setPaidWith(e.target.value)} className="input flex-1" placeholder="$0.00" />
+              </div>
+              {paidWith && Number(paidWith) >= total && (
+                <div className="flex justify-between items-center mt-2 py-2 px-3 bg-green-50 rounded-lg">
+                  <span className="text-sm font-medium text-green-700">Cambio</span>
+                  <span className="text-lg font-bold text-green-700">${(Number(paidWith) - total).toFixed(2)}</span>
+                </div>
+              )}
+              {paidWith && Number(paidWith) > 0 && Number(paidWith) < total && (
+                <p className="text-xs text-red-500 mt-1">Monto insuficiente (faltan ${(total - Number(paidWith)).toFixed(2)})</p>
+              )}
+            </div>
+          )}
 
           <button onClick={handleCheckout} disabled={!cart.length || saleMutation.isPending}
             className="w-full py-3 rounded-lg bg-[var(--color-primary)] text-white font-medium text-base hover:opacity-90 transition-opacity disabled:opacity-50">
