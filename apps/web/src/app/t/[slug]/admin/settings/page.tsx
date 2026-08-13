@@ -8,7 +8,7 @@ import { useParams } from 'next/navigation'
 export default function SettingsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '', multicomanda: false, modifiers: false, requireCashAmount: false, mercadoPagoAccessToken: '', pointTerminalId: '' })
+  const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '', multicomanda: false, modifiers: false, requireCashAmount: false, mercadoPagoAccessToken: '', pointAccessToken: '', pointTerminalId: '' })
 
   const { data: info } = useQuery({ queryKey: ['settings'], queryFn: () => api('/api/admin/settings', { token }) })
 
@@ -26,6 +26,7 @@ export default function SettingsPage() {
         modifiers: c.modules?.modifiers ?? false,
         requireCashAmount: c.modules?.requireCashAmount ?? false,
         mercadoPagoAccessToken: c.payments?.mercadoPagoAccessToken ?? '',
+        pointAccessToken: c.payments?.pointAccessToken ?? '',
         pointTerminalId: c.payments?.pointTerminalId ?? '',
       })
     }
@@ -42,7 +43,7 @@ export default function SettingsPage() {
           social: { instagram: form.instagram, facebook: form.facebook, tiktok: form.tiktok, website: form.website },
           meta: { title: form.metaTitle, description: form.metaDescription },
           modules: { ...info?.config?.modules, pos: true, inventory: true, analytics: true, multicomanda: form.multicomanda, modifiers: form.modifiers, requireCashAmount: form.requireCashAmount },
-          payments: { mercadoPagoAccessToken: form.mercadoPagoAccessToken || undefined, pointTerminalId: form.pointTerminalId || undefined },
+          payments: { mercadoPagoAccessToken: form.mercadoPagoAccessToken || undefined, pointAccessToken: form.pointAccessToken || undefined, pointTerminalId: form.pointTerminalId || undefined },
         },
       }),
     }),
@@ -132,6 +133,11 @@ export default function SettingsPage() {
               <label className="label">Mercado Pago — Access Token</label>
               <input type="password" value={form.mercadoPagoAccessToken} onChange={e => setForm(f => ({ ...f, mercadoPagoAccessToken: e.target.value }))} className="input" placeholder="TEST-xxxx o APP_USR-xxxx" />
               <p className="text-xs text-[var(--color-text)] mt-1">Obténlo en <a href="https://www.mercadopago.com.mx/developers/panel/app" target="_blank" className="text-[var(--color-primary)] hover:underline">mercadopago.com.mx → Desarrolladores → Credenciales</a>. Usa el de prueba (TEST-) para sandbox o el de producción (APP_USR-) para cobros reales.</p>
+            </div>
+            <div>
+              <label className="label">Terminal Point — Access Token</label>
+              <input type="password" value={form.pointAccessToken} onChange={e => setForm(f => ({ ...f, pointAccessToken: e.target.value }))} className="input" placeholder="APP_USR-xxxx (credenciales de Point)" />
+              <p className="text-xs text-[var(--color-text)] mt-1">Access Token de la aplicación de Point (puede ser diferente al de pagos online).</p>
             </div>
             <div>
               <label className="label">Terminal Point — ID del dispositivo</label>

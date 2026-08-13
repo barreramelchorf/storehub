@@ -10,7 +10,7 @@ export async function pointRoutes(app: FastifyInstance) {
   // Create a Point order (sends payment to terminal)
   app.post('/api/admin/point/charge', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
     const config = request.tenant.config as any
-    const accessToken = config?.payments?.mercadoPagoAccessToken
+    const accessToken = config?.payments?.pointAccessToken
     const terminalId = config?.payments?.pointTerminalId
 
     if (!accessToken || !terminalId) {
@@ -59,7 +59,7 @@ export async function pointRoutes(app: FastifyInstance) {
   // Poll order status
   app.get('/api/admin/point/status/:orderId', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
     const config = request.tenant.config as any
-    const accessToken = config?.payments?.mercadoPagoAccessToken
+    const accessToken = config?.payments?.pointAccessToken
     if (!accessToken) return reply.code(400).send({ error: 'MP not configured' })
 
     const { orderId } = request.params as { orderId: string }
@@ -85,7 +85,7 @@ export async function pointRoutes(app: FastifyInstance) {
   // Cancel a Point order
   app.post('/api/admin/point/cancel/:orderId', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
     const config = request.tenant.config as any
-    const accessToken = config?.payments?.mercadoPagoAccessToken
+    const accessToken = config?.payments?.pointAccessToken
     if (!accessToken) return reply.code(400).send({ error: 'MP not configured' })
 
     const { orderId } = request.params as { orderId: string }
