@@ -69,6 +69,7 @@ export default function POSPage() {
   })
   const multicomandaEnabled = tenantConfig?.config?.modules?.multicomanda ?? false
   const modifiersEnabled = tenantConfig?.config?.modules?.modifiers ?? false
+  const requireCashAmount = tenantConfig?.config?.modules?.requireCashAmount ?? false
 
   // Initialize date
   useEffect(() => {
@@ -433,7 +434,7 @@ export default function POSPage() {
             </div>
           )}
 
-          <button onClick={handleCheckout} disabled={!cart.length || saleMutation.isPending}
+          <button onClick={handleCheckout} disabled={!cart.length || saleMutation.isPending || (paymentMethod === 'cash' && requireCashAmount && (!paidWith || Number(paidWith) < total))}
             className="w-full py-3 rounded-lg bg-[var(--color-primary)] text-white font-medium text-base hover:opacity-90 transition-opacity disabled:opacity-50">
             {saleMutation.isPending ? 'Procesando...' : 'Cobrar'}
           </button>
