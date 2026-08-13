@@ -72,10 +72,19 @@ export async function webhookRoutes(app: FastifyInstance) {
     const tz = 'America/Mexico_City'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
 
+    // Find the first user of this tenant (admin) to attribute the sale
+    const tenantUser = await db.query.users.findFirst({
+      where: (u, { eq, and }) => and(eq(u.tenantId, tenantId), eq(u.active, true)),
+    })
+    if (!tenantUser) {
+      request.log.warn({ paymentId, tenantId }, '[webhook/mp] No users found for tenant')
+      return reply.code(200).send({ ok: true, error: 'no_users' })
+    }
+
     // Create the sale
     const [sale] = await db.insert(sales).values({
       tenantId,
-      userId: tenantId, // Online order — no user session
+      userId: tenantUser.id,
       total: String(total),
       discount: '0',
       tip: '0',
