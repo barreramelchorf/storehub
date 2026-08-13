@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, tenants } from '@storehub/db'
-import { eq } from 'drizzle-orm'
+import { db, sales, saleItems, tenants, users, roles } from '@storehub/db'
+import { eq, and } from 'drizzle-orm'
 
 export async function webhookRoutes(app: FastifyInstance) {
   // Mercado Pago payment webhook
@@ -72,19 +72,34 @@ export async function webhookRoutes(app: FastifyInstance) {
     const tz = 'America/Mexico_City'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
 
-    // Find the first user of this tenant (admin) to attribute the sale
-    const tenantUser = await db.query.users.findFirst({
-      where: (u, { eq, and }) => and(eq(u.tenantId, tenantId), eq(u.active, true)),
+    // Find or create 'tienda_online' system user for this tenant
+    let onlineUser = await db.query.users.findFirst({
+      where: (u, { eq, and }) => and(eq(u.tenantId, tenantId), eq(u.username, 'tienda_online')),
     })
-    if (!tenantUser) {
-      request.log.warn({ paymentId, tenantId }, '[webhook/mp] No users found for tenant')
-      return reply.code(200).send({ ok: true, error: 'no_users' })
+    if (!onlineUser) {
+      // Find any role for the tenant (needed for FK)
+      const anyRole = await db.query.roles.findFirst({ where: (r, { eq }) => eq(r.tenantId, tenantId) })
+      if (!anyRole) {
+        request.log.warn({ paymentId, tenantId }, '[webhook/mp] No roles found for tenant')
+        return reply.code(200).send({ ok: true, error: 'no_roles' })
+      }
+      const [created] = await db.insert(users).values({
+        tenantId,
+        email: `online@${matchedTenant.slug}.storehub`,
+        username: 'tienda_online',
+        passwordHash: 'SYSTEM_USER_NO_LOGIN',
+        roleId: anyRole.id,
+        active: false, // Can't login — system user only
+        mustChangePassword: false,
+      }).returning()
+      onlineUser = created
+      request.log.info({ tenantId, userId: created.id }, '[webhook/mp] Created tienda_online user')
     }
 
     // Create the sale
     const [sale] = await db.insert(sales).values({
       tenantId,
-      userId: tenantUser.id,
+      userId: onlineUser.id,
       total: String(total),
       discount: '0',
       tip: '0',
