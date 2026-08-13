@@ -73,6 +73,12 @@ Pendientes a resolver en siguientes iteraciones.
 - Con Cloudflare: wildcard automático, zero config por tenant
 - Actualmente cada custom domain necesita entrada en Pulumi YAML + DNS manual
 
+### Crear usuario 'tienda_online' al provisionar nuevos tenants
+- La migración 0012 cubre los tenants existentes
+- Falta agregar la creación en `apps/api/src/routes/platform.ts` al POST de nuevo tenant
+- Sin esto, un tenant nuevo no podrá recibir pagos online hasta que se corra otra migración
+- Cambio pequeño: un INSERT más en el endpoint de crear tenant
+
 ### Integración Mercado Pago Point (cobro presencial desde POS)
 - Conectar el POS del admin con la terminal física Point de MP
 - Al darle "Cobrar" con tarjeta, enviar la orden directo al Point vía API
