@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems } from '@storehub/db'
+import { db, sales, saleItems, products } from '@storehub/db'
+import { eq, sql } from 'drizzle-orm'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
 import crypto from 'crypto'
@@ -34,7 +35,7 @@ export async function pointRoutes(app: FastifyInstance) {
         },
         body: JSON.stringify({
           type: 'point',
-          external_reference: JSON.stringify({ tenantId: request.tenant.id, items: items ?? [] }),
+          external_reference: `pos-${crypto.randomUUID().slice(0, 8)}`,
           expiration_time: 'PT5M',
           transactions: { payments: [{ amount: amount.toFixed(2) }] },
           config: {
@@ -113,6 +114,59 @@ export async function pointRoutes(app: FastifyInstance) {
   // Get polling interval (so frontend knows how often to poll)
   app.get('/api/admin/point/config', async () => {
     return { pollingInterval: Number(process.env.POINT_POLLING_INTERVAL ?? '3000') }
+  })
+
+  // Register sale after Point payment is confirmed (called from frontend after polling)
+  app.post('/api/admin/point/register-sale', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
+    const { orderId, items, total, discount, tip } = request.body as {
+      orderId: string; items: Array<{ productId: string; name: string; quantity: number; price: number; modifiers?: any[] }>
+      total: number; discount?: number; tip?: number
+    }
+    if (!orderId || !items?.length) return reply.code(400).send({ error: 'orderId and items required' })
+
+    // Idempotency: check if already registered
+    const existing = await db.query.sales.findFirst({
+      where: (s, { eq, and }) => and(eq(s.tenantId, request.tenant.id), eq(s.notes, `point:${orderId}`)),
+    })
+    if (existing) return { ok: true, saleId: existing.id, duplicate: true }
+
+    const tenantId = request.tenant.id
+    const tz = 'America/Mexico_City'
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
+
+    const [sale] = await db.insert(sales).values({
+      tenantId,
+      userId: request.user.id,
+      total: String(total),
+      discount: String(discount ?? 0),
+      tip: String(tip ?? 0),
+      paymentMethod: 'card',
+      notes: `point:${orderId}`,
+      status: 'approved',
+      saleDate: new Date(today + 'T00:00:00.000Z'),
+    }).returning()
+
+    for (const item of items) {
+      await db.insert(saleItems).values({
+        saleId: sale.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: String(item.price),
+        originalPrice: String(item.price - (item.modifiers?.reduce((s: number, m: any) => s + m.price, 0) ?? 0)),
+        subtotal: String(item.price * item.quantity),
+        modifiers: item.modifiers ?? [],
+      })
+    }
+
+    // Deduct stock
+    for (const item of items) {
+      if (item.productId) {
+        await db.update(products).set({ stock: sql`${products.stock} - ${item.quantity}` }).where(eq(products.id, item.productId))
+      }
+    }
+
+    request.log.info({ orderId, saleId: sale.id, total }, '[point] Sale registered from POS')
+    return { ok: true, saleId: sale.id }
   })
 
   // Print custom ticket on terminal after payment

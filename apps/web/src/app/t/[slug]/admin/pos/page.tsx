@@ -604,11 +604,16 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
         if (!active) return
         setStatus(res.status)
         if (res.status === 'processed' || res.paymentStatus === 'processed') {
+          // Register the sale
+          api('/api/admin/point/register-sale', {
+            method: 'POST', token,
+            body: JSON.stringify({ orderId, items: cart.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip }),
+          }).catch(() => {})
           // Print ticket
           api('/api/admin/point/print-ticket', {
             method: 'POST', token,
             body: JSON.stringify({ items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip, tenantName, paymentMethod: 'card' }),
-          }).catch(() => {}) // fire and forget
+          }).catch(() => {})
           onSuccess()
           return
         }
