@@ -389,7 +389,7 @@ export default function POSPage() {
       </div>
 
       {cart.length > 0 && (
-        <div className="border-t border-[var(--color-border)] pt-4 mt-4 space-y-3 flex-shrink-0">
+        <div className="border-t border-[var(--color-border)] pt-3 mt-2 space-y-2 overflow-y-auto min-h-0">
           <div className="grid grid-cols-2 gap-3">
             <div><label className="label">Descuento</label><input type="number" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} className="input" placeholder="$0" /></div>
             <div><label className="label">Propina</label><input type="number" value={tip || ''} onChange={e => setTip(Number(e.target.value))} className="input" placeholder="$0" /></div>
