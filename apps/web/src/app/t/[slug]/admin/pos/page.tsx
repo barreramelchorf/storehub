@@ -613,16 +613,16 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
     try {
       await api(`/api/admin/point/cancel/${orderId}`, { method: 'POST', token })
     } catch {}
-    onCancel()
+    setError('Orden cancelada. Si la terminal aún muestra el cobro, cancélalo desde el botón rojo de la terminal.')
   }
 
   if (error) {
     return (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 text-center">
-          <p className="text-4xl mb-3">❌</p>
-          <p className="text-sm font-medium text-red-600 mb-4">{error}</p>
-          <button onClick={onCancel} className="btn-primary w-full">Cerrar</button>
+          <p className="text-4xl mb-3">⚠️</p>
+          <p className="text-sm font-medium text-[var(--color-text-dark)] mb-4">{error}</p>
+          <button onClick={onCancel} className="btn-primary w-full">Entendido</button>
         </div>
       </div>
     )
