@@ -593,6 +593,8 @@ export default function POSPage() {
 function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantName, onSuccess, onCancel }: { orderId: string; token: string; cart: any[]; total: number; discount: number; tip: number; tenantName: string; onSuccess: () => void; onCancel: () => void }) {
   const [status, setStatus] = useState('created')
   const [error, setError] = useState('')
+  const [paid, setPaid] = useState(false)
+  const [printing, setPrinting] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -604,17 +606,12 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
         if (!active) return
         setStatus(res.status)
         if (res.status === 'processed' || res.paymentStatus === 'processed') {
-          // Register the sale
+          // Register the sale immediately
           api('/api/admin/point/register-sale', {
             method: 'POST', token,
             body: JSON.stringify({ orderId, items: cart.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip }),
           }).catch(() => {})
-          // Print ticket
-          api('/api/admin/point/print-ticket', {
-            method: 'POST', token,
-            body: JSON.stringify({ items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip, tenantName, paymentMethod: 'card' }),
-          }).catch(() => {})
-          onSuccess()
+          setPaid(true)
           return
         }
         if (res.status === 'canceled' || res.status === 'expired') {
@@ -627,6 +624,15 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
     setTimeout(poll, interval)
     return () => { active = false }
   }, [orderId])
+
+  const handlePrint = async () => {
+    setPrinting(true)
+    await api('/api/admin/point/print-ticket', {
+      method: 'POST', token,
+      body: JSON.stringify({ items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip, tenantName, paymentMethod: 'card' }),
+    }).catch(() => {})
+    setPrinting(false)
+  }
 
   const handleCancel = async () => {
     try {
@@ -642,6 +648,24 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
           <p className="text-4xl mb-3">⚠️</p>
           <p className="text-sm font-medium text-[var(--color-text-dark)] mb-4">{error}</p>
           <button onClick={onCancel} className="btn-primary w-full">Entendido</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (paid) {
+    return (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 text-center">
+          <p className="text-4xl mb-3">✅</p>
+          <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-2">Pago exitoso</h2>
+          <p className="text-sm text-[var(--color-text)] mb-4">${total.toFixed(2)}</p>
+          <div className="space-y-2">
+            <button onClick={handlePrint} disabled={printing} className="w-full py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] disabled:opacity-50">
+              {printing ? 'Imprimiendo...' : '🖨️ Imprimir ticket'}
+            </button>
+            <button onClick={onSuccess} className="btn-primary w-full">Cerrar</button>
+          </div>
         </div>
       </div>
     )
