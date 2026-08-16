@@ -21,6 +21,8 @@ export async function pointRoutes(app: FastifyInstance) {
     if (!amount || amount <= 0) return reply.code(400).send({ error: 'amount is required and must be positive' })
 
     const externalReference = `pos-${crypto.randomUUID().slice(0, 8)}`
+    const host = request.headers['x-forwarded-host'] ?? request.headers.host ?? ''
+    const notificationUrl = `https://${host}/api/webhooks/mercadopago`
 
     try {
       const res = await fetch('https://api.mercadopago.com/v1/orders', {
@@ -32,13 +34,14 @@ export async function pointRoutes(app: FastifyInstance) {
         },
         body: JSON.stringify({
           type: 'point',
-          external_reference: externalReference,
+          external_reference: JSON.stringify({ tenantId: request.tenant.id, items: items ?? [] }),
           expiration_time: 'PT5M',
           transactions: { payments: [{ amount: amount.toFixed(2) }] },
           config: {
             point: { terminal_id: terminalId, print_on_terminal: 'no_ticket' },
             payment_method: { default_type: 'credit_card' },
           },
+          notification_url: notificationUrl,
           description: description ?? 'Venta POS',
         }),
       })

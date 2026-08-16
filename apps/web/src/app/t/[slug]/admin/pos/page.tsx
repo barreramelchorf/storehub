@@ -568,7 +568,21 @@ export default function POSPage() {
           discount={discount}
           tip={tip}
           tenantName={tenantConfig?.name ?? ''}
-          onSuccess={() => { setPointModal(null); setCart([]); setDiscount(0); setTip(0); setPaidWith('') }}
+          onSuccess={() => {
+            setPointModal(null)
+            if (multicomandaEnabled) {
+              setComandasState(prev => {
+                const remaining = prev.comandas.filter(c => c.id !== prev.activeId)
+                if (remaining.length === 0) {
+                  const newComanda: Comanda = { id: generateId(), name: 'Comanda 1', cart: [], discount: 0, tip: 0, paymentMethod: 'cash' }
+                  return { comandas: [newComanda], activeId: newComanda.id }
+                }
+                return { comandas: remaining, activeId: remaining[0].id }
+              })
+            } else { setSingleCart([]) }
+            setDiscount(0); setTip(0); setPaidWith(''); clearPosExtras()
+            queryClient.invalidateQueries({ queryKey: ['products'] })
+          }}
           onCancel={() => setPointModal(null)}
         />
       )}

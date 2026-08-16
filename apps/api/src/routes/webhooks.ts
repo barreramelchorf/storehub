@@ -23,19 +23,20 @@ export async function webhookRoutes(app: FastifyInstance) {
 
     for (const tenant of allTenantsList) {
       const config = tenant.config as any
-      const accessToken = config?.payments?.mercadoPagoAccessToken
-      if (!accessToken) continue
-
-      try {
-        const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-          headers: { 'Authorization': `Bearer ${accessToken}` },
-        })
-        if (res.ok) {
-          paymentData = await res.json()
-          matchedTenant = tenant
-          break
-        }
-      } catch {}
+      const tokens = [config?.payments?.mercadoPagoAccessToken, config?.payments?.pointAccessToken].filter(Boolean)
+      for (const accessToken of tokens) {
+        try {
+          const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+          })
+          if (res.ok) {
+            paymentData = await res.json()
+            matchedTenant = tenant
+            break
+          }
+        } catch {}
+      }
+      if (matchedTenant) break
     }
 
     if (!paymentData || !matchedTenant) {
