@@ -111,4 +111,72 @@ export async function pointRoutes(app: FastifyInstance) {
   app.get('/api/admin/point/config', async () => {
     return { pollingInterval: Number(process.env.POINT_POLLING_INTERVAL ?? '3000') }
   })
+
+  // Print custom ticket on terminal after payment
+  app.post('/api/admin/point/print-ticket', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
+    const config = request.tenant.config as any
+    const accessToken = config?.payments?.pointAccessToken
+    const terminalId = config?.payments?.pointTerminalId
+    if (!accessToken || !terminalId) return reply.code(400).send({ error: 'Point not configured' })
+
+    const { items, total, tenantName, discount, tip, paymentMethod } = request.body as {
+      items: Array<{ name: string; quantity: number; price: number; modifiers?: Array<{ name: string; price: number }> }>
+      total: number; tenantName: string; discount?: number; tip?: number; paymentMethod?: string
+    }
+
+    // Build ticket content with MP tags
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City', day: '2-digit', month: '2-digit', year: 'numeric' })
+    const timeStr = now.toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' })
+
+    let content = `{center}{w}${tenantName}{/w}{br}{br}`
+    content += `{s}${dateStr} ${timeStr}{/s}{br}`
+    content += `--------------------------------{br}`
+
+    for (const item of items) {
+      content += `{s}${item.quantity}x ${item.name}{/s}{br}`
+      if (item.modifiers?.length) {
+        for (const m of item.modifiers) {
+          content += `{s}   + ${m.name} $${m.price.toFixed(2)}{/s}{br}`
+        }
+      }
+      content += `{s}   $${(item.price * item.quantity).toFixed(2)}{/s}{br}`
+    }
+
+    content += `--------------------------------{br}`
+    if (discount && discount > 0) content += `{s}Descuento: -$${discount.toFixed(2)}{/s}{br}`
+    if (tip && tip > 0) content += `{s}Propina: +$${tip.toFixed(2)}{/s}{br}`
+    content += `{b}TOTAL: $${total.toFixed(2)}{/b}{br}`
+    content += `{s}Pago: ${paymentMethod === 'card' ? 'Tarjeta' : paymentMethod ?? 'Tarjeta'}{/s}{br}`
+    content += `{br}{center}{s}¡Gracias por su compra!{/s}{br}`
+
+    // Pad to minimum 100 chars
+    while (content.length < 100) content += ' '
+
+    try {
+      const res = await fetch('https://api.mercadopago.com/terminals/v1/actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Idempotency-Key': crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          type: 'print',
+          external_reference: `ticket-${crypto.randomUUID().slice(0, 8)}`,
+          config: { point: { terminal_id: terminalId, subtype: 'custom' } },
+          content,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        request.log.error({ data }, '[point] Print ticket failed')
+        return reply.code(400).send({ error: 'Error al imprimir ticket' })
+      }
+      return { ok: true, actionId: data.id }
+    } catch (e: any) {
+      request.log.error({ error: e.message }, '[point] Print error')
+      return reply.code(500).send({ error: 'Error de conexión' })
+    }
+  })
 }

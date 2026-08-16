@@ -563,6 +563,11 @@ export default function POSPage() {
         <PointPaymentModal
           orderId={pointModal.orderId}
           token={token}
+          cart={cart}
+          total={total}
+          discount={discount}
+          tip={tip}
+          tenantName={tenantConfig?.name ?? ''}
           onSuccess={() => { setPointModal(null); setCart([]); setDiscount(0); setTip(0); setPaidWith('') }}
           onCancel={() => setPointModal(null)}
         />
@@ -571,7 +576,7 @@ export default function POSPage() {
   )
 }
 
-function PointPaymentModal({ orderId, token, onSuccess, onCancel }: { orderId: string; token: string; onSuccess: () => void; onCancel: () => void }) {
+function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantName, onSuccess, onCancel }: { orderId: string; token: string; cart: any[]; total: number; discount: number; tip: number; tenantName: string; onSuccess: () => void; onCancel: () => void }) {
   const [status, setStatus] = useState('created')
   const [error, setError] = useState('')
 
@@ -585,6 +590,11 @@ function PointPaymentModal({ orderId, token, onSuccess, onCancel }: { orderId: s
         if (!active) return
         setStatus(res.status)
         if (res.status === 'processed' || res.paymentStatus === 'processed') {
+          // Print ticket
+          api('/api/admin/point/print-ticket', {
+            method: 'POST', token,
+            body: JSON.stringify({ items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip, tenantName, paymentMethod: 'card' }),
+          }).catch(() => {}) // fire and forget
           onSuccess()
           return
         }
