@@ -37,6 +37,7 @@ export async function pointRoutes(app: FastifyInstance) {
           transactions: { payments: [{ amount: amount.toFixed(2) }] },
           config: {
             point: { terminal_id: terminalId, print_on_terminal: 'no_ticket' },
+            payment_method: { default_type: 'credit_card' },
           },
           description: description ?? 'Venta POS',
         }),
