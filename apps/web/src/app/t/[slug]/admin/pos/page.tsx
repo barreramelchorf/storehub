@@ -45,6 +45,8 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paidWith, setPaidWith] = useState('')
   const [pointModal, setPointModal] = useState<{ orderId: string; status: string } | null>(null)
+  const [tipReminderAction, setTipReminderAction] = useState<'checkout' | 'point' | null>(null)
+  const [tipReminderAmount, setTipReminderAmount] = useState('')
 
   const [saleDate, setSaleDate] = useState('')
 
@@ -71,6 +73,7 @@ export default function POSPage() {
   const multicomandaEnabled = tenantConfig?.config?.modules?.multicomanda ?? false
   const modifiersEnabled = tenantConfig?.config?.modules?.modifiers ?? false
   const requireCashAmount = tenantConfig?.config?.modules?.requireCashAmount ?? false
+  const tipReminderEnabled = tenantConfig?.config?.modules?.tipReminder ?? false
 
   // Initialize date
   useEffect(() => {
@@ -435,7 +438,10 @@ export default function POSPage() {
             </div>
           )}
 
-          <button onClick={handleCheckout} disabled={!cart.length || saleMutation.isPending || (paymentMethod === 'cash' && requireCashAmount && (!paidWith || Number(paidWith) < total))}
+          <button onClick={() => {
+            if (tipReminderEnabled && tip === 0) { setTipReminderAction('checkout'); setTipReminderAmount(''); return }
+            handleCheckout()
+          }} disabled={!cart.length || saleMutation.isPending || (paymentMethod === 'cash' && requireCashAmount && (!paidWith || Number(paidWith) < total))}
             className="w-full py-3 rounded-lg bg-[var(--color-primary)] text-white font-medium text-base hover:opacity-90 transition-opacity disabled:opacity-50">
             {saleMutation.isPending ? 'Procesando...' : 'Cobrar'}
           </button>
@@ -444,6 +450,7 @@ export default function POSPage() {
           </button>
           {tenantConfig?.config?.payments?.pointTerminalId && cart.length > 0 && (
             <button onClick={async () => {
+              if (tipReminderEnabled && tip === 0) { setTipReminderAction('point'); setTipReminderAmount(''); return }
               try {
                 const res = await api('/api/admin/point/charge', { method: 'POST', token, body: JSON.stringify({ amount: total, description: `Venta POS - ${itemCount} productos`, items: cart }) })
                 setPointModal({ orderId: res.orderId, status: 'created' })
@@ -554,6 +561,55 @@ export default function POSPage() {
                 }, 0).toFixed(2)})
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Tip reminder modal */}
+      {tipReminderAction && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setTipReminderAction(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--color-text-dark)] text-center mb-1">¿Agregar propina?</h2>
+            <p className="text-sm text-[var(--color-text)] text-center mb-4">Subtotal: ${subtotal.toFixed(2)}</p>
+            <div className="flex gap-2 mb-3">
+              {[10, 15, 20].map(pct => (
+                <button key={pct} onClick={() => setTipReminderAmount(String(Math.round(subtotal * pct / 100)))}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${Number(tipReminderAmount) === Math.round(subtotal * pct / 100) ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-dark)] hover:bg-[var(--color-surface)]'}`}>
+                  {pct}%
+                </button>
+              ))}
+            </div>
+            <div className="mb-4">
+              <input type="number" value={tipReminderAmount} onChange={e => setTipReminderAmount(e.target.value)} className="input w-full text-center" placeholder="$ Otro monto" />
+              {tipReminderAmount && <p className="text-xs text-[var(--color-text)] text-center mt-1">Total: ${(subtotal - discount + Number(tipReminderAmount)).toFixed(2)}</p>}
+            </div>
+            <div className="space-y-2">
+              {tipReminderAmount && Number(tipReminderAmount) > 0 && (
+                <button onClick={async () => {
+                  setTip(Number(tipReminderAmount))
+                  setTipReminderAction(null)
+                  // Proceed after a tick so tip state updates
+                  setTimeout(async () => {
+                    if (tipReminderAction === 'point') {
+                      try {
+                        const newTotal = subtotal - discount + Number(tipReminderAmount)
+                        const res = await api('/api/admin/point/charge', { method: 'POST', token, body: JSON.stringify({ amount: newTotal, description: `Venta POS - ${itemCount} productos`, items: cart }) })
+                        setPointModal({ orderId: res.orderId, status: 'created' })
+                      } catch (e: any) { alert(e.message ?? 'Error') }
+                    } else { handleCheckout() }
+                  }, 100)
+                }} className="btn-primary w-full">Cobrar con propina (${tipReminderAmount})</button>
+              )}
+              <button onClick={async () => {
+                setTipReminderAction(null)
+                if (tipReminderAction === 'point') {
+                  try {
+                    const res = await api('/api/admin/point/charge', { method: 'POST', token, body: JSON.stringify({ amount: total, description: `Venta POS - ${itemCount} productos`, items: cart }) })
+                    setPointModal({ orderId: res.orderId, status: 'created' })
+                  } catch (e: any) { alert(e.message ?? 'Error') }
+                } else { handleCheckout() }
+              }} className="w-full py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface)]">Sin propina</button>
+            </div>
           </div>
         </div>
       )}
