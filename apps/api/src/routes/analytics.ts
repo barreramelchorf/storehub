@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, products, users } from '@storehub/db'
+import { db, sales, saleItems, products, users, categories } from '@storehub/db'
 import { eq, and, gte, lte, sql, desc } from 'drizzle-orm'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
@@ -360,6 +360,144 @@ export async function analyticsRoutes(app: FastifyInstance) {
       topProducts,
       topModifiers: topModifiers ?? [],
       lowStock,
+      period: { from: dateFrom, to: dateTo },
+    }
+  })
+
+  app.get('/api/admin/analytics/categories', { preHandler: requirePermission('analytics.view') }, async (request) => {
+    const { from, to } = request.query as { from?: string; to?: string }
+    const tenantId = request.tenant.id
+    const dateFrom = from ? new Date(from) : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    const dateTo = to ? new Date(to) : new Date()
+
+    const baseWhere = and(
+      eq(sales.tenantId, tenantId),
+      eq(sales.status, 'approved'),
+      gte(sales.saleDate, dateFrom),
+      lte(sales.saleDate, dateTo),
+    )
+
+    // 1. Sales by category
+    const salesByCategoryRaw = await db.select({
+      categoryId: categories.id,
+      categoryName: categories.name,
+      totalRevenue: sql<number>`COALESCE(SUM(${saleItems.subtotal}::numeric), 0)`,
+      totalQuantity: sql<number>`COALESCE(SUM(${saleItems.quantity}::numeric), 0)`,
+      totalTransactions: sql<number>`COUNT(DISTINCT ${sales.id})`,
+    }).from(categories)
+      .innerJoin(products, and(eq(products.categoryId, categories.id), eq(products.tenantId, tenantId)))
+      .innerJoin(saleItems, eq(saleItems.productId, products.id))
+      .innerJoin(sales, and(eq(saleItems.saleId, sales.id), baseWhere))
+      .where(and(
+        eq(categories.tenantId, tenantId),
+        eq(categories.active, true),
+      ))
+      .groupBy(categories.id, categories.name)
+      .orderBy(desc(sql`SUM(${saleItems.subtotal}::numeric)`))
+
+    const grandTotal = salesByCategoryRaw.reduce((acc, row) => acc + Number(row.totalRevenue), 0)
+
+    const salesByCategory = salesByCategoryRaw.map(row => ({
+      categoryId: row.categoryId,
+      categoryName: row.categoryName,
+      totalRevenue: Number(row.totalRevenue),
+      totalQuantity: Number(row.totalQuantity),
+      totalTransactions: Number(row.totalTransactions),
+      percentage: grandTotal > 0 ? Number(((Number(row.totalRevenue) / grandTotal) * 100).toFixed(2)) : 0,
+    }))
+
+    // 2. Top products by category (top 5 per category by revenue)
+    const topProductsRaw = await db.select({
+      categoryId: products.categoryId,
+      productId: products.id,
+      name: products.name,
+      totalQty: sql<number>`COALESCE(SUM(${saleItems.quantity}::numeric), 0)`,
+      totalRevenue: sql<number>`COALESCE(SUM(${saleItems.subtotal}::numeric), 0)`,
+    }).from(saleItems)
+      .innerJoin(sales, and(eq(saleItems.saleId, sales.id), baseWhere))
+      .innerJoin(products, and(eq(saleItems.productId, products.id), eq(products.tenantId, tenantId)))
+      .innerJoin(categories, and(eq(products.categoryId, categories.id), eq(categories.tenantId, tenantId), eq(categories.active, true)))
+      .groupBy(products.categoryId, products.id, products.name)
+      .orderBy(desc(sql`SUM(${saleItems.subtotal}::numeric)`))
+
+    const topProductsByCategory: Record<string, Array<{ productId: string; name: string; totalQty: number; totalRevenue: number }>> = {}
+    for (const row of topProductsRaw) {
+      const catId = row.categoryId!
+      if (!topProductsByCategory[catId]) topProductsByCategory[catId] = []
+      if (topProductsByCategory[catId].length < 5) {
+        topProductsByCategory[catId].push({
+          productId: row.productId,
+          name: row.name,
+          totalQty: Number(row.totalQty),
+          totalRevenue: Number(row.totalRevenue),
+        })
+      }
+    }
+
+    // 3. Bottom products by category (bottom 5 per category by revenue, must have at least 1 sale)
+    const bottomProductsRaw = await db.select({
+      categoryId: products.categoryId,
+      productId: products.id,
+      name: products.name,
+      totalQty: sql<number>`COALESCE(SUM(${saleItems.quantity}::numeric), 0)`,
+      totalRevenue: sql<number>`COALESCE(SUM(${saleItems.subtotal}::numeric), 0)`,
+    }).from(saleItems)
+      .innerJoin(sales, and(eq(saleItems.saleId, sales.id), baseWhere))
+      .innerJoin(products, and(eq(saleItems.productId, products.id), eq(products.tenantId, tenantId)))
+      .innerJoin(categories, and(eq(products.categoryId, categories.id), eq(categories.tenantId, tenantId), eq(categories.active, true)))
+      .groupBy(products.categoryId, products.id, products.name)
+      .orderBy(sql`SUM(${saleItems.subtotal}::numeric)`)
+
+    const bottomProductsByCategory: Record<string, Array<{ productId: string; name: string; totalQty: number; totalRevenue: number }>> = {}
+    for (const row of bottomProductsRaw) {
+      const catId = row.categoryId!
+      if (!bottomProductsByCategory[catId]) bottomProductsByCategory[catId] = []
+      if (bottomProductsByCategory[catId].length < 5) {
+        bottomProductsByCategory[catId].push({
+          productId: row.productId,
+          name: row.name,
+          totalQty: Number(row.totalQty),
+          totalRevenue: Number(row.totalRevenue),
+        })
+      }
+    }
+
+    // 4. Category trend: avg revenue per transaction
+    const categoryTrend = salesByCategory.map(cat => ({
+      categoryId: cat.categoryId,
+      categoryName: cat.categoryName,
+      avgRevenuePerTransaction: cat.totalTransactions > 0 ? Number((cat.totalRevenue / cat.totalTransactions).toFixed(2)) : 0,
+    }))
+
+    // 5. Inventory by category
+    const inventoryByCategoryRaw = await db.select({
+      categoryId: categories.id,
+      categoryName: categories.name,
+      totalProducts: sql<number>`COUNT(${products.id})`,
+      totalStock: sql<number>`COALESCE(SUM(${products.stock}::numeric), 0)`,
+      lowStockCount: sql<number>`COUNT(CASE WHEN ${products.stock} <= ${products.minStock} THEN 1 END)`,
+    }).from(categories)
+      .innerJoin(products, and(eq(products.categoryId, categories.id), eq(products.tenantId, tenantId), eq(products.active, true)))
+      .where(and(
+        eq(categories.tenantId, tenantId),
+        eq(categories.active, true),
+      ))
+      .groupBy(categories.id, categories.name)
+
+    const inventoryByCategory = inventoryByCategoryRaw.map(row => ({
+      categoryId: row.categoryId,
+      categoryName: row.categoryName,
+      totalProducts: Number(row.totalProducts),
+      totalStock: Number(row.totalStock),
+      lowStockCount: Number(row.lowStockCount),
+    }))
+
+    return {
+      salesByCategory,
+      topProductsByCategory,
+      bottomProductsByCategory,
+      categoryTrend,
+      inventoryByCategory,
       period: { from: dateFrom, to: dateTo },
     }
   })

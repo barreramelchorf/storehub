@@ -15,6 +15,7 @@ export default function AnalyticsPage() {
   const [customTo, setCustomTo] = useState('')
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [topProductsSort, setTopProductsSort] = useState<'qty' | 'revenue'>('qty')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const getRange = () => {
     const now = new Date()
@@ -56,6 +57,13 @@ export default function AnalyticsPage() {
     queryKey: ['analytics-yearly'],
     queryFn: () => api(`/api/admin/analytics/yearly`, { token }),
     enabled: period === 'year',
+  })
+
+  // Category analytics
+  const { data: categoryData } = useQuery({
+    queryKey: ['analytics-categories', period, customFrom, customTo],
+    queryFn: () => api(`/api/admin/analytics/categories?from=${range.from}&to=${range.to}`, { token }),
+    enabled: period !== 'year' && (period !== 'custom' || (!!customFrom && !!customTo)),
   })
 
   const prevChange = data?.previousPeriod?.totalSales > 0
@@ -335,6 +343,143 @@ export default function AnalyticsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Category analytics */}
+          {categoryData?.salesByCategory?.length > 0 && (
+            <div className="space-y-6">
+              {/* Revenue by Category */}
+              <div className="card p-5">
+                <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Ventas por categoría</h2>
+                <div className="space-y-2">
+                  {[...categoryData.salesByCategory].sort((a: any, b: any) => Number(b.totalRevenue) - Number(a.totalRevenue)).map((cat: any, i: number, arr: any[]) => {
+                    const maxRevenue = Number(arr[0].totalRevenue)
+                    const barWidth = maxRevenue > 0 ? (Number(cat.totalRevenue) / maxRevenue) * 100 : 0
+                    const opacity = 1 - (i / arr.length) * 0.6
+                    const isSelected = selectedCategory === cat.categoryId
+                    return (
+                      <div key={cat.categoryId}>
+                        <div
+                          className={`flex items-center gap-3 py-2 px-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-[var(--color-surface)]' : 'hover:bg-[var(--color-surface)]'}`}
+                          onClick={() => setSelectedCategory(isSelected ? null : cat.categoryId)}
+                        >
+                          <span className="text-sm text-[var(--color-text-dark)] w-28 truncate shrink-0">{cat.categoryName}</span>
+                          <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-[var(--color-primary)] transition-all"
+                              style={{ width: `${barWidth}%`, opacity }}
+                            />
+                          </div>
+                          <div className="text-right shrink-0 w-36">
+                            <span className="text-sm font-medium text-[var(--color-text-dark)]">${Number(cat.totalRevenue).toLocaleString('es-MX')}</span>
+                            <span className="text-xs text-[var(--color-text)] ml-2">{Number(cat.percentage).toFixed(1)}%</span>
+                          </div>
+                        </div>
+
+                        {/* Category detail (expandable) */}
+                        {isSelected && (
+                          <div className="ml-4 mt-2 mb-3 p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Top 5 products */}
+                              {categoryData.topProductsByCategory?.[cat.categoryId]?.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-green-600 mb-2">🟢 Top 5 productos</p>
+                                  <div className="space-y-1">
+                                    {categoryData.topProductsByCategory[cat.categoryId].map((p: any, idx: number) => (
+                                      <div key={p.productId} className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-bold text-[var(--color-text)] w-4">{idx + 1}</span>
+                                          <span className="text-[var(--color-text-dark)]">{p.name}</span>
+                                        </div>
+                                        <span className="text-xs text-[var(--color-text)]">{p.totalQty} uds · ${Number(p.totalRevenue).toLocaleString('es-MX')}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Bottom 5 products */}
+                              {categoryData.bottomProductsByCategory?.[cat.categoryId]?.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-red-500 mb-2">🔴 Menos vendidos</p>
+                                  <div className="space-y-1">
+                                    {categoryData.bottomProductsByCategory[cat.categoryId].map((p: any, idx: number) => (
+                                      <div key={p.productId} className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-bold text-[var(--color-text)] w-4">{idx + 1}</span>
+                                          <span className="text-[var(--color-text-dark)]">{p.name}</span>
+                                        </div>
+                                        <span className="text-xs text-[var(--color-text)]">{p.totalQty} uds · ${Number(p.totalRevenue).toLocaleString('es-MX')}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Avg ticket + Inventory */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-[var(--color-border)]">
+                              {(() => {
+                                const trend = categoryData.categoryTrend?.find((t: any) => t.categoryId === cat.categoryId)
+                                const inv = categoryData.inventoryByCategory?.find((inv: any) => inv.categoryId === cat.categoryId)
+                                return (
+                                  <>
+                                    <div>
+                                      <p className="text-xs text-[var(--color-text)]">Ticket promedio</p>
+                                      <p className="text-sm font-semibold text-[var(--color-text-dark)]">${trend ? Number(trend.avgRevenuePerTransaction).toFixed(2) : '—'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-[var(--color-text)]">Transacciones</p>
+                                      <p className="text-sm font-semibold text-[var(--color-text-dark)]">{cat.totalTransactions}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-[var(--color-text)]">Stock total</p>
+                                      <p className="text-sm font-semibold text-[var(--color-text-dark)]">{inv ? inv.totalStock : '—'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-[var(--color-text)]">Stock bajo</p>
+                                      <p className={`text-sm font-semibold ${inv && inv.lowStockCount > 0 ? 'text-amber-600' : 'text-[var(--color-text-dark)]'}`}>{inv ? inv.lowStockCount : '—'}</p>
+                                    </div>
+                                  </>
+                                )
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Inventory by Category grid */}
+              {categoryData.inventoryByCategory?.length > 0 && (
+                <div className="card p-5">
+                  <h2 className="text-sm font-semibold text-[var(--color-text-dark)] mb-4">Inventario por categoría</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {categoryData.inventoryByCategory.map((inv: any) => (
+                      <div key={inv.categoryId} className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+                        <p className="text-sm font-medium text-[var(--color-text-dark)] truncate">{inv.categoryName}</p>
+                        <div className="mt-2 space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-[var(--color-text)]">Productos</span>
+                            <span className="font-medium">{inv.totalProducts}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-[var(--color-text)]">Stock</span>
+                            <span className="font-medium">{inv.totalStock}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-[var(--color-text)]">Stock bajo</span>
+                            <span className={`font-medium ${inv.lowStockCount > 0 ? 'text-amber-600' : 'text-[var(--color-text-dark)]'}`}>{inv.lowStockCount}{inv.lowStockCount > 0 ? ' ⚠️' : ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
