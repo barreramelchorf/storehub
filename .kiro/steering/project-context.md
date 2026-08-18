@@ -22,7 +22,7 @@ SaaS whitelabel multi-tenant platform for store management (POS, inventory, anal
 - Cluster: k3s on `5.189.172.140`, kubectl context `default`
 - Registry: `ghcr.io/barreramelchorf/storehub-*`
 - Pulumi stacks: `cert-manager/support`, `storehub/prod`, `storehub/staging`
-- **Current prod version**: v0.23.1
+- **Current prod version**: v0.27.0
 - **Repo is PUBLIC** (unlimited GitHub Actions minutes)
 
 ## Deployment Flow
