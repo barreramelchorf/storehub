@@ -10,6 +10,7 @@ export default function SalesPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
+  const [notesFilter, setNotesFilter] = useState(false)
   const [selectedSale, setSelectedSale] = useState<any>(null)
   const [deleteReason, setDeleteReason] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
@@ -25,8 +26,8 @@ export default function SalesPage() {
   const isAdminOrManager = permissions.includes('users.manage')
 
   const { data } = useQuery({
-    queryKey: ['sales', page, statusFilter],
-    queryFn: () => api(`/api/admin/sales?page=${page}&pageSize=20${statusFilter ? `&status=${statusFilter}` : ''}`, { token }),
+    queryKey: ['sales', page, statusFilter, notesFilter],
+    queryFn: () => api(`/api/admin/sales?page=${page}&pageSize=20${statusFilter ? `&status=${statusFilter}` : ''}${notesFilter ? '&hasNotes=true' : ''}`, { token }),
   })
 
   const { data: saleDetail } = useQuery({
@@ -67,13 +68,20 @@ export default function SalesPage() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-[var(--color-text-dark)]">Ventas</h1>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }} className="input w-auto">
-          <option value="">Todas</option>
-          <option value="approved">Aprobadas</option>
-          <option value="pending_approval">Pendientes</option>
-          <option value="pending_delete">Eliminación pendiente</option>
-          <option value="cancelled">Canceladas</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setNotesFilter(!notesFilter); setPage(1) }}
+            className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${notesFilter ? 'bg-amber-100 text-amber-700' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}
+            title="Filtrar ventas con notas">
+            📝 {notesFilter ? 'Con notas' : 'Notas'}
+          </button>
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }} className="input w-auto">
+            <option value="">Todas</option>
+            <option value="approved">Aprobadas</option>
+            <option value="pending_approval">Pendientes</option>
+            <option value="pending_delete">Eliminación pendiente</option>
+            <option value="cancelled">Canceladas</option>
+          </select>
+        </div>
       </div>
 
       {/* Desktop table */}
@@ -98,7 +106,7 @@ export default function SalesPage() {
                     <p className="text-sm text-[var(--color-text-dark)]">{new Date(s.saleDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })}</p>
                     <p className="text-xs text-[var(--color-text)]">{new Date(s.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                   </td>
-                  <td className="p-3 text-center font-bold">${Number(s.total).toFixed(2)}</td>
+                  <td className="p-3 text-center font-bold">{s.notes && <span title="Tiene notas" className="text-[10px] mr-1">📝</span>}${Number(s.total).toFixed(2)}</td>
                   <td className="p-3 text-center text-xs text-[var(--color-text)]">{s.user?.username || s.user?.email || '—'}</td>
                   <td className="p-3 text-center text-xs text-[var(--color-text)]">{paymentLabels[s.paymentMethod] ?? s.paymentMethod}</td>
                   <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span></td>
@@ -128,7 +136,7 @@ export default function SalesPage() {
             <div key={s.id} className="card p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-bold text-[var(--color-text-dark)]">${Number(s.total).toFixed(2)}</p>
+                  <p className="font-bold text-[var(--color-text-dark)]">{s.notes && <span className="text-xs mr-1">📝</span>}${Number(s.total).toFixed(2)}</p>
                   <p className="text-xs text-[var(--color-text)]">{new Date(s.saleDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })} · {s.user?.username || s.user?.email || '—'} · {paymentLabels[s.paymentMethod] ?? s.paymentMethod}</p>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>

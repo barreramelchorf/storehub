@@ -9,14 +9,15 @@ export async function saleRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
   app.get('/api/admin/sales', { preHandler: requireAnyPermission('sales.view', 'sales.delete') }, async (request) => {
-    const { page = '1', pageSize = '20', status: statusFilter } = request.query as Record<string, string>
+    const { page = '1', pageSize = '20', status: statusFilter, hasNotes } = request.query as Record<string, string>
     const limit = Math.min(Number(pageSize), 100)
     const offset = (Number(page) - 1) * limit
 
     const items = await db.query.sales.findMany({
-      where: (s, { eq, and }) => {
+      where: (s, { eq, and, isNotNull }) => {
         const conditions = [eq(s.tenantId, request.tenant.id)]
         if (statusFilter) conditions.push(eq(s.status, statusFilter as any))
+        if (hasNotes === 'true') conditions.push(isNotNull(s.notes))
         return and(...conditions)
       },
       with: { user: { columns: { id: true, username: true, email: true } } },
