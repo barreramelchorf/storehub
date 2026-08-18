@@ -351,14 +351,21 @@ export default function POSPage() {
   const cartContent = (
     <div className="flex flex-col h-full min-h-0">
       {comandaTabs}
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
+      <div className="flex items-center justify-between mb-2 flex-shrink-0">
         <h2 className="font-semibold text-[var(--color-text-dark)] text-lg">
           {multicomandaEnabled && activeComanda ? activeComanda.name : 'Resumen de venta'}
         </h2>
-        {cart.length > 0 && <span className="text-xs text-[var(--color-text)] bg-[var(--color-surface)] px-2 py-1 rounded-full">{itemCount} producto(s)</span>}
+        <div className="flex items-center gap-2">
+          {cart.length > 0 && (
+            <>
+              <span className="text-xs text-[var(--color-text)] bg-[var(--color-surface)] px-2 py-1 rounded-full">{itemCount}</span>
+              <button onClick={() => setCart([])} className="text-red-400 hover:text-red-600 transition-colors" title="Vaciar carrito">🗑️</button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-2">
+      <div className="flex-1 overflow-y-auto min-h-[120px] space-y-1">
         {cart.length === 0 && (
           <div className="text-center py-8">
             <p className="text-3xl mb-2">🛒</p>
@@ -368,7 +375,7 @@ export default function POSPage() {
         {cart.map((item, idx) => {
           const basePrice = item.modifiers?.length ? item.price - item.modifiers.reduce((s, m) => s + m.price, 0) : item.price
           return (
-          <div key={`${item.productId}-${idx}`} className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-0">
+          <div key={`${item.productId}-${idx}`} className="flex items-center justify-between py-2 border-b border-[var(--color-border)] last:border-0">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-[var(--color-text-dark)] truncate">{item.name} {item.modifiers?.length ? <span className="text-xs text-[var(--color-text)]">${basePrice.toFixed(2)}</span> : null}</p>
               {item.modifiers?.length ? (
@@ -378,89 +385,85 @@ export default function POSPage() {
                   ))}
                 </div>
               ) : null}
-              <p className="text-xs text-[var(--color-text)]">${item.price.toFixed(2)} c/u</p>
+              <p className="text-[11px] text-[var(--color-text)]">${item.price.toFixed(2)} c/u</p>
             </div>
-            <div className="flex items-center gap-2 ml-3">
-              <button onClick={() => updateQty(idx, item.quantity - 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">−</button>
-              <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
-              <button onClick={() => updateQty(idx, item.quantity + 1)} className="w-6 h-6 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-xs flex items-center justify-center hover:bg-gray-100">+</button>
+            <div className="flex items-center gap-1.5 ml-2">
+              <button onClick={() => updateQty(idx, item.quantity - 1)} className="w-5 h-5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] flex items-center justify-center hover:bg-gray-100">−</button>
+              <span className="text-xs font-bold w-3 text-center">{item.quantity}</span>
+              <button onClick={() => updateQty(idx, item.quantity + 1)} className="w-5 h-5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] flex items-center justify-center hover:bg-gray-100">+</button>
             </div>
-            <p className="text-sm font-bold ml-3 w-16 text-right">${(item.price * item.quantity).toFixed(2)}</p>
+            <p className="text-sm font-bold ml-2 w-14 text-right">${(item.price * item.quantity).toFixed(2)}</p>
           </div>
           )
         })}
       </div>
 
       {cart.length > 0 && (
-        <div className="border-t border-[var(--color-border)] pt-3 mt-2 space-y-2 overflow-y-auto min-h-0">
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="label">Descuento</label><input type="number" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} className="input" placeholder="$0" /></div>
-            <div><label className="label">Propina</label><input type="number" value={tip || ''} onChange={e => setTip(Number(e.target.value))} className="input" placeholder="$0" /></div>
+        <div className="border-t border-[var(--color-border)] pt-2 mt-1 space-y-1.5 flex-shrink-0">
+          <div className="grid grid-cols-2 gap-2">
+            <div><label className="label text-[10px]">Descuento</label><input type="number" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} className="input py-1 text-sm" placeholder="$0" /></div>
+            <div><label className="label text-[10px]">Propina</label><input type="number" value={tip || ''} onChange={e => setTip(Number(e.target.value))} className="input py-1 text-sm" placeholder="$0" /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="label">Pago</label>
-              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="input">
+          <div className="grid grid-cols-2 gap-2">
+            <div><label className="label text-[10px]">Pago</label>
+              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="input py-1 text-sm">
                 <option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option>
               </select>
             </div>
-            <div><label className="label">Fecha</label>
+            <div><label className="label text-[10px]">Fecha</label>
               <DatePicker value={saleDate} onChange={setSaleDate} />
             </div>
           </div>
 
-          <div className="space-y-1 pt-2">
-            <div className="flex justify-between text-sm text-[var(--color-text)]"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-            {discount > 0 && <div className="flex justify-between text-sm text-green-600"><span>Descuento</span><span>-${discount.toFixed(2)}</span></div>}
-            {tip > 0 && <div className="flex justify-between text-sm text-[var(--color-text)]"><span>Propina</span><span>+${tip.toFixed(2)}</span></div>}
-          </div>
-
-          <div className="flex justify-between items-center font-bold text-lg text-[var(--color-text-dark)] border-t border-[var(--color-border)] pt-3">
+          <div className="flex justify-between items-center font-bold text-base text-[var(--color-text-dark)] border-t border-[var(--color-border)] pt-2">
             <span>Total</span>
             <span className="text-[var(--color-primary)]">${total.toFixed(2)}</span>
           </div>
-          <p className="text-xs text-[var(--color-text)] text-right">{itemCount} producto(s) · {cart.length} distinto(s)</p>
+          {(discount > 0 || tip > 0) && (
+            <div className="flex gap-3 text-[10px] text-[var(--color-text)]">
+              <span>Sub: ${subtotal.toFixed(2)}</span>
+              {discount > 0 && <span className="text-green-600">-${discount.toFixed(2)}</span>}
+              {tip > 0 && <span>+${tip.toFixed(2)} prop</span>}
+            </div>
+          )}
 
           {paymentMethod === 'cash' && (
-            <div className="pt-2">
+            <div>
               <div className="flex items-center gap-2">
-                <label className="label whitespace-nowrap text-xs">Paga con</label>
-                <input type="number" value={paidWith} onChange={e => setPaidWith(e.target.value)} className="input flex-1" placeholder="$0.00" />
+                <label className="label whitespace-nowrap text-[10px]">Paga con</label>
+                <input type="number" value={paidWith} onChange={e => setPaidWith(e.target.value)} className="input py-1 text-sm flex-1" placeholder="$0.00" />
+                {paidWith && Number(paidWith) >= total && (
+                  <span className="text-sm font-bold text-green-700 whitespace-nowrap">Cambio: ${(Number(paidWith) - total).toFixed(2)}</span>
+                )}
               </div>
-              {paidWith && Number(paidWith) >= total && (
-                <div className="flex justify-between items-center mt-2 py-2 px-3 bg-green-50 rounded-lg">
-                  <span className="text-sm font-medium text-green-700">Cambio</span>
-                  <span className="text-lg font-bold text-green-700">${(Number(paidWith) - total).toFixed(2)}</span>
-                </div>
-              )}
               {paidWith && Number(paidWith) > 0 && Number(paidWith) < total && (
-                <p className="text-xs text-red-500 mt-1">Monto insuficiente (faltan ${(total - Number(paidWith)).toFixed(2)})</p>
+                <p className="text-[10px] text-red-500 mt-0.5">Faltan ${(total - Number(paidWith)).toFixed(2)}</p>
               )}
             </div>
           )}
 
-          <button onClick={() => {
-            if (tipReminderEnabled && tip === 0) { setTipReminderAction('checkout'); setTipReminderAmount(''); return }
-            handleCheckout()
-          }} disabled={!cart.length || saleMutation.isPending || (paymentMethod === 'cash' && requireCashAmount && (!paidWith || Number(paidWith) < total))}
-            className="w-full py-3 rounded-lg bg-[var(--color-primary)] text-white font-medium text-base hover:opacity-90 transition-opacity disabled:opacity-50">
-            {saleMutation.isPending ? 'Procesando...' : 'Cobrar'}
-          </button>
-          <button onClick={() => setCart([])} className="w-full py-2 text-xs text-[var(--color-text)] hover:text-red-500 transition-colors">
-            Vaciar carrito
-          </button>
-          {tenantConfig?.config?.payments?.pointTerminalId && cart.length > 0 && (
-            <button onClick={async () => {
-              if (tipReminderEnabled && tip === 0) { setTipReminderAction('point'); setTipReminderAmount(''); return }
-              try {
-                const res = await api('/api/admin/point/charge', { method: 'POST', token, body: JSON.stringify({ amount: total, description: `Venta POS - ${itemCount} productos`, items: cart }) })
-                setPointModal({ orderId: res.orderId, status: 'created' })
-              } catch (e: any) { alert(e.message ?? 'Error al enviar a terminal') }
-            }} className="w-full py-2 rounded-lg bg-[#009ee3] text-white text-sm font-medium hover:bg-[#007eb5] transition-colors">
-              💳 Cobrar con terminal
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => {
+              if (tipReminderEnabled && tip === 0) { setTipReminderAction('checkout'); setTipReminderAmount(''); return }
+              handleCheckout()
+            }} disabled={!cart.length || saleMutation.isPending || (paymentMethod === 'cash' && requireCashAmount && (!paidWith || Number(paidWith) < total))}
+              className="flex-1 py-2.5 rounded-lg bg-[var(--color-primary)] text-white font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+              {saleMutation.isPending ? '...' : 'Cobrar'}
             </button>
-          )}
-          {saleMutation.isError && <p className="text-red-500 text-xs text-center">{(saleMutation.error as Error).message}</p>}
-          {saleMutation.isSuccess && <p className="text-green-600 text-xs text-center font-medium">✓ Venta registrada</p>}
+            {tenantConfig?.config?.payments?.pointTerminalId && (
+              <button onClick={async () => {
+                if (tipReminderEnabled && tip === 0) { setTipReminderAction('point'); setTipReminderAmount(''); return }
+                try {
+                  const res = await api('/api/admin/point/charge', { method: 'POST', token, body: JSON.stringify({ amount: total, description: `Venta POS - ${itemCount} productos`, items: cart }) })
+                  setPointModal({ orderId: res.orderId, status: 'created' })
+                } catch (e: any) { alert(e.message ?? 'Error al enviar a terminal') }
+              }} className="flex-1 py-2.5 rounded-lg bg-[#009ee3] text-white text-sm font-medium hover:bg-[#007eb5] transition-colors">
+                💳 Terminal
+              </button>
+            )}
+          </div>
+          {saleMutation.isError && <p className="text-red-500 text-[10px] text-center">{(saleMutation.error as Error).message}</p>}
+          {saleMutation.isSuccess && <p className="text-green-600 text-[10px] text-center font-medium">✓ Venta registrada</p>}
         </div>
       )}
     </div>
@@ -491,7 +494,7 @@ export default function POSPage() {
         {/* Floating cart bar */}
         {itemCount > 0 && !mobileCartOpen && (
           <button onClick={() => setMobileCartOpen(true)}
-            className="fixed bottom-6 left-4 right-4 bg-[var(--color-primary)] text-white py-3.5 px-6 rounded-xl shadow-lg flex items-center justify-between z-30 hover:opacity-90 transition-opacity">
+            className="fixed bottom-6 left-4 right-4 md:left-[16rem] bg-[var(--color-primary)] text-white py-3.5 px-6 rounded-xl shadow-lg flex items-center justify-between z-30 hover:opacity-90 transition-opacity">
             <div className="flex items-center gap-2">
               <span className="text-lg">🛒</span>
               <span className="font-medium">{multicomandaEnabled && activeComanda ? activeComanda.name : `${itemCount} producto(s)`}</span>
