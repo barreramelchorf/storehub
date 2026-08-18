@@ -49,6 +49,8 @@ export default function POSPage() {
   const [tipReminderAmount, setTipReminderAmount] = useState('')
 
   const [saleDate, setSaleDate] = useState('')
+  const [notes, setNotes] = useState('')
+  const [notesModalOpen, setNotesModalOpen] = useState(false)
 
   // Multicomanda state
   const [comandasState, setComandasState] = useState<ComandasState>({ comandas: [], activeId: '' })
@@ -157,7 +159,7 @@ export default function POSPage() {
       } else {
         setSingleCart([])
       }
-      setDiscount(0); setTip(0); setPaidWith(''); setMobileCartOpen(false)
+      setDiscount(0); setTip(0); setPaidWith(''); setMobileCartOpen(false); setNotes('')
       clearPosExtras()
       queryClient.invalidateQueries({ queryKey: ['products'] })
     },
@@ -242,6 +244,7 @@ export default function POSPage() {
         ...(i.modifiers?.length && { modifiers: i.modifiers }),
       })),
       paymentMethod, discount, tip,
+      ...(notes && { notes }),
       ...(!isToday && { saleDate: new Date(saleDate).toISOString() }),
     })
   }
@@ -359,6 +362,7 @@ export default function POSPage() {
           {cart.length > 0 && (
             <>
               <span className="text-xs text-[var(--color-text)] bg-[var(--color-surface)] px-2 py-1 rounded-full">{itemCount}</span>
+              <button onClick={() => setNotesModalOpen(true)} className={`transition-colors ${notes ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)] opacity-50 hover:opacity-100'}`} title={notes ? 'Editar nota' : 'Agregar nota'}>📝</button>
               <button onClick={() => setCart([])} className="text-red-400 hover:text-red-600 transition-colors" title="Vaciar carrito">🗑️</button>
             </>
           )}
@@ -518,6 +522,33 @@ export default function POSPage() {
           </div>
         )}
       </div>
+
+      {/* Notes modal */}
+      {notesModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setNotesModalOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-1">📝 Notas de la venta</h2>
+            <p className="text-xs text-[var(--color-text)] mb-4">Agrega información relevante sobre esta venta</p>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="input w-full h-32 resize-none"
+              placeholder="Ej: Se cambió leche de almendra por leche normal, cliente pidió extra caliente..."
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setNotesModalOpen(false)} className="flex-1 py-2.5 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity">
+                Guardar
+              </button>
+              {notes && (
+                <button onClick={() => { setNotes(''); setNotesModalOpen(false) }} className="py-2.5 px-4 rounded-lg border border-[var(--color-border)] text-sm text-red-500 hover:bg-red-50 transition-colors">
+                  Borrar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modifier modal */}
       {modifierModal && (

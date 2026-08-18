@@ -205,6 +205,12 @@ export default function SalesPage() {
                 Eliminar venta
               </button>
             )}
+            {selectedSale.notes && (
+              <div className="mt-4 p-3 bg-amber-50 rounded-lg">
+                <p className="text-xs font-medium text-amber-700 mb-1">📝 Notas:</p>
+                <p className="text-sm text-amber-900">{selectedSale.notes}</p>
+              </div>
+            )}
             {selectedSale.status === 'cancelled' && saleDetail?.cancelReason && (
               <div className="mt-4 p-3 bg-red-50 rounded-lg">
                 <p className="text-xs font-medium text-red-600 mb-1">Motivo de cancelación:</p>

@@ -207,6 +207,12 @@ export default function AdminDashboard() {
               {Number(selectedSale.tip) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Propina</span><span>+${Number(selectedSale.tip).toFixed(2)}</span></div>}
               <div className="flex justify-between font-bold text-lg pt-2"><span>Total</span><span>${Number(selectedSale.total).toFixed(2)}</span></div>
             </div>
+            {selectedSale.notes && (
+              <div className="mt-4 p-3 bg-amber-50 rounded-lg">
+                <p className="text-xs font-medium text-amber-700 mb-1">📝 Notas:</p>
+                <p className="text-sm text-amber-900">{selectedSale.notes}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
