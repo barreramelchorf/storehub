@@ -30,6 +30,7 @@ export async function uploadRoutes(app: FastifyInstance) {
 
     // Convert to WebP, resize to max 800px (handles HEIF, PNG, JPEG, WebP)
     const processed = await sharp(buffer)
+      .rotate()
       .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer()
@@ -42,14 +43,47 @@ export async function uploadRoutes(app: FastifyInstance) {
 
     const imageUrl = getPublicUrl(path)
 
-    // Append to product images array
+    // Remove old image(s) from MinIO
     const currentImages = (product.images as string[]) ?? []
-    const updatedImages = [...currentImages, imageUrl]
+    for (const oldUrl of currentImages) {
+      try {
+        const match = oldUrl.match(/\/api\/public\/storage\/(.+)$/) ?? oldUrl.match(/\/storehub\/(.+)$/)
+        if (match) await minioClient.removeObject(BUCKET, match[1])
+      } catch {}
+    }
+
+    // Replace all images with the new one
+    const updatedImages = [imageUrl]
 
     await db.update(products)
       .set({ images: updatedImages })
       .where(and(eq(products.id, id), eq(products.tenantId, tenantId)))
 
     return { url: imageUrl, images: updatedImages }
+  })
+
+  // Remove product image
+  app.delete('/api/admin/products/:id/image', { preHandler: requirePermission('inventory.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const tenantId = request.tenant.id
+
+    const product = await db.query.products.findFirst({
+      where: (p, { eq, and }) => and(eq(p.id, id), eq(p.tenantId, tenantId)),
+    })
+    if (!product) return reply.code(404).send({ error: 'Product not found' })
+
+    const currentImages = (product.images as string[]) ?? []
+    for (const oldUrl of currentImages) {
+      try {
+        const match = oldUrl.match(/\/api\/public\/storage\/(.+)$/) ?? oldUrl.match(/\/storehub\/(.+)$/)
+        if (match) await minioClient.removeObject(BUCKET, match[1])
+      } catch {}
+    }
+
+    await db.update(products)
+      .set({ images: [] })
+      .where(and(eq(products.id, id), eq(products.tenantId, tenantId)))
+
+    return { ok: true, images: [] }
   })
 }

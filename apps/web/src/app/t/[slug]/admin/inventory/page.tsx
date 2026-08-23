@@ -459,7 +459,13 @@ export default function InventoryPage() {
                       <label className="label">Imagen</label>
                       <div className="flex items-center gap-3">
                         {currentProduct?.images?.[0] && <img src={currentProduct.images[0]} className="w-16 h-16 rounded-lg object-cover" />}
-                        <ImageUpload productId={modal.id} token={token} onUploaded={() => queryClient.invalidateQueries({ queryKey: ['products'] })} />
+                        <ImageUpload productId={modal.id} token={token} hasImage={!!currentProduct?.images?.[0]} onUploaded={() => queryClient.invalidateQueries({ queryKey: ['products'] })} />
+                        {currentProduct?.images?.[0] && (
+                          <button type="button" onClick={async () => {
+                            await api(`/api/admin/products/${modal.id}/image`, { method: 'DELETE', token })
+                            queryClient.invalidateQueries({ queryKey: ['products'] })
+                          }} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors">🗑️ Quitar</button>
+                        )}
                       </div>
                     </div>
                   )}

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 
-export function ImageUpload({ productId, onUploaded, token }: { productId: string; onUploaded: (url: string) => void; token: string }) {
+export function ImageUpload({ productId, onUploaded, token, hasImage }: { productId: string; onUploaded: (url: string) => void; token: string; hasImage?: boolean }) {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -32,7 +32,7 @@ export function ImageUpload({ productId, onUploaded, token }: { productId: strin
     <div className="flex items-center gap-2">
       <input type="file" accept="image/*,.heic,.heif" ref={fileRef} onChange={handleUpload} className="hidden" />
       <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-secondary text-xs">
-        {uploading ? 'Subiendo...' : '📷 Agregar foto'}
+        {uploading ? 'Subiendo...' : hasImage ? '📷 Cambiar' : '📷 Agregar foto'}
       </button>
     </div>
   )
