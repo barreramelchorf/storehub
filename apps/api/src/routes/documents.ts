@@ -89,6 +89,17 @@ export async function documentRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string }
     const [deleted] = await db.delete(documents).where(and(eq(documents.id, id), eq(documents.tenantId, request.tenant.id))).returning()
     if (!deleted) return reply.code(404).send({ error: 'Not found' })
+
+    // Remove file from MinIO
+    try {
+      const { minioClient, BUCKET } = await import('../plugins/storage.js')
+      const filePath = `tenants/${request.tenant.id}/docs/${deleted.slug}.pdf`
+      await minioClient.removeObject(BUCKET, filePath)
+    } catch (e) {
+      // Log but don't fail the request — DB record is already gone
+      request.log.warn({ err: e, docId: id }, 'Failed to remove document file from storage')
+    }
+
     return { ok: true }
   })
 }

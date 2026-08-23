@@ -78,6 +78,22 @@ export async function productRoutes(app: FastifyInstance) {
     try {
       const [deleted] = await db.delete(products).where(and(eq(products.id, id), eq(products.tenantId, request.tenant.id))).returning()
       if (!deleted) return reply.code(404).send({ error: 'Not found' })
+
+      // Remove images from MinIO
+      const images = (deleted.images as string[]) ?? []
+      if (images.length > 0) {
+        try {
+          const { minioClient, BUCKET } = await import('../plugins/storage.js')
+          for (const imageUrl of images) {
+            // Extract path from URL: .../storehub/tenants/{id}/products/{file} → tenants/{id}/products/{file}
+            const match = imageUrl.match(/\/storehub\/(.+)$/)
+            if (match) await minioClient.removeObject(BUCKET, match[1])
+          }
+        } catch (e) {
+          request.log.warn({ err: e, productId: id }, 'Failed to remove product images from storage')
+        }
+      }
+
       return { ok: true }
     } catch (e: any) {
       if (e.code === '23503') {
