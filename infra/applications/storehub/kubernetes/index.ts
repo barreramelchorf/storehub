@@ -153,7 +153,6 @@ export function createAppResources(args: AppResourcesArgs) {
             ports: [{ containerPort: 3000 }],
             env: [
               { name: "API_URL", value: pulumi.interpolate`http://${apiService.metadata.name}:3001` },
-              { name: "MINIO_INTERNAL_URL", value: pulumi.interpolate`http://${args.minioEndpoint}:9000` },
               { name: "NEXT_PUBLIC_API_URL", value: args.nextPublicApiUrl ?? "" },
               { name: "NEXT_PUBLIC_DOMAIN_MAP", value: (args.customDomains ?? []).map(cd => `${cd.host}=${cd.tenantSlug}`).join(',') },
               { name: "NEXT_PUBLIC_PLATFORM_HOST", value: args.ingressHost ?? `storehub.${args.platformDomain}` },

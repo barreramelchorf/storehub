@@ -77,6 +77,36 @@ export async function publicRoutes(app: FastifyInstance) {
     return reply.redirect(url)
   })
 
+  // Serve PDF file directly (streamed from MinIO)
+  app.get('/api/public/docs/:slug/file', async (request, reply) => {
+    const { slug } = request.params as { slug: string }
+    const doc = await db.query.documents.findFirst({
+      where: (d, { eq, and }) => and(eq(d.tenantId, request.tenant.id), eq(d.slug, slug), eq(d.active, true)),
+    })
+    if (!doc) return reply.code(404).send({ error: 'Document not found' })
+
+    const { minioClient, BUCKET } = await import('../plugins/storage.js')
+    const filePath = `tenants/${request.tenant.id}/docs/${slug}.pdf`
+
+    try {
+      const stream = await minioClient.getObject(BUCKET, filePath)
+      const etag = doc.contentHash ?? undefined
+      reply.header('Content-Type', 'application/pdf')
+      reply.header('Content-Disposition', `inline; filename="${slug}.pdf"`)
+      if (etag) {
+        reply.header('ETag', `"${etag}"`)
+        // If client has same version, return 304
+        const ifNoneMatch = request.headers['if-none-match']
+        if (ifNoneMatch === `"${etag}"`) {
+          return reply.code(304).send()
+        }
+      }
+      return reply.send(stream)
+    } catch (e: any) {
+      return reply.code(404).send({ error: 'File not found in storage' })
+    }
+  })
+
   // Mercado Pago Checkout — creates a preference and returns the checkout URL
   app.post('/api/public/checkout', async (request, reply) => {
     const tenant = request.tenant
