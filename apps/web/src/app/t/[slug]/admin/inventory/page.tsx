@@ -417,13 +417,12 @@ export default function InventoryPage() {
       {/* Modal */}
       {modal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 space-y-4">
             {modal.type === 'product' && (
               <>
                 <h2 className="text-lg font-bold text-[var(--color-text-dark)]">{modal.id ? 'Editar producto' : 'Nuevo'}</h2>
-                {/* Tabs removed - modifiers managed in dedicated tab */}
 
-                {/* Product form (shown when editing OR creating) */}
                 {(modal.id || modalTab === 'product') && (
                 <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate({ ...form, price: Number(form.price), stock: Number(form.stock), minStock: Number(form.minStock), active: form.active, visible: form.visible }) }} className="space-y-3">
                   <div><label className="label">Nombre</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input" required /></div>
@@ -465,59 +464,20 @@ export default function InventoryPage() {
                     </div>
                   )}
 
-                  {/* Modifier groups */}
+                  {/* Modifier groups - collapsible */}
                   {modifiersEnabled && (
-                  <div>
-                    <label className="label">Modificadores</label>
-                    {modifierGroups?.length > 0 ? (
-                      <div className="space-y-2">
-                        {modifierGroups.filter((g: any) => g.active).map((g: any) => (
-                          <label key={g.id} className="flex items-center justify-between py-2 px-3 rounded-lg border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface)]">
-                            <div className="flex items-center gap-2">
-                              <input type="checkbox" checked={productModifiers.includes(g.id)}
-                                onChange={e => setProductModifiers(prev => e.target.checked ? [...prev, g.id] : prev.filter(id => id !== g.id))}
-                                className="w-4 h-4 rounded border-[var(--color-border)]" />
-                              <span className="text-sm text-[var(--color-text-dark)]">{g.name}</span>
-                            </div>
-                            <span className="text-xs text-[var(--color-text)]">{g.options?.length ?? 0} opciones</span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-[var(--color-text)]">No hay grupos de modificadores creados</p>
-                    )}
-                    {!newGroupForm ? (
-                      <button type="button" onClick={() => setNewGroupForm({ name: '', options: [{ name: '', price: '' }] })}
-                        className="text-xs text-[var(--color-primary)] hover:underline mt-2">+ Crear nuevo grupo</button>
-                    ) : (
-                      <div className="mt-3 p-3 border border-[var(--color-border)] rounded-lg space-y-2">
-                        <input value={newGroupForm.name} onChange={e => setNewGroupForm(f => f ? { ...f, name: e.target.value } : f)} className="input text-sm" placeholder="Nombre del grupo (ej: Extras café)" />
-                        {newGroupForm.options.map((opt, i) => (
-                          <div key={i} className="flex gap-2">
-                            <input value={opt.name} onChange={e => setNewGroupForm(f => f ? { ...f, options: f.options.map((o, j) => j === i ? { ...o, name: e.target.value } : o) } : f)} className="input text-sm flex-1" placeholder="Opción" />
-                            <input type="number" step="0.01" value={opt.price} onChange={e => setNewGroupForm(f => f ? { ...f, options: f.options.map((o, j) => j === i ? { ...o, price: e.target.value } : o) } : f)} className="input text-sm w-20" placeholder="$" />
-                          </div>
-                        ))}
-                        <button type="button" onClick={() => setNewGroupForm(f => f ? { ...f, options: [...f.options, { name: '', price: '' }] } : f)} className="text-xs text-[var(--color-primary)]">+ Agregar opción</button>
-                        <div className="flex gap-2 pt-1">
-                          <button type="button" onClick={async () => {
-                            if (!newGroupForm.name) return
-                            const group = await api('/api/admin/modifiers', { method: 'POST', body: JSON.stringify({ name: newGroupForm.name, multiple: true }), token })
-                            for (const opt of newGroupForm.options.filter(o => o.name)) {
-                              await api(`/api/admin/modifiers/${group.id}/options`, { method: 'POST', body: JSON.stringify({ name: opt.name, price: Number(opt.price) || 0 }), token })
-                            }
-                            setProductModifiers(prev => [...prev, group.id])
-                            setNewGroupForm(null)
-                            queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-                          }} className="btn-primary text-xs px-3 py-1">Crear grupo</button>
-                          <button type="button" onClick={() => setNewGroupForm(null)} className="btn-secondary text-xs px-3 py-1">Cancelar</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <ModifiersCollapsible
+                    modifierGroups={modifierGroups}
+                    productModifiers={productModifiers}
+                    setProductModifiers={setProductModifiers}
+                    newGroupForm={newGroupForm}
+                    setNewGroupForm={setNewGroupForm}
+                    token={token}
+                    queryClient={queryClient}
+                  />
                   )}
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-3 sticky bottom-0 bg-white pb-1">
                     <button type="submit" disabled={saveMutation.isPending} className="btn-primary flex-1">{saveMutation.isPending ? 'Guardando...' : 'Guardar'}</button>
                     <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>
                   </div>
@@ -535,7 +495,7 @@ export default function InventoryPage() {
                   {modifiersEnabled && modifierGroups?.length > 0 && (
                     <div>
                       <label className="label">Modificadores (aplican a todos los productos de esta categoría)</label>
-                      <div className="space-y-2">
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
                         {modifierGroups.filter((g: any) => g.active).map((g: any) => (
                           <label key={g.id} className="flex items-center justify-between py-2 px-3 rounded-lg border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface)]">
                             <div className="flex items-center gap-2">
@@ -550,7 +510,7 @@ export default function InventoryPage() {
                       </div>
                     </div>
                   )}
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-3 sticky bottom-0 bg-white pb-1">
                     <button type="submit" disabled={catSaveMutation.isPending} className="btn-primary flex-1">{catSaveMutation.isPending ? 'Guardando...' : 'Guardar'}</button>
                     <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>
                   </div>
@@ -583,7 +543,7 @@ export default function InventoryPage() {
                       <label className="label">Razón (opcional)</label>
                       <input value={restockForm.reason} onChange={e => setRestockForm(f => ({ ...f, reason: e.target.value }))} className="input" placeholder="Ej: Reabastecimiento semanal" />
                     </div>
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-2 pt-3 sticky bottom-0 bg-white pb-1">
                       <button type="submit" disabled={restockMutation.isPending || !restockForm.quantity} className="btn-primary flex-1">{restockMutation.isPending ? 'Procesando...' : 'Reabastecer'}</button>
                       <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancelar</button>
                     </div>
@@ -592,7 +552,83 @@ export default function InventoryPage() {
                 </>
               )
             })()}
+            </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ModifiersCollapsible({ modifierGroups, productModifiers, setProductModifiers, newGroupForm, setNewGroupForm, token, queryClient }: {
+  modifierGroups: any; productModifiers: string[]; setProductModifiers: (fn: (prev: string[]) => string[]) => void
+  newGroupForm: any; setNewGroupForm: (fn: any) => void; token: string; queryClient: any
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const activeGroups = modifierGroups?.filter((g: any) => g.active) ?? []
+  const selectedCount = productModifiers.length
+
+  return (
+    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-[var(--color-surface)] hover:bg-gray-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[var(--color-text-dark)]">🧩 Modificadores</span>
+          {selectedCount > 0 && (
+            <span className="text-[10px] bg-[var(--color-primary)] text-white px-1.5 py-0.5 rounded-full">{selectedCount}</span>
+          )}
+        </div>
+        <span className={`text-xs text-[var(--color-text)] transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+
+      {expanded && (
+        <div className="p-3 space-y-2 max-h-52 overflow-y-auto">
+          {activeGroups.length > 0 ? (
+            activeGroups.map((g: any) => (
+              <label key={g.id} className="flex items-center justify-between py-2 px-3 rounded-lg border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface)]">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={productModifiers.includes(g.id)}
+                    onChange={e => setProductModifiers(prev => e.target.checked ? [...prev, g.id] : prev.filter(id => id !== g.id))}
+                    className="w-4 h-4 rounded border-[var(--color-border)]" />
+                  <span className="text-sm text-[var(--color-text-dark)]">{g.name}</span>
+                </div>
+                <span className="text-xs text-[var(--color-text)]">{g.options?.length ?? 0} opciones</span>
+              </label>
+            ))
+          ) : (
+            <p className="text-xs text-[var(--color-text)]">No hay grupos de modificadores creados</p>
+          )}
+          {!newGroupForm ? (
+            <button type="button" onClick={() => setNewGroupForm({ name: '', options: [{ name: '', price: '' }] })}
+              className="text-xs text-[var(--color-primary)] hover:underline mt-1">+ Crear nuevo grupo</button>
+          ) : (
+            <div className="mt-2 p-3 border border-[var(--color-border)] rounded-lg space-y-2">
+              <input value={newGroupForm.name} onChange={(e: any) => setNewGroupForm((f: any) => f ? { ...f, name: e.target.value } : f)} className="input text-sm" placeholder="Nombre del grupo (ej: Extras café)" />
+              {newGroupForm.options.map((opt: any, i: number) => (
+                <div key={i} className="flex gap-2">
+                  <input value={opt.name} onChange={(e: any) => setNewGroupForm((f: any) => f ? { ...f, options: f.options.map((o: any, j: number) => j === i ? { ...o, name: e.target.value } : o) } : f)} className="input text-sm flex-1" placeholder="Opción" />
+                  <input type="number" step="0.01" value={opt.price} onChange={(e: any) => setNewGroupForm((f: any) => f ? { ...f, options: f.options.map((o: any, j: number) => j === i ? { ...o, price: e.target.value } : o) } : f)} className="input text-sm w-20" placeholder="$" />
+                </div>
+              ))}
+              <button type="button" onClick={() => setNewGroupForm((f: any) => f ? { ...f, options: [...f.options, { name: '', price: '' }] } : f)} className="text-xs text-[var(--color-primary)]">+ Agregar opción</button>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={async () => {
+                  if (!newGroupForm.name) return
+                  const group = await api('/api/admin/modifiers', { method: 'POST', body: JSON.stringify({ name: newGroupForm.name, multiple: true }), token })
+                  for (const opt of newGroupForm.options.filter((o: any) => o.name)) {
+                    await api(`/api/admin/modifiers/${group.id}/options`, { method: 'POST', body: JSON.stringify({ name: opt.name, price: Number(opt.price) || 0 }), token })
+                  }
+                  setProductModifiers(prev => [...prev, group.id])
+                  setNewGroupForm(null)
+                  queryClient.invalidateQueries({ queryKey: ['modifiers'] })
+                }} className="btn-primary text-xs px-3 py-1">Crear grupo</button>
+                <button type="button" onClick={() => setNewGroupForm(null)} className="btn-secondary text-xs px-3 py-1">Cancelar</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
