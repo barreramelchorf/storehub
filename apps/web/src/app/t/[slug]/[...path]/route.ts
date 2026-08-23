@@ -23,20 +23,32 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
   const fileUrl = res.headers.get('location')
   if (!fileUrl) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 
-  // Proxy the file — fetch from MinIO internally and serve to client
-  const internalUrl = fileUrl.replace(/https?:\/\/[^/]+/, API_URL.replace(':3001', ':9000'))
-  // Use the MinIO internal service URL
-  const minioUrl = `http://minio.storehub-data-prod.svc.cluster.local:9000/storehub/tenants/${params.slug === 'xalli' ? '7faa7c95-add1-4c2c-9fd0-5ed442856600' : params.slug}/docs/${docSlug}.pdf`
-  
-  // Actually, just fetch from the public URL since we know it works
-  const pdfRes = await fetch(fileUrl)
-  if (!pdfRes.ok) return NextResponse.json({ error: 'File not found' }, { status: 404 })
+  // Extract the path from the redirect URL and fetch from MinIO directly (internal)
+  // fileUrl looks like: https://public-host/storehub/tenants/.../file.pdf?v=hash
+  // We need to fetch from MinIO internal: http://minio:9000/storehub/tenants/.../file.pdf
+  const urlObj = new URL(fileUrl)
+  const minioHost = process.env.MINIO_INTERNAL_URL ?? 'http://localhost:9000'
+  const internalUrl = `${minioHost}${urlObj.pathname}`
+
+  const pdfRes = await fetch(internalUrl)
+  if (!pdfRes.ok) {
+    // Fallback: try the public URL directly
+    const fallbackRes = await fetch(fileUrl)
+    if (!fallbackRes.ok) return NextResponse.json({ error: 'File not found' }, { status: 404 })
+    return new NextResponse(fallbackRes.body, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${docSlug}.pdf"`,
+        'Cache-Control': `public, no-cache`,
+      },
+    })
+  }
 
   return new NextResponse(pdfRes.body, {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="${docSlug}.pdf"`,
-      'Cache-Control': 'public, max-age=60',
+      'Cache-Control': `public, no-cache`,
     },
   })
 }
