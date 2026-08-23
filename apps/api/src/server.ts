@@ -23,6 +23,7 @@ import { settingsRoutes } from './routes/settings.js'
 import { platformRoutes } from "./routes/platform.js"
 import { webhookRoutes } from './routes/webhooks.js'
 import { publicRoutes } from './routes/public.js'
+import { storageRoutes } from './routes/storage.js'
 import { resolveTenant } from './middleware/tenant.js'
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
@@ -40,6 +41,7 @@ app.setErrorHandler((error, _request, reply) => {
 
 // Public routes (no tenant needed)
 await app.register(healthRoutes)
+await app.register(storageRoutes)
 
 // All tenant-scoped routes
 await app.register(async (tenantApp) => {
