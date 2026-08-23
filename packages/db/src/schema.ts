@@ -120,6 +120,7 @@ export const documents = pgTable('documents', {
   name: text('name').notNull(),
   slug: text('slug').notNull(),
   filePath: text('file_path').notNull(),
+  contentHash: text('content_hash'),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => [

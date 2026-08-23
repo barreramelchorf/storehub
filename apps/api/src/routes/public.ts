@@ -63,7 +63,8 @@ export async function publicRoutes(app: FastifyInstance) {
       where: (d, { eq, and }) => and(eq(d.tenantId, request.tenant.id), eq(d.slug, slug), eq(d.active, true)),
     })
     if (!doc) return reply.code(404).send({ error: 'Document not found' })
-    return reply.redirect(doc.filePath)
+    const url = doc.contentHash ? `${doc.filePath}?v=${doc.contentHash}` : doc.filePath
+    return reply.redirect(url)
   })
 
   app.get('/api/public/docs/:slug', async (request, reply) => {
@@ -72,7 +73,8 @@ export async function publicRoutes(app: FastifyInstance) {
       where: (d, { eq, and }) => and(eq(d.tenantId, request.tenant.id), eq(d.slug, slug), eq(d.active, true)),
     })
     if (!doc) return reply.code(404).send({ error: 'Document not found' })
-    return reply.redirect(doc.filePath)
+    const url = doc.contentHash ? `${doc.filePath}?v=${doc.contentHash}` : doc.filePath
+    return reply.redirect(url)
   })
 
   // Mercado Pago Checkout — creates a preference and returns the checkout URL

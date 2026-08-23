@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm'
 import { documentSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
+import { createHash } from 'crypto'
 
 export async function documentRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
@@ -34,13 +35,44 @@ export async function documentRoutes(app: FastifyInstance) {
     for await (const chunk of data.file) chunks.push(chunk)
     const buffer = Buffer.concat(chunks)
 
+    // Calculate MD5 hash
+    const contentHash = createHash('md5').update(buffer).digest('hex')
+
     const { minioClient, BUCKET, ensureBucket, getPublicUrl } = await import('../plugins/storage.js')
     await ensureBucket()
     const filePath = `tenants/${request.tenant.id}/docs/${meta.data.slug}.pdf`
     await minioClient.putObject(BUCKET, filePath, buffer, buffer.length, { 'Content-Type': 'application/pdf' })
 
-    const [doc] = await db.insert(documents).values({ ...meta.data, tenantId: request.tenant.id, filePath: getPublicUrl(filePath) }).returning()
+    const [doc] = await db.insert(documents).values({ ...meta.data, tenantId: request.tenant.id, filePath: getPublicUrl(filePath), contentHash }).returning()
     return reply.code(201).send(doc)
+  })
+
+  // Update file for an existing document (same slug, new content)
+  app.put('/api/admin/documents/:id/file', { preHandler: requirePermission('documents.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+
+    const doc = await db.query.documents.findFirst({ where: (d, { eq, and }) => and(eq(d.id, id), eq(d.tenantId, request.tenant.id)) })
+    if (!doc) return reply.code(404).send({ error: 'Not found' })
+
+    const data = await request.file()
+    if (!data) return reply.code(400).send({ error: 'File required' })
+
+    const chunks: Buffer[] = []
+    for await (const chunk of data.file) chunks.push(chunk)
+    const buffer = Buffer.concat(chunks)
+
+    // Calculate MD5 hash
+    const contentHash = createHash('md5').update(buffer).digest('hex')
+
+    // Re-upload to MinIO (same path, overwrites)
+    const { minioClient, BUCKET, ensureBucket } = await import('../plugins/storage.js')
+    await ensureBucket()
+    const filePath = `tenants/${request.tenant.id}/docs/${doc.slug}.pdf`
+    await minioClient.putObject(BUCKET, filePath, buffer, buffer.length, { 'Content-Type': 'application/pdf' })
+
+    // Update hash in DB
+    const [updated] = await db.update(documents).set({ contentHash }).where(and(eq(documents.id, id), eq(documents.tenantId, request.tenant.id))).returning()
+    return updated
   })
 
   app.put('/api/admin/documents/:id', { preHandler: requirePermission('documents.manage') }, async (request, reply) => {

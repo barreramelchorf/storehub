@@ -11,6 +11,8 @@ export default function DocumentsPage() {
   const [docSlug, setDocSlug] = useState('')
   const [name, setName] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const updateFileRef = useRef<HTMLInputElement>(null)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
 
   const { data: docs } = useQuery({ queryKey: ['documents'], queryFn: () => api('/api/admin/documents', { token }) })
 
@@ -33,10 +35,38 @@ export default function DocumentsPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['documents'] }); setDocSlug(''); setName(''); if(fileRef.current) fileRef.current.value = '' },
   })
 
+  const updateFileMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const file = updateFileRef.current?.files?.[0]
+      if (!file) throw new Error('Selecciona un archivo')
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`/api/admin/documents/${id}/file`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1] ?? '' },
+        body: formData,
+      })
+      if (!res.ok) { const b = await res.json(); throw new Error(b.error) }
+      return res.json()
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['documents'] }); setUpdatingId(null); if(updateFileRef.current) updateFileRef.current.value = '' },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api(`/api/admin/documents/${id}`, { method: 'DELETE', token }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
   })
+
+  const handleUpdateClick = (id: string) => {
+    setUpdatingId(id)
+    updateFileRef.current?.click()
+  }
+
+  const handleUpdateFileSelected = () => {
+    if (updatingId && updateFileRef.current?.files?.[0]) {
+      updateFileMutation.mutate(updatingId)
+    }
+  }
 
   return (
     <div>
@@ -62,6 +92,9 @@ export default function DocumentsPage() {
         {uploadMutation.isSuccess && <p className="text-green-500 text-xs mt-2">✓ Subido</p>}
       </div>
 
+      {/* Hidden file input for update */}
+      <input type="file" accept=".pdf" ref={updateFileRef} className="hidden" onChange={handleUpdateFileSelected} />
+
       <div className="bg-white rounded-lg shadow p-4">
         {(!docs || docs.length === 0) && <p className="text-gray-500 text-sm">No hay documentos.</p>}
         <div className="space-y-2">
@@ -71,10 +104,21 @@ export default function DocumentsPage() {
                 <p className="font-medium text-sm">{d.name}</p>
                 <p className="text-xs text-gray-400">/{d.slug}.pdf {d.active ? '✅ Activo' : '🚫 Inactivo'}</p>
               </div>
-              <button onClick={() => { if(confirm('¿Eliminar?')) deleteMutation.mutate(d.id) }} className="text-red-500 text-xs hover:underline">Eliminar</button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleUpdateClick(d.id)}
+                  disabled={updateFileMutation.isPending && updatingId === d.id}
+                  className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50"
+                >
+                  {updateFileMutation.isPending && updatingId === d.id ? '...' : '📄 Actualizar'}
+                </button>
+                <button onClick={() => { if(confirm('¿Eliminar?')) deleteMutation.mutate(d.id) }} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Eliminar</button>
+              </div>
             </div>
           ))}
         </div>
+        {updateFileMutation.isSuccess && <p className="text-green-500 text-xs mt-2">✓ Documento actualizado</p>}
+        {updateFileMutation.isError && <p className="text-red-500 text-xs mt-2">{(updateFileMutation.error as Error).message}</p>}
       </div>
     </div>
   )
