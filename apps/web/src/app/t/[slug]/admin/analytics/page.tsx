@@ -17,6 +17,10 @@ export default function AnalyticsPage() {
   const [topProductsSort, setTopProductsSort] = useState<'qty' | 'revenue'>('qty')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
+  // Tenant config for week-start preference (0=Sunday, 1=Monday). Default: Monday.
+  const { data: tenantConfig } = useQuery({ queryKey: ['tenant-config'], queryFn: () => api('/api/public/info', { token }), enabled: !!token })
+  const weekStart = tenantConfig?.config?.weekStart ?? 1
+
   const getRange = () => {
     const now = new Date()
     let from: Date
@@ -24,14 +28,19 @@ export default function AnalyticsPage() {
       return { from: new Date(customFrom + 'T00:00:00.000Z').toISOString(), to: new Date(customTo + 'T23:59:59.999Z').toISOString() }
     }
     if (period === 'day') { from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) }
-    else if (period === 'week') { const d = new Date(now); d.setDate(now.getDate() - now.getDay()); from = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) }
+    else if (period === 'week') {
+      // Days to subtract to reach the configured start of week (weekStart: 0=Sun, 1=Mon)
+      const diff = (now.getDay() - weekStart + 7) % 7
+      const d = new Date(now); d.setDate(now.getDate() - diff)
+      from = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    }
     else { from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)) }
     const to = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999))
     return { from: from.toISOString(), to: to.toISOString() }
   }
 
   const range = getRange()
-  const { data } = useQuery({ queryKey: ['analytics', period, customFrom, customTo], queryFn: () => api(`/api/admin/analytics?from=${range.from}&to=${range.to}`, { token }), enabled: period !== 'year' && (period !== 'custom' || (!!customFrom && !!customTo)) })
+  const { data } = useQuery({ queryKey: ['analytics', period, customFrom, customTo, weekStart], queryFn: () => api(`/api/admin/analytics?from=${range.from}&to=${range.to}`, { token }), enabled: period !== 'year' && (period !== 'custom' || (!!customFrom && !!customTo)) })
 
   // Fill all days in the range (so days without sales show as empty bars)
   const filledSalesByDay = (() => {
@@ -61,7 +70,7 @@ export default function AnalyticsPage() {
 
   // Category analytics
   const { data: categoryData } = useQuery({
-    queryKey: ['analytics-categories', period, customFrom, customTo],
+    queryKey: ['analytics-categories', period, customFrom, customTo, weekStart],
     queryFn: () => {
       if (period === 'year') {
         const year = new Date().getFullYear()

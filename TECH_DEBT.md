@@ -49,6 +49,22 @@ Pendientes a resolver en siguientes iteraciones.
 - **Sin límite** de comandas simultáneas
 - Complejidad: media-alta (UI de tabs, multi-state management, localStorage multi-cart)
 
+### Variantes de producto (distinto a modificadores)
+- **Problema**: Hoy las variantes se meten como modificadores, pero no lo son. Un modificador es un extra aditivo (leche +$5). Una variante es el **mismo producto en formas mutuamente excluyentes** (Tarta de fresa / mora / piña), cada una con su propio precio y stock. Al meterlas como modificadores, en analytics la info se mezcla (todo cuenta como "Tarta").
+- **Diseño propuesto**:
+  - Nueva tabla `product_variants`: `id`, `productId` (FK), `name`, `price` (override o delta), `stock`, `sku` (opcional), `active`, `sortOrder`
+  - El producto padre puede marcarse como "tiene variantes" → al agregarlo en POS se **obliga a elegir una variante** (selección única, no múltiple como modificadores)
+  - `sale_items` debe referenciar la variante específica (`variantId` nullable)
+  - Stock se descuenta a nivel variante, no producto
+  - **Analytics**: agrupar por variante para que cada una tenga sus propias métricas (top/bottom, ingresos). El producto padre puede mostrar el agregado.
+  - Tienda pública: mostrar selector de variante (dropdown o botones)
+- **Diferencia clave con modificadores**:
+  - Modificador = opcional, aditivo, múltiple (checkboxes)
+  - Variante = obligatorio, excluyente, único (radio/selección)
+- **Migración**: nueva tabla + `variantId` nullable en `sale_items` + flag `hasVariants` en products (o inferido de si existen variantes)
+- **Complejidad**: alta — toca schema, POS, tienda pública, analytics, y descuento de stock
+- **Consideración**: un producto podría tener AMBOS (variante + modificadores). Ej: "Tarta de fresa" (variante) + "extra crema" (modificador). El diseño debe soportar la combinación.
+
 ### Pre-compilar TypeScript del API (esbuild)
 - Actualmente usa `tsx` (compila on-the-fly al arrancar)
 - Spike de ~300-500m CPU al inicio, luego se estabiliza

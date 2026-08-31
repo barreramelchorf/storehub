@@ -12,7 +12,7 @@ export interface JwtPayload {
 export async function signTokens(payload: JwtPayload) {
   const accessToken = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime(process.env.JWT_ACCESS_EXPIRES ?? '15m')
+    .setExpirationTime(process.env.JWT_ACCESS_EXPIRES ?? '1h')
     .sign(secret)
 
   const refreshToken = await new SignJWT({ userId: payload.userId, tenantId: payload.tenantId })

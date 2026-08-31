@@ -51,13 +51,24 @@ export function startProactiveRefresh() {
     if (!token) return
 
     const expiresIn = tokenExpiresIn(token)
-    // Refresh if token expires in less than 2 minutes
-    if (expiresIn > 0 && expiresIn < 2 * 60 * 1000) {
+    // Refresh if token expires in less than 5 minutes
+    if (expiresIn < 5 * 60 * 1000) {
       await refreshAccessToken()
     }
   }
 
   // Check every 60 seconds
   const interval = setInterval(check, 60 * 1000)
-  return () => clearInterval(interval)
+
+  // Refresh when the app returns to foreground (mobile: unlock, tab switch).
+  // Timers are suspended in background, so this catches expired tokens on resume.
+  const onVisible = () => { if (document.visibilityState === 'visible') check() }
+  document.addEventListener('visibilitychange', onVisible)
+  window.addEventListener('focus', onVisible)
+
+  return () => {
+    clearInterval(interval)
+    document.removeEventListener('visibilitychange', onVisible)
+    window.removeEventListener('focus', onVisible)
+  }
 }

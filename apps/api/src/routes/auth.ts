@@ -31,7 +31,7 @@ export async function authRoutes(app: FastifyInstance) {
     const { accessToken, refreshToken } = await signTokens({ userId: user.id, tenantId, permissions, mustChangePassword: user.mustChangePassword })
 
     reply.setCookie('refreshToken', refreshToken, {
-      httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/api/auth',
+      httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/api/auth',
     })
     return { accessToken, mustChangePassword: user.mustChangePassword }
   })
@@ -64,7 +64,7 @@ export async function authRoutes(app: FastifyInstance) {
     const { accessToken, refreshToken: newRefreshToken } = await signTokens({ userId: user.id, tenantId: payload.tenantId, permissions, mustChangePassword: false })
 
     reply.setCookie('refreshToken', newRefreshToken, {
-      httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/api/auth',
+      httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/api/auth',
     })
     return { accessToken }
   })
