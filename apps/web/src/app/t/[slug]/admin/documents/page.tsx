@@ -23,7 +23,7 @@ export default function DocumentsPage() {
       const formData = new FormData()
       formData.append('slug', docSlug)
       formData.append('name', name || file.name)
-      formData.append('file', file)
+      formData.append('file', file, file.name)
       const res = await fetch(`/api/admin/documents`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1] ?? '' },
@@ -40,7 +40,7 @@ export default function DocumentsPage() {
       const file = updateFileRef.current?.files?.[0]
       if (!file) throw new Error('Selecciona un archivo')
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', file, file.name)
       const res = await fetch(`/api/admin/documents/${id}/file`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': window.location.pathname.match(/^\/t\/([a-z0-9-]+)/)?.[1] ?? '' },

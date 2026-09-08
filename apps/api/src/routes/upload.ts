@@ -20,45 +20,23 @@ export async function uploadRoutes(app: FastifyInstance) {
     })
     if (!product) return reply.code(404).send({ error: 'Product not found' })
 
-    // Diagnostic logging (temporary) — capture what the browser sends
-    request.log.info({
-      contentType: request.headers['content-type'],
-      userAgent: request.headers['user-agent'],
-    }, '[upload] incoming image request')
-
-    // Use request.parts() instead of request.file() — Safari desktop
-    // sends multipart in a way that request.file() returns null.
-    let fileBuffer: Buffer | null = null
-    let fileMimetype = ''
-    let fileFilename = ''
+    let file
     try {
-      const parts = request.parts()
-      for await (const part of parts) {
-        request.log.info({ partType: part.type, fieldname: part.fieldname, filename: (part as any).filename, mimetype: (part as any).mimetype }, '[upload] multipart part')
-        if (part.type === 'file' && part.fieldname === 'file') {
-          fileMimetype = part.mimetype
-          fileFilename = part.filename
-          const chunks: Buffer[] = []
-          for await (const chunk of part.file) chunks.push(chunk)
-          fileBuffer = Buffer.concat(chunks)
-          if (part.file.truncated) {
-            request.log.warn({ size: fileBuffer.length }, '[upload] file was truncated (exceeded size limit)')
-            return reply.code(400).send({ error: 'La imagen es demasiado grande' })
-          }
-          break
-        }
-      }
+      file = await request.file()
     } catch (e: any) {
-      request.log.error({ err: e?.message, code: e?.code }, '[upload] multipart parsing threw')
+      request.log.error({ err: e?.message }, '[upload] multipart parsing failed')
       return reply.code(400).send({ error: `No se pudo leer el archivo: ${e?.message ?? 'error desconocido'}` })
     }
+    if (!file) return reply.code(400).send({ error: 'Image file required' })
 
-    if (!fileBuffer) {
-      request.log.warn('[upload] no file part found in multipart')
-      return reply.code(400).send({ error: 'Image file required' })
+    // Read buffer
+    const chunks: Buffer[] = []
+    for await (const chunk of file.file) chunks.push(chunk)
+    const fileBuffer = Buffer.concat(chunks)
+
+    if (file.file.truncated) {
+      return reply.code(400).send({ error: 'La imagen es demasiado grande' })
     }
-
-    request.log.info({ filename: fileFilename, mimetype: fileMimetype, bytes: fileBuffer.length }, '[upload] file received')
 
     // Convert to WebP, resize to max 800px
     let processed: Buffer
@@ -69,8 +47,8 @@ export async function uploadRoutes(app: FastifyInstance) {
         .webp({ quality: 80 })
         .toBuffer()
     } catch (e: any) {
-      request.log.error({ err: e?.message, mimetype: fileMimetype, filename: fileFilename }, '[upload] sharp failed to process image')
-      return reply.code(400).send({ error: `Formato de imagen no soportado (${fileMimetype}). Intenta con JPG o PNG.` })
+      request.log.error({ err: e?.message, mimetype: file.mimetype, filename: file.filename }, '[upload] sharp failed to process image')
+      return reply.code(400).send({ error: `Formato de imagen no soportado (${file.mimetype}). Intenta con JPG o PNG.` })
     }
 
     // Upload to MinIO
