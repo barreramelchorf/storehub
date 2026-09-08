@@ -31,7 +31,16 @@ const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
 
 await app.register(cors, { origin: true, credentials: true })
 await app.register(helmet)
-await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } }) // 50MB
+await app.register(multipart, {
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  // Safari/WebKit may send file parts without a filename in the
+  // Content-Disposition. Busboy's default treats a part as a file only if
+  // it has a filename or content-type application/octet-stream, so those
+  // uploads get parsed as fields and request.file() returns null.
+  // Force any part named 'file' to always be treated as a file.
+  isPartAFile: (fieldName, _contentType, fileName) =>
+    fieldName === 'file' || fileName !== undefined,
+})
 await app.register(cookie)
 await app.register(rateLimit, { max: 100, timeWindow: '1 minute' })
 
