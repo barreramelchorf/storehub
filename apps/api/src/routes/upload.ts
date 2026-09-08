@@ -38,6 +38,10 @@ export async function uploadRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'La imagen es demasiado grande' })
     }
 
+    if (fileBuffer.length === 0) {
+      return reply.code(400).send({ error: 'La imagen llegó vacía (0 bytes). Si viene de iCloud, descárgala primero e intenta de nuevo.' })
+    }
+
     // Convert to WebP, resize to max 800px
     let processed: Buffer
     try {

@@ -11,12 +11,19 @@ export function ImageUpload({ productId, onUploaded, token, hasImage }: { produc
 
     setUploading(true)
     try {
+      // Photos picked from iCloud Photos (not downloaded locally) can be
+      // delivered by Safari as a 0-byte File. Reading the whole file with
+      // arrayBuffer() forces macOS/Safari to materialize the content
+      // (downloading from iCloud if needed). We then upload the materialized
+      // bytes instead of the lazy File reference.
+      const buffer = await file.arrayBuffer()
+      if (!buffer || buffer.byteLength === 0) {
+        throw new Error('La imagen está vacía. Si viene de iCloud, ábrela primero en Fotos para descargarla y vuelve a intentar.')
+      }
+      const materialized = new File([buffer], file.name || 'image.jpg', { type: file.type || 'application/octet-stream' })
+
       const formData = new FormData()
-      // Safari (macOS/iOS WebKit) requires the filename as the 3rd argument;
-      // without it, the file part is serialized without a filename and the
-      // server's multipart parser does not recognize it as a file (request.file()
-      // returns null). Chrome/Firefox work either way. This is a known WebKit quirk.
-      formData.append('file', file, file.name)
+      formData.append('file', materialized, materialized.name)
       const res = await fetch(`/api/admin/products/${productId}/image`, {
         method: 'POST',
         headers: {
