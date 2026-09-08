@@ -20,20 +20,54 @@ export async function uploadRoutes(app: FastifyInstance) {
     })
     if (!product) return reply.code(404).send({ error: 'Product not found' })
 
-    const file = await request.file()
-    if (!file) return reply.code(400).send({ error: 'Image file required' })
+    // Diagnostic logging (temporary) — capture what the browser sends
+    request.log.info({
+      contentType: request.headers['content-type'],
+      userAgent: request.headers['user-agent'],
+    }, '[upload] incoming image request')
+
+    let file
+    try {
+      file = await request.file()
+    } catch (e: any) {
+      request.log.error({ err: e?.message, code: e?.code }, '[upload] request.file() threw')
+      return reply.code(400).send({ error: `No se pudo leer el archivo: ${e?.message ?? 'error desconocido'}` })
+    }
+    if (!file) {
+      request.log.warn('[upload] request.file() returned null')
+      return reply.code(400).send({ error: 'Image file required' })
+    }
+
+    request.log.info({
+      filename: file.filename,
+      mimetype: file.mimetype,
+      encoding: file.encoding,
+    }, '[upload] file received')
 
     // Read buffer
     const chunks: Buffer[] = []
     for await (const chunk of file.file) chunks.push(chunk)
     const buffer = Buffer.concat(chunks)
 
-    // Convert to WebP, resize to max 800px (handles HEIF, PNG, JPEG, WebP)
-    const processed = await sharp(buffer)
-      .rotate()
-      .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer()
+    if (file.file.truncated) {
+      request.log.warn({ size: buffer.length }, '[upload] file was truncated (exceeded size limit)')
+      return reply.code(400).send({ error: 'La imagen es demasiado grande' })
+    }
+
+    request.log.info({ bytes: buffer.length }, '[upload] buffer read')
+
+    // Convert to WebP, resize to max 800px
+    let processed: Buffer
+    try {
+      processed = await sharp(buffer)
+        .rotate()
+        .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer()
+    } catch (e: any) {
+      request.log.error({ err: e?.message, mimetype: file.mimetype, filename: file.filename }, '[upload] sharp failed to process image')
+      return reply.code(400).send({ error: `Formato de imagen no soportado (${file.mimetype}). Intenta con JPG o PNG.` })
+    }
 
     // Upload to MinIO
     await ensureBucket()

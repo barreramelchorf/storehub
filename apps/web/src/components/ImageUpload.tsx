@@ -6,11 +6,21 @@ export function ImageUpload({ productId, onUploaded, token, hasImage }: { produc
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = async () => {
-    const file = fileRef.current?.files?.[0]
+    let file = fileRef.current?.files?.[0]
     if (!file) return
 
     setUploading(true)
     try {
+      // Safari/macOS delivers photos as HEIC, which the server's sharp build
+      // cannot decode. Convert to JPEG in the browser first.
+      const isHeic = /\.(heic|heif)$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif'
+      if (isHeic) {
+        const heic2any = (await import('heic2any')).default
+        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 })
+        const blob = Array.isArray(converted) ? converted[0] : converted
+        file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' })
+      }
+
       const formData = new FormData()
       formData.append('file', file)
       const res = await fetch(`/api/admin/products/${productId}/image`, {
