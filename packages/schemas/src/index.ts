@@ -100,6 +100,27 @@ export const documentSchema = z.object({
   active: z.boolean().default(true),
 })
 
+// Campaign (offer campaigns: NxM, percentage)
+export const campaignSchema = z.object({
+  name: z.string().min(1).max(100),
+  type: z.enum(['nxm', 'percentage']),
+  // nxm: { buy, pay } | percentage: { percent }
+  config: z.union([
+    z.object({ buy: z.number().int().min(2), pay: z.number().int().min(1) }),
+    z.object({ percent: z.number().min(1).max(100) }),
+  ]),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).default([]),
+  active: z.boolean().default(true),
+  priority: z.number().int().min(0).default(0),
+  productIds: z.array(z.string().uuid()).default([]),
+  categoryIds: z.array(z.string().uuid()).default([]),
+}).refine(
+  (d) => d.type === 'nxm'
+    ? 'buy' in d.config && 'pay' in d.config && d.config.buy > d.config.pay
+    : 'percent' in d.config,
+  { message: 'Config inválida para el tipo de campaña (nxm requiere buy > pay; percentage requiere percent)' }
+)
+
 // User
 export const createUserSchema = z.object({
   email: z.string().email(),

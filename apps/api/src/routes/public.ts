@@ -57,6 +57,21 @@ export async function publicRoutes(app: FastifyInstance) {
     })
   })
 
+  // Active campaigns with resolved eligible product IDs (for POS preview)
+  app.get('/api/public/campaigns', async (request) => {
+    const { loadActiveCampaigns } = await import('../lib/campaign-loader.js')
+    const { resolved, campaignDays } = await loadActiveCampaigns(request.tenant.id)
+    return resolved.map(c => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      config: c.config,
+      priority: c.priority,
+      daysOfWeek: campaignDays[c.id] ?? [],
+      eligibleProductIds: [...c.eligibleProductIds],
+    }))
+  })
+
   app.get('/:slug.pdf', async (request, reply) => {
     const { slug } = request.params as { slug: string }
     const doc = await db.query.documents.findFirst({

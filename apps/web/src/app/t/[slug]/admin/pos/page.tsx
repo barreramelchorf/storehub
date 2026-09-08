@@ -35,6 +35,61 @@ function loadComandas(): ComandasState {
 }
 function saveComandas(state: ComandasState) { localStorage.setItem(COMANDAS_KEY, JSON.stringify(state)) }
 
+// Campaign discount preview — mirrors apps/api/src/lib/campaigns.ts.
+// Backend recomputes authoritatively at sale time; this is only for display.
+interface PosCampaign { id: string; name: string; type: 'nxm' | 'percentage'; config: any; priority: number; daysOfWeek: number[]; eligibleProductIds: string[] }
+function calculateCampaignDiscount(cart: CartItem[], campaigns: PosCampaign[]): { totalDiscount: number; applied: Array<{ name: string; discount: number }> } {
+  if (!campaigns || campaigns.length === 0 || cart.length === 0) return { totalDiscount: 0, applied: [] }
+  const dayOfWeek = new Date().getDay()
+  const sorted = [...campaigns].sort((a, b) => b.priority - a.priority)
+  const remaining = new Map<string, number>()
+  for (const i of cart) remaining.set(i.productId, (remaining.get(i.productId) ?? 0) + i.quantity)
+
+  const applied: Array<{ name: string; discount: number }> = []
+  let totalDiscount = 0
+
+  for (const c of sorted) {
+    if (c.daysOfWeek?.length > 0 && !c.daysOfWeek.includes(dayOfWeek)) continue
+    const eligible = new Set(c.eligibleProductIds)
+    // Build eligible unit prices (desc) from remaining units
+    const units: number[] = []
+    const touched: string[] = []
+    for (const i of cart) {
+      if (!eligible.has(i.productId)) continue
+      const avail = remaining.get(i.productId) ?? 0
+      if (avail <= 0) continue
+      for (let k = 0; k < avail; k++) units.push(i.price)
+      touched.push(i.productId)
+    }
+    if (units.length === 0) continue
+    units.sort((a, b) => b - a)
+
+    let discount = 0
+    if (c.type === 'nxm') {
+      const buy = Number(c.config?.buy), pay = Number(c.config?.pay)
+      if (buy && pay && buy > pay) {
+        const freePerGroup = buy - pay
+        const groups = Math.floor(units.length / buy)
+        for (let g = 0; g < groups; g++) {
+          const groupEnd = g * buy + buy
+          for (let k = 0; k < freePerGroup; k++) discount += units[groupEnd - 1 - k]
+        }
+      }
+    } else if (c.type === 'percentage') {
+      const percent = Number(c.config?.percent)
+      if (percent) discount = units.reduce((s, u) => s + u, 0) * (percent / 100)
+    }
+    discount = Math.round(discount * 100) / 100
+    if (discount <= 0) continue
+
+    for (const pid of touched) remaining.set(pid, 0)
+    applied.push({ name: c.name, discount })
+    totalDiscount += discount
+  }
+
+  return { totalDiscount: Math.round(totalDiscount * 100) / 100, applied }
+}
+
 export default function POSPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
@@ -74,6 +129,9 @@ export default function POSPage() {
   })
   const multicomandaEnabled = tenantConfig?.config?.modules?.multicomanda ?? false
   const modifiersEnabled = tenantConfig?.config?.modules?.modifiers ?? false
+
+  // Active campaigns for discount preview (backend recomputes authoritatively on sale)
+  const { data: campaigns } = useQuery({ queryKey: ['pos-campaigns'], queryFn: () => api('/api/public/campaigns', { token }), enabled: !!token })
   const requireCashAmount = tenantConfig?.config?.modules?.requireCashAmount ?? false
   const tipReminderEnabled = tenantConfig?.config?.modules?.tipReminder ?? false
 
@@ -228,7 +286,8 @@ export default function POSPage() {
   }
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0)
-  const total = subtotal - discount + tip
+  const campaignResult = calculateCampaignDiscount(cart, campaigns ?? [])
+  const total = subtotal - discount - campaignResult.totalDiscount + tip
   const itemCount = cart.reduce((s, i) => s + i.quantity, 0)
 
   const handleCheckout = () => {
@@ -419,14 +478,26 @@ export default function POSPage() {
             </div>
           </div>
 
+          {campaignResult.applied.length > 0 && (
+            <div className="space-y-0.5">
+              {campaignResult.applied.map((c, idx) => (
+                <div key={idx} className="flex justify-between text-xs text-green-600">
+                  <span>🎁 {c.name}</span>
+                  <span>-${c.discount.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex justify-between items-center font-bold text-base text-[var(--color-text-dark)] border-t border-[var(--color-border)] pt-2">
             <span>Total</span>
             <span className="text-[var(--color-primary)]">${total.toFixed(2)}</span>
           </div>
-          {(discount > 0 || tip > 0) && (
+          {(discount > 0 || tip > 0 || campaignResult.totalDiscount > 0) && (
             <div className="flex gap-3 text-[10px] text-[var(--color-text)]">
               <span>Sub: ${subtotal.toFixed(2)}</span>
               {discount > 0 && <span className="text-green-600">-${discount.toFixed(2)}</span>}
+              {campaignResult.totalDiscount > 0 && <span className="text-green-600">-${campaignResult.totalDiscount.toFixed(2)} ofertas</span>}
               {tip > 0 && <span>+${tip.toFixed(2)} prop</span>}
             </div>
           )}

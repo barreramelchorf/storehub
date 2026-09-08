@@ -4,6 +4,8 @@ import { eq, sql } from 'drizzle-orm'
 import { saleSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission, requireAnyPermission } from '../middleware/permissions.js'
+import { loadActiveCampaigns } from '../lib/campaign-loader.js'
+import { calculateCampaigns } from '../lib/campaigns.js'
 
 export async function saleRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
@@ -89,10 +91,31 @@ export async function saleRoutes(app: FastifyInstance) {
       saleItemValues.push({ productId: item.productId, quantity: item.quantity, unitPrice: String(unitPrice), originalPrice: String(originalPrice), overrideReason: item.overrideReason ?? null, modifiers: item.modifiers ?? [], subtotal: String(subtotal) })
     }
 
-    total = total - discount + tip
+    // Apply active offer campaigns (NxM, percentage) — server-side source of truth
+    let campaignDiscount = 0
+    let appliedCampaigns: Array<{ campaignId: string; name: string; type: string; discount: number }> = []
+    try {
+      const { resolved, campaignDays } = await loadActiveCampaigns(tenantId)
+      if (resolved.length > 0) {
+        const tz = process.env.BUSINESS_TIMEZONE ?? 'America/Mexico_City'
+        const dayStr = (saleDate ? new Date(saleDate) : new Date()).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short' })
+        const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+        const dayOfWeek = dayMap[dayStr] ?? new Date().getDay()
+        const cartLines = items.map(i => ({ productId: i.productId, unitPrice: i.unitPrice, quantity: i.quantity }))
+        const { totalDiscount, results } = calculateCampaigns(cartLines, resolved, dayOfWeek, campaignDays)
+        campaignDiscount = totalDiscount
+        appliedCampaigns = results
+      }
+    } catch (e) {
+      request.log.warn({ err: e }, 'Campaign calculation failed; proceeding without campaign discount')
+    }
+
+    total = total - discount - campaignDiscount + tip
+
+    const totalDiscount = discount + campaignDiscount
 
     const [sale] = await db.insert(sales).values({
-      tenantId, userId, total: String(total), discount: String(discount), tip: String(tip),
+      tenantId, userId, total: String(total), discount: String(totalDiscount), tip: String(tip),
       paymentMethod, notes: notes ?? null, status: status as any,
       saleDate: saleDate ? new Date(saleDate) : (() => {
         // Default to today's date in business timezone (midnight UTC of the calendar day)
@@ -119,7 +142,15 @@ export async function saleRoutes(app: FastifyInstance) {
       }
     }
 
-    return reply.code(201).send(sale)
+    // Record applied campaigns for analytics/traceability
+    if (appliedCampaigns.length > 0) {
+      await db.insert(auditLog).values({
+        tenantId, userId, eventType: 'campaign_applied', entityType: 'sale', entityId: sale.id,
+        payload: { campaigns: appliedCampaigns, totalCampaignDiscount: campaignDiscount },
+      })
+    }
+
+    return reply.code(201).send({ ...sale, appliedCampaigns, campaignDiscount })
   })
 
   app.post('/api/admin/sales/:id/approve', { preHandler: requirePermission('sales.view') }, async (request, reply) => {

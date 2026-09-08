@@ -184,6 +184,44 @@ export const categoryModifierGroups = pgTable('category_modifier_groups', {
   index('category_modifier_groups_category_idx').on(t.categoryId),
 ])
 
+// Campaign type enum
+export const campaignTypeEnum = pgEnum('campaign_type', ['nxm', 'percentage'])
+
+// Campaigns (offer campaigns: NxM, percentage discount)
+export const campaigns = pgTable('campaigns', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  type: campaignTypeEnum('type').notNull(),
+  // config jsonb: for nxm { buy: 3, pay: 2 }, for percentage { percent: 20 }
+  config: jsonb('config').notNull().default({}),
+  // daysOfWeek: array of 0-6 (0=Sunday). Empty = all days.
+  daysOfWeek: jsonb('days_of_week').notNull().default([]),
+  active: boolean('active').notNull().default(true),
+  priority: integer('priority').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [index('campaigns_tenant_idx').on(t.tenantId)])
+
+// Campaign ↔ Product (many-to-many)
+export const campaignProducts = pgTable('campaign_products', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  campaignId: uuid('campaign_id').notNull().references(() => campaigns.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+}, (t) => [
+  unique('campaign_products_unique').on(t.campaignId, t.productId),
+  index('campaign_products_campaign_idx').on(t.campaignId),
+])
+
+// Campaign ↔ Category (many-to-many)
+export const campaignCategories = pgTable('campaign_categories', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  campaignId: uuid('campaign_id').notNull().references(() => campaigns.id, { onDelete: 'cascade' }),
+  categoryId: uuid('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
+}, (t) => [
+  unique('campaign_categories_unique').on(t.campaignId, t.categoryId),
+  index('campaign_categories_campaign_idx').on(t.campaignId),
+])
+
 // Relations
 export const usersRelations = relations(users, ({ one }) => ({
   role: one(roles, { fields: [users.roleId], references: [roles.id] }),
@@ -221,4 +259,19 @@ export const productModifierGroupsRelations = relations(productModifierGroups, (
 export const categoryModifierGroupsRelations = relations(categoryModifierGroups, ({ one }) => ({
   category: one(categories, { fields: [categoryModifierGroups.categoryId], references: [categories.id] }),
   group: one(modifierGroups, { fields: [categoryModifierGroups.groupId], references: [modifierGroups.id] }),
+}))
+
+export const campaignsRelations = relations(campaigns, ({ many }) => ({
+  productLinks: many(campaignProducts),
+  categoryLinks: many(campaignCategories),
+}))
+
+export const campaignProductsRelations = relations(campaignProducts, ({ one }) => ({
+  campaign: one(campaigns, { fields: [campaignProducts.campaignId], references: [campaigns.id] }),
+  product: one(products, { fields: [campaignProducts.productId], references: [products.id] }),
+}))
+
+export const campaignCategoriesRelations = relations(campaignCategories, ({ one }) => ({
+  campaign: one(campaigns, { fields: [campaignCategories.campaignId], references: [campaigns.id] }),
+  category: one(categories, { fields: [campaignCategories.categoryId], references: [categories.id] }),
 }))
