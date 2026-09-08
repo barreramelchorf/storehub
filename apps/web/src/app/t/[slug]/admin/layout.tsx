@@ -39,6 +39,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
     { href: `${base}/pos`, label: 'Punto de Venta', icon: '🛒', permission: 'sales.create' },
     { href: `${base}/sales`, label: 'Ventas', icon: '💰', permission: 'sales.delete' },
     { href: `${base}/inventory`, label: 'Inventario', icon: '📦', permission: 'inventory.view' },
+    { href: `${base}/campaigns`, label: 'Campañas', icon: '🎁', permission: 'inventory.manage' },
     { href: `${base}/analytics`, label: 'Analytics', icon: '📈', permission: 'analytics.view' },
     { href: `${base}/approvals`, label: 'Aprobaciones', icon: '✅', permission: 'users.manage' },
     { href: `${base}/documents`, label: 'Documentos', icon: '📄', permission: 'documents.manage' },

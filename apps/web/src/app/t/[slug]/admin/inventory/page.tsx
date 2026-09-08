@@ -12,7 +12,7 @@ import Link from 'next/link'
 export default function InventoryPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<'products' | 'categories' | 'modifiers' | 'campaigns'>('products')
+  const [tab, setTab] = useState<'products' | 'categories' | 'modifiers'>('products')
   const [modal, setModal] = useState<{ type: 'product' | 'category' | 'restock'; id: string | null } | null>(null)
   const [modalTab, setModalTab] = useState<'product' | 'modifier'>('product')
   const [form, setForm] = useState({ name: '', price: '', stock: '', minStock: '', categoryId: '', description: '', active: true, visible: true })
@@ -27,41 +27,11 @@ export default function InventoryPage() {
   const [newGroupForm, setNewGroupForm] = useState<{ name: string; options: Array<{ name: string; price: string }> } | null>(null)
   const [productModifiers, setProductModifiers] = useState<string[]>([])
 
-  // Campaign modal state
-  const emptyCampaign = { id: null as string | null, name: '', type: 'nxm' as 'nxm' | 'percentage', buy: '3', pay: '2', percent: '10', daysOfWeek: [] as number[], active: true, priority: 0, productIds: [] as string[], categoryIds: [] as string[] }
-  const [campaignForm, setCampaignForm] = useState<typeof emptyCampaign | null>(null)
-
   const { data: products } = useQuery({ queryKey: ['products', search], queryFn: () => api(`/api/admin/products?pageSize=500&search=${search}`, { token }) })
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: () => api('/api/admin/categories', { token }) })
   const { data: modifierGroups } = useQuery({ queryKey: ['modifiers'], queryFn: () => api('/api/admin/modifiers', { token }) })
   const { data: tenantConfig } = useQuery({ queryKey: ['tenant-config'], queryFn: () => api('/api/public/info', { token }), enabled: !!token })
   const modifiersEnabled = tenantConfig?.config?.modules?.modifiers ?? false
-
-  const { data: campaignsList } = useQuery({ queryKey: ['campaigns'], queryFn: () => api('/api/admin/campaigns', { token }) })
-
-  const campaignSaveMutation = useMutation({
-    mutationFn: (body: any) => {
-      const payload = {
-        name: body.name,
-        type: body.type,
-        config: body.type === 'nxm' ? { buy: Number(body.buy), pay: Number(body.pay) } : { percent: Number(body.percent) },
-        daysOfWeek: body.daysOfWeek,
-        active: body.active,
-        priority: Number(body.priority) || 0,
-        productIds: body.productIds,
-        categoryIds: body.categoryIds,
-      }
-      return body.id
-        ? api(`/api/admin/campaigns/${body.id}`, { method: 'PUT', body: JSON.stringify(payload), token })
-        : api('/api/admin/campaigns', { method: 'POST', body: JSON.stringify(payload), token })
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['campaigns'] }); setCampaignForm(null) },
-  })
-
-  const campaignDeleteMutation = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/campaigns/${id}`, { method: 'DELETE', token }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
-  })
 
   const saveMutation = useMutation({
     mutationFn: async (body: any) => {
@@ -162,7 +132,6 @@ export default function InventoryPage() {
           <button onClick={() => setTab('products')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'products' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>Productos</button>
           <button onClick={() => setTab('categories')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'categories' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>Categorías</button>
           {modifiersEnabled && <button onClick={() => setTab('modifiers')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'modifiers' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>Modificadores</button>}
-          <button onClick={() => setTab('campaigns')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'campaigns' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]'}`}>Campañas</button>
         </div>
       </div>
 
@@ -356,149 +325,6 @@ export default function InventoryPage() {
         </>
       )}
 
-      {/* Campaigns tab */}
-      {tab === 'campaigns' && (
-        <>
-          <div className="mb-4">
-            <button onClick={() => setCampaignForm({ ...emptyCampaign })} className="btn-primary">+ Nueva campaña</button>
-          </div>
-          {campaignsList?.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {campaignsList.map((c: any) => {
-                const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-                const offerBadge = c.type === 'nxm' ? `${c.config.buy}x${c.config.pay}` : `${c.config.percent}% off`
-                const daysLabel = (c.daysOfWeek?.length ?? 0) === 0 ? 'Todos los días' : c.daysOfWeek.map((d: number) => dayNames[d]).join(', ')
-                return (
-                  <div key={c.id} className={`card p-4 ${!c.active ? 'opacity-60' : ''}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-[var(--color-text-dark)]">{c.name}</h3>
-                        <span className="text-[10px] font-bold bg-[var(--color-primary)] text-white px-2 py-0.5 rounded-full">{offerBadge}</span>
-                        {!c.active && <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactiva</span>}
-                      </div>
-                    </div>
-                    <p className="text-xs text-[var(--color-text)]">📅 {daysLabel}</p>
-                    <p className="text-xs text-[var(--color-text)] mt-1">
-                      {c.productLinks?.length ?? 0} producto(s) · {c.categoryLinks?.length ?? 0} categoría(s) · prioridad {c.priority}
-                    </p>
-                    <div className="flex gap-1 mt-3 pt-3 border-t border-[var(--color-border)]">
-                      <button onClick={() => setCampaignForm({
-                        id: c.id, name: c.name, type: c.type,
-                        buy: String(c.config.buy ?? 3), pay: String(c.config.pay ?? 2), percent: String(c.config.percent ?? 10),
-                        daysOfWeek: c.daysOfWeek ?? [], active: c.active, priority: c.priority,
-                        productIds: (c.productLinks ?? []).map((l: any) => l.productId),
-                        categoryIds: (c.categoryLinks ?? []).map((l: any) => l.categoryId),
-                      })} className="btn-secondary text-xs px-2 py-1">Editar</button>
-                      <button onClick={() => { if (confirm(`¿Eliminar campaña "${c.name}"?`)) campaignDeleteMutation.mutate(c.id) }} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Eliminar</button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="card p-8 text-center text-[var(--color-text)]">
-              <p className="text-3xl mb-2">🎁</p>
-              <p>No hay campañas de ofertas</p>
-              <p className="text-xs mt-1">Crea una (ej: 3x2 o descuento por día) para tus productos o categorías</p>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Campaign Form Modal */}
-      {campaignForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setCampaignForm(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6 space-y-4">
-              <h2 className="text-lg font-bold text-[var(--color-text-dark)]">{campaignForm.id ? 'Editar campaña' : 'Nueva campaña'}</h2>
-              <form onSubmit={(e) => { e.preventDefault(); campaignSaveMutation.mutate(campaignForm) }} className="space-y-3">
-                <div><label className="label">Nombre</label><input value={campaignForm.name} onChange={e => setCampaignForm(f => f ? { ...f, name: e.target.value } : f)} className="input" placeholder="Ej: Martes de 3x2" required /></div>
-
-                <div>
-                  <label className="label">Tipo de oferta</label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setCampaignForm(f => f ? { ...f, type: 'nxm' } : f)} className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${campaignForm.type === 'nxm' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-dark)]'}`}>NxM (ej: 3x2)</button>
-                    <button type="button" onClick={() => setCampaignForm(f => f ? { ...f, type: 'percentage' } : f)} className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${campaignForm.type === 'percentage' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-dark)]'}`}>Descuento %</button>
-                  </div>
-                </div>
-
-                {campaignForm.type === 'nxm' ? (
-                  <div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><label className="label">Compra (N)</label><input type="number" min="2" value={campaignForm.buy} onChange={e => setCampaignForm(f => f ? { ...f, buy: e.target.value } : f)} className="input" required /></div>
-                      <div><label className="label">Paga (M)</label><input type="number" min="1" value={campaignForm.pay} onChange={e => setCampaignForm(f => f ? { ...f, pay: e.target.value } : f)} className="input" required /></div>
-                    </div>
-                    <p className="text-xs text-[var(--color-text)] mt-1">{campaignForm.buy}x{campaignForm.pay} — de cada {campaignForm.buy} unidades, {Math.max(0, Number(campaignForm.buy) - Number(campaignForm.pay))} gratis (la(s) más barata(s))</p>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="label">Porcentaje de descuento</label>
-                    <input type="number" min="1" max="100" value={campaignForm.percent} onChange={e => setCampaignForm(f => f ? { ...f, percent: e.target.value } : f)} className="input" required />
-                    <p className="text-xs text-[var(--color-text)] mt-1">{campaignForm.percent}% off sobre los productos elegibles</p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="label">Días activos <span className="text-[var(--color-text)] font-normal">(vacío = todos los días)</span></label>
-                  <div className="flex gap-1 flex-wrap">
-                    {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((d, i) => {
-                      const selected = campaignForm.daysOfWeek.includes(i)
-                      return (
-                        <button key={i} type="button" onClick={() => setCampaignForm(f => f ? { ...f, daysOfWeek: selected ? f.daysOfWeek.filter(x => x !== i) : [...f.daysOfWeek, i] } : f)}
-                          className={`w-10 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selected ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-text)]'}`}>{d}</button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="label">Prioridad</label><input type="number" min="0" value={campaignForm.priority} onChange={e => setCampaignForm(f => f ? { ...f, priority: Number(e.target.value) } : f)} className="input" /></div>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer mt-6">
-                    <input type="checkbox" checked={campaignForm.active} onChange={e => setCampaignForm(f => f ? { ...f, active: e.target.checked } : f)} className="w-4 h-4 rounded border-[var(--color-border)]" />
-                    <span className="text-[var(--color-text-dark)]">Activa</span>
-                  </label>
-                </div>
-
-                <div>
-                  <label className="label">Aplica a categorías</label>
-                  <div className="space-y-1 max-h-32 overflow-y-auto border border-[var(--color-border)] rounded-lg p-2">
-                    {categories?.map((c: any) => (
-                      <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer py-1">
-                        <input type="checkbox" checked={campaignForm.categoryIds.includes(c.id)}
-                          onChange={e => setCampaignForm(f => f ? { ...f, categoryIds: e.target.checked ? [...f.categoryIds, c.id] : f.categoryIds.filter(x => x !== c.id) } : f)}
-                          className="w-4 h-4 rounded border-[var(--color-border)]" />
-                        <span className="text-[var(--color-text-dark)]">{c.name}</span>
-                      </label>
-                    ))}
-                    {(!categories || categories.length === 0) && <p className="text-xs text-[var(--color-text)]">Sin categorías</p>}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="label">Aplica a productos específicos</label>
-                  <div className="space-y-1 max-h-32 overflow-y-auto border border-[var(--color-border)] rounded-lg p-2">
-                    {products?.items?.map((p: any) => (
-                      <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer py-1">
-                        <input type="checkbox" checked={campaignForm.productIds.includes(p.id)}
-                          onChange={e => setCampaignForm(f => f ? { ...f, productIds: e.target.checked ? [...f.productIds, p.id] : f.productIds.filter(x => x !== p.id) } : f)}
-                          className="w-4 h-4 rounded border-[var(--color-border)]" />
-                        <span className="text-[var(--color-text-dark)]">{p.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <p className="text-xs text-[var(--color-text)] mt-1">Puedes combinar categorías y productos. Debe haber al menos uno.</p>
-                </div>
-
-                <div className="flex gap-2 pt-2 sticky bottom-0 bg-white pb-1">
-                  <button type="submit" disabled={campaignSaveMutation.isPending || (campaignForm.categoryIds.length === 0 && campaignForm.productIds.length === 0)} className="btn-primary flex-1">{campaignSaveMutation.isPending ? 'Guardando...' : 'Guardar'}</button>
-                  <button type="button" onClick={() => setCampaignForm(null)} className="btn-secondary">Cancelar</button>
-                </div>
-                {campaignSaveMutation.isError && <p className="text-red-500 text-xs">{(campaignSaveMutation.error as Error).message}</p>}
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modifier Form Modal (create group, add option, rename) */}
       {modifierModalForm && (
