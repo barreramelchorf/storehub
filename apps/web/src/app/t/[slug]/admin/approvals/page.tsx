@@ -13,7 +13,12 @@ export default function ApprovalsPage() {
 
   const approveMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => api(`/api/admin/sales/${id}/approve`, { method: 'POST', body: JSON.stringify({ status }), token }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['pending-approval'] }); queryClient.invalidateQueries({ queryKey: ['pending-delete'] }) },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-approval'] })
+      queryClient.invalidateQueries({ queryKey: ['pending-delete'] })
+      queryClient.invalidateQueries({ queryKey: ['nav-pending-approval'] })
+      queryClient.invalidateQueries({ queryKey: ['nav-pending-delete'] })
+    },
   })
 
   const allPending = [

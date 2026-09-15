@@ -97,6 +97,22 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
   const secondaryColor = tenantConfig?.config?.branding?.secondaryColor || '#0A2540'
   const tenantName = tenantConfig?.config?.meta?.title || tenantConfig?.name || slug
 
+  // Pending approvals badge (only for admin/manager). Polls periodically.
+  const canApprove = userPermissions.includes('users.manage')
+  const { data: pendingApprovalData } = useQuery({
+    queryKey: ['nav-pending-approval'],
+    queryFn: () => api('/api/admin/sales?status=pending_approval', { token: token! }),
+    enabled: !!token && canApprove,
+    refetchInterval: 60000,
+  })
+  const { data: pendingDeleteData } = useQuery({
+    queryKey: ['nav-pending-delete'],
+    queryFn: () => api('/api/admin/sales?status=pending_delete', { token: token! }),
+    enabled: !!token && canApprove,
+    refetchInterval: 60000,
+  })
+  const pendingCount = (pendingApprovalData?.items?.length ?? 0) + (pendingDeleteData?.items?.length ?? 0)
+
   // Dynamic page title - update on every navigation
   useEffect(() => {
     if (tenantName) document.title = `${tenantName} — Admin`
@@ -126,6 +142,19 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className={`min-h-screen flex bg-[var(--color-surface)] transition-opacity duration-150 ${ready ? 'opacity-100' : 'opacity-0'}`} style={cssVars}>
+      {/* Pending approvals bell (admin/manager only, hidden when none) */}
+      {canApprove && pendingCount > 0 && (
+        <Link
+          href={`${base}/approvals`}
+          title={`${pendingCount} aprobación(es) pendiente(s)`}
+          className="fixed top-3 right-3 md:top-4 md:right-4 z-[45] w-10 h-10 rounded-full bg-white shadow-lg border border-[var(--color-border)] flex items-center justify-center hover:scale-105 transition-transform"
+        >
+          <span className="text-lg">🔔</span>
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+            {pendingCount > 99 ? '99+' : pendingCount}
+          </span>
+        </Link>
+      )}
       <div className="fixed top-0 left-0 right-0 h-14 bg-[var(--color-secondary)] flex items-center px-4 z-40 md:hidden">
         <button onClick={() => setMenuOpen(!menuOpen)} className="text-white text-2xl">☰</button>
         <span className="text-white font-bold ml-3">{tenantName}</span>
