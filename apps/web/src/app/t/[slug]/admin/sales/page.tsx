@@ -1,6 +1,6 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
@@ -14,6 +14,9 @@ export default function SalesPage() {
   const [selectedSale, setSelectedSale] = useState<any>(null)
   const [deleteReason, setDeleteReason] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [reprinting, setReprinting] = useState(false)
+  const [reprintDone, setReprintDone] = useState(false)
+  const [reprintError, setReprintError] = useState('')
 
   // Get user permissions from token
   const permissions: string[] = (() => {
@@ -35,6 +38,39 @@ export default function SalesPage() {
     queryFn: () => api(`/api/admin/sales/${selectedSale.id}`, { token }),
     enabled: !!selectedSale,
   })
+
+  // Terminal availability for reprint (real terminal or staging simulator)
+  const { data: tenantConfig } = useQuery({ queryKey: ['tenant-config'], queryFn: () => api('/api/public/info', { token }), enabled: !!token })
+  const { data: pointMock } = useQuery({ queryKey: ['point-mock-status'], queryFn: () => api('/api/admin/point/mock-status', { token }), enabled: !!token })
+  const terminalAvailable = !!tenantConfig?.config?.payments?.pointTerminalId || (pointMock?.mockEnabled ?? false)
+
+  // Reset reprint feedback when opening a different sale
+  useEffect(() => { setReprinting(false); setReprintDone(false); setReprintError('') }, [selectedSale?.id])
+
+  const handleReprint = async () => {
+    if (!saleDetail?.items) return
+    setReprinting(true); setReprintError('')
+    try {
+      await api('/api/admin/point/print-ticket', {
+        method: 'POST', token,
+        body: JSON.stringify({
+          items: saleDetail.items.map((i: any) => ({
+            name: i.product?.name ?? 'Producto',
+            quantity: i.quantity,
+            price: Number(i.unitPrice),
+            modifiers: i.modifiers ?? [],
+          })),
+          total: Number(selectedSale.total),
+          discount: Number(selectedSale.discount) || 0,
+          tip: Number(selectedSale.tip) || 0,
+          tenantName: tenantConfig?.name ?? '',
+          paymentMethod: selectedSale.paymentMethod,
+        }),
+      })
+      setReprintDone(true)
+    } catch (e: any) { setReprintError(e?.message ?? 'Error al reimprimir') }
+    setReprinting(false)
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api(`/api/admin/sales/${id}`, { method: 'DELETE', body: JSON.stringify({ reason: deleteReason }), token }),
@@ -206,6 +242,15 @@ export default function SalesPage() {
               <div className="flex justify-between font-bold text-lg pt-2"><span>Total</span><span>${Number(selectedSale.total).toFixed(2)}</span></div>
               <p className="text-xs text-[var(--color-text)]">{paymentLabels[selectedSale.paymentMethod] ?? selectedSale.paymentMethod}</p>
             </div>
+
+            {terminalAvailable && saleDetail?.items && (
+              <button onClick={handleReprint} disabled={reprinting}
+                className="w-full mt-4 py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] font-medium hover:bg-[var(--color-surface)] transition-colors disabled:opacity-50">
+                {reprinting ? 'Enviando...' : reprintDone ? '✓ Enviado · Reimprimir ticket 🧾' : '🧾 Reimprimir ticket'}
+              </button>
+            )}
+            {reprintError && <p className="text-red-500 text-xs mt-1">{reprintError}</p>}
+            {reprintDone && !reprintError && <p className="text-[10px] text-[var(--color-text)] mt-1">Si no salió (sin papel, etc.), toca de nuevo para reenviar.</p>}
 
             {selectedSale.status === 'approved' && (
               <button onClick={() => { setShowDeleteConfirm(selectedSale.id); setSelectedSale(null) }}
