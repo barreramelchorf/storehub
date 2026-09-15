@@ -10,8 +10,6 @@ const stack = pulumi.getStack();
 const platformDomain = config.require("platformDomain");
 const version = config.require("version");
 const migrationsVersion = config.require("migrationsVersion");
-const apiReplicas = config.getNumber("apiReplicas") ?? 1;
-const webReplicas = config.getNumber("webReplicas") ?? 1;
 
 // Image refs built from version tags
 const apiImage = `ghcr.io/barreramelchorf/storehub-api:${version}`;
@@ -55,7 +53,7 @@ const app = createAppResources({
   namespace: platformNs.metadata.name,
   dataNamespace: dataNs.metadata.name,
   apiImage, webImage, migrateImage,
-  apiReplicas, webReplicas, platformDomain,
+  platformDomain,
   databaseUrl, redisUrl, jwtSecret,
   minioEndpoint, minioAccessKey: "storehub", minioSecretKey: minioRootPassword,
   // Config-driven, not stack-name-driven, so new stacks (qa/dev/review) work by YAML alone.

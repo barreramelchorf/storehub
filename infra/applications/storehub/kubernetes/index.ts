@@ -7,8 +7,6 @@ export interface AppResourcesArgs {
   apiImage: string;
   webImage: string;
   migrateImage: string;
-  apiReplicas: number;
-  webReplicas: number;
   platformDomain: string;
   databaseUrl: pulumi.Input<string>;
   redisUrl: pulumi.Input<string>;
@@ -21,7 +19,10 @@ export interface AppResourcesArgs {
   nextPublicApiUrl?: string;
   platformApiKey: pulumi.Input<string>;
   containers: { api: { resources: any }; web: { resources: any }; migrate: { resources: any } };
-  hpa: { minReplicas: number; maxReplicas: number; cpuTarget: number };
+  hpa: {
+    api: { minReplicas: number; maxReplicas: number; cpuTarget: number };
+    web: { minReplicas: number; maxReplicas: number; cpuTarget: number };
+  };
   defaultTenantSlug?: string;
   resendApiKey?: pulumi.Input<string>;
   logLevel?: string;
@@ -242,9 +243,20 @@ export function createAppResources(args: AppResourcesArgs) {
     metadata: { namespace: args.namespace },
     spec: {
       scaleTargetRef: { apiVersion: "apps/v1", kind: "Deployment", name: apiDeployment.metadata.name },
-      minReplicas: args.hpa.minReplicas,
-      maxReplicas: args.hpa.maxReplicas,
-      metrics: [{ type: "Resource", resource: { name: "cpu", target: { type: "Utilization", averageUtilization: args.hpa.cpuTarget } } }],
+      minReplicas: args.hpa.api.minReplicas,
+      maxReplicas: args.hpa.api.maxReplicas,
+      metrics: [{ type: "Resource", resource: { name: "cpu", target: { type: "Utilization", averageUtilization: args.hpa.api.cpuTarget } } }],
+    },
+  });
+
+  // --- HPA for Web ---
+  const webHpa = new k8s.autoscaling.v2.HorizontalPodAutoscaler("web-hpa", {
+    metadata: { namespace: args.namespace },
+    spec: {
+      scaleTargetRef: { apiVersion: "apps/v1", kind: "Deployment", name: webDeployment.metadata.name },
+      minReplicas: args.hpa.web.minReplicas,
+      maxReplicas: args.hpa.web.maxReplicas,
+      metrics: [{ type: "Resource", resource: { name: "cpu", target: { type: "Utilization", averageUtilization: args.hpa.web.cpuTarget } } }],
     },
   });
 

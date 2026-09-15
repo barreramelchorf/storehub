@@ -113,8 +113,6 @@ pulumi config set platformDomain your-domain.com
 pulumi config set apiImage your-registry/storehub-api:v1.0.0
 pulumi config set webImage your-registry/storehub-web:v1.0.0
 pulumi config set migrateImage your-registry/storehub-migrate:v1.0.0
-pulumi config set apiReplicas 2
-pulumi config set webReplicas 2
 pulumi config set postgresPassword PROD_PASSWORD --secret
 pulumi config set redisPassword PROD_PASSWORD --secret
 pulumi config set jwtSecret PROD_SECRET --secret
