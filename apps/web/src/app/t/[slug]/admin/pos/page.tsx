@@ -903,6 +903,7 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
 
   const handlePrint = async () => {
     setPrinting(true)
+    setPrintError('')
     try {
       await api('/api/admin/point/print-ticket', {
         method: 'POST', token,
@@ -942,9 +943,10 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
           <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-2">Pago exitoso</h2>
           <p className="text-sm text-[var(--color-text)] mb-4">${total.toFixed(2)}</p>
           <div className="space-y-2">
-            <button onClick={handlePrint} disabled={printing || printed} className="w-full py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] disabled:opacity-50">
-              {printing ? 'Enviando...' : printed ? '✓ Enviado a la terminal' : '🖨️ Imprimir ticket'}
+            <button onClick={handlePrint} disabled={printing} className="w-full py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] disabled:opacity-50">
+              {printing ? 'Enviando...' : printed ? '✓ Enviado · Reimprimir' : '🖨️ Imprimir ticket'}
             </button>
+            {printed && !printError && <p className="text-[10px] text-[var(--color-text)]">Si no salió (sin papel, etc.), toca de nuevo para reenviar.</p>}
             {printError && <p className="text-red-500 text-xs">{printError}</p>}
             <button onClick={onSuccess} className="btn-primary w-full">Cerrar</button>
           </div>
