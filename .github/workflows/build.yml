@@ -75,9 +75,13 @@ jobs:
   deploy-staging:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-node@v4
         with:
@@ -105,11 +109,26 @@ jobs:
           pulumi config set migrationsVersion ${{ needs.build.outputs.tag }}
           pulumi up --yes --skip-preview
 
+      - name: Commit version bump to keep YAML in sync
+        run: |
+          TAG="${{ needs.build.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          FILE="${{ env.PULUMI_WORKING_DIR }}/Pulumi.staging.yaml"
+          sed -i "s|^\(  storehub:version:\).*|\1 ${TAG}|" "$FILE"
+          sed -i "s|^\(  storehub:migrationsVersion:\).*|\1 ${TAG}|" "$FILE"
+          git add "$FILE"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(deploy): staging → ${TAG} [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
   promote-prod:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -167,3 +186,22 @@ jobs:
           pulumi config set version ${{ steps.source.outputs.version }}
           pulumi config set migrationsVersion ${{ steps.source.outputs.version }}
           pulumi up --yes --skip-preview
+
+      - name: Commit version bump to keep YAML in sync
+        run: |
+          # The tag build runs in detached HEAD; commit the prod YAML bump onto main.
+          VERSION="${{ steps.source.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          FILE="${{ env.PULUMI_WORKING_DIR }}/Pulumi.prod.yaml"
+          # Update the two version keys in-place (YAML lives under the storehub: namespace)
+          sed -i "s|^\(  storehub:version:\).*|\1 ${VERSION}|" "$FILE"
+          sed -i "s|^\(  storehub:migrationsVersion:\).*|\1 ${VERSION}|" "$FILE"
+          git add "$FILE"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(deploy): prod → ${VERSION} [skip ci]"
+            git pull --rebase origin main
+            git push origin main
+          fi
