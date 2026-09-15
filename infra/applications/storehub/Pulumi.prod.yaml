@@ -4,6 +4,10 @@ config:
   storehub:migrationsVersion: v0.12.9
   storehub:apiReplicas: "2"
   storehub:webReplicas: "2"
+  storehub:logLevel: warn
+  storehub:pointMock: "false"
+  storehub:runSeed: "false"
+  storehub:useWildcardTls: "true"
   kubernetes:context: default
   storehub:postgresPassword:
     secure: AAABAKawfyX2bL+U3ys6sSKxgGuyWwagr9GVmok2w8JOzCwasM9bd72Yufh5qJOb17IcGK+C2bP/R5HHv/Jeew==

@@ -16,7 +16,7 @@ export interface AppResourcesArgs {
   minioEndpoint: pulumi.Input<string>;
   minioAccessKey: pulumi.Input<string>;
   minioSecretKey: pulumi.Input<string>;
-  tlsSecretName?: string; // Only set in prod
+  tlsSecretName?: string; // wildcard TLS secret name (config-driven via useWildcardTls)
   ghcrToken: pulumi.Input<string>;
   nextPublicApiUrl?: string;
   platformApiKey: pulumi.Input<string>;
@@ -26,6 +26,8 @@ export interface AppResourcesArgs {
   resendApiKey?: pulumi.Input<string>;
   logLevel?: string;
   pointPollingInterval?: string;
+  pointMock?: boolean;
+  runSeed?: boolean;
   ingressHost?: string;
   customDomains?: { host: string; tenantSlug: string }[];
 }
@@ -65,8 +67,8 @@ export function createAppResources(args: AppResourcesArgs) {
       MINIO_USE_SSL: "false",
       LOG_LEVEL: args.logLevel ?? "info",
       POINT_POLLING_INTERVAL: args.pointPollingInterval ?? "3000",
-      // Point terminal simulator — staging only, never prod
-      POINT_MOCK: pulumi.getStack() === "staging" ? "true" : "false",
+      // Point terminal simulator — controlled per-stack via config (pointMock)
+      POINT_MOCK: args.pointMock ? "true" : "false",
       PLATFORM_API_KEY: args.platformApiKey,
       DEFAULT_TENANT_SLUG: args.defaultTenantSlug ?? "",
       PORT: "3001",
@@ -96,7 +98,7 @@ export function createAppResources(args: AppResourcesArgs) {
             image: args.migrateImage,
             imagePullPolicy: "Always",
             envFrom,
-            env: [{ name: "RUN_SEED", value: pulumi.getStack() !== "prod" ? "true" : "false" }],
+            env: [{ name: "RUN_SEED", value: args.runSeed ? "true" : "false" }],
           }],
           imagePullSecrets: [{ name: "ghcr-secret" }],
         },

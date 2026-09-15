@@ -8,6 +8,10 @@ config:
   storehub:nextPublicApiUrl: ""
   storehub:apiReplicas: "1"
   storehub:webReplicas: "1"
+  storehub:logLevel: debug
+  storehub:pointMock: "true"
+  storehub:runSeed: "true"
+  storehub:useWildcardTls: "false"
   storehub:postgresPassword:
     secure: AAABADGMuFZB6dn/0OcOemUiERlkPdGFnlgVV4Jx90p3eqGpKv+1A0QnnQLtFNNlTRp9CwENrcXwMJ8RfyQkng==
   storehub:redisPassword:
