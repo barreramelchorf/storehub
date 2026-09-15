@@ -15,9 +15,14 @@ export async function saleRoutes(app: FastifyInstance) {
     const limit = Math.min(Number(pageSize), 100)
     const offset = (Number(page) - 1) * limit
 
+    // Only admins/managers (users.manage) see all sales; everyone else (cashiers)
+    // sees only their own — protects revenue numbers from non-managers.
+    const seesAll = request.user.permissions.includes('users.manage')
+
     const items = await db.query.sales.findMany({
       where: (s, { eq, and, isNotNull }) => {
         const conditions = [eq(s.tenantId, request.tenant.id)]
+        if (!seesAll) conditions.push(eq(s.userId, request.user.id))
         if (statusFilter) conditions.push(eq(s.status, statusFilter as any))
         if (hasNotes === 'true') conditions.push(isNotNull(s.notes))
         return and(...conditions)
@@ -36,6 +41,11 @@ export async function saleRoutes(app: FastifyInstance) {
       with: { items: { with: { product: { columns: { id: true, name: true } } } }, user: { columns: { id: true, username: true, email: true } } },
     })
     if (!sale) return reply.code(404).send({ error: 'Not found' })
+
+    // Non-managers can only view their own sales
+    if (!request.user.permissions.includes('users.manage') && sale.userId !== request.user.id) {
+      return reply.code(403).send({ error: 'No tienes permiso para ver esta venta' })
+    }
 
     // If cancelled, fetch the reason from audit log
     let cancelReason: string | null = null
@@ -270,6 +280,10 @@ export async function saleRoutes(app: FastifyInstance) {
       where: (s, { eq, and }) => and(eq(s.id, id), eq(s.tenantId, request.tenant.id)),
     })
     if (!sale) return reply.code(404).send({ error: 'Sale not found' })
+    // Non-managers can only request deletion of their own sales
+    if (!request.user.permissions.includes('users.manage') && sale.userId !== request.user.id) {
+      return reply.code(403).send({ error: 'Solo puedes solicitar la eliminación de tus propias ventas' })
+    }
     if (sale.status !== 'approved') return reply.code(400).send({ error: 'Only approved sales can be requested for deletion' })
 
     // Mark as pending_delete
