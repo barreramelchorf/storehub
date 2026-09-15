@@ -21,6 +21,20 @@ export async function userRoutes(app: FastifyInstance) {
     return db.query.roles.findMany({ where: (r, { eq }) => eq(r.tenantId, request.tenant.id) })
   })
 
+  // List active users who can make sales (for the "cashier on shift" selector).
+  // Restricted to users.manage so only admin/managers can attribute sales.
+  app.get('/api/admin/users/cashiers', { preHandler: requirePermission('users.manage') }, async (request) => {
+    const rows = await db.query.users.findMany({
+      where: (u, { eq, and }) => and(eq(u.tenantId, request.tenant.id), eq(u.active, true)),
+      columns: { id: true, email: true, username: true },
+      with: { role: { columns: { permissions: true, name: true } } },
+    })
+    // Only users whose role can create sales
+    return rows
+      .filter((u: any) => Array.isArray(u.role?.permissions) && u.role.permissions.includes('sales.create'))
+      .map((u: any) => ({ id: u.id, name: u.username || u.email, role: u.role?.name }))
+  })
+
   app.post('/api/admin/users', { preHandler: requirePermission('users.manage') }, async (request, reply) => {
     const { email, username, password, roleId } = request.body as any
     if (!email || !password || !roleId) return reply.code(400).send({ error: 'email, password, roleId required' })

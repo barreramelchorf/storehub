@@ -54,9 +54,27 @@ export async function saleRoutes(app: FastifyInstance) {
     const body = saleSchema.safeParse(request.body)
     if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
 
-    const { items, paymentMethod, discount, tip, notes, saleDate } = body.data
+    const { items, paymentMethod, discount, tip, notes, saleDate, onBehalfOfUserId } = body.data
     const tenantId = request.tenant.id
-    const userId = request.user.id
+
+    // "Cashier on shift": admins/managers can attribute the sale to another
+    // sales-capable user. Anyone else can only sell as themselves.
+    let userId = request.user.id
+    if (onBehalfOfUserId && onBehalfOfUserId !== request.user.id) {
+      if (!request.user.permissions.includes('users.manage')) {
+        return reply.code(403).send({ error: 'No tienes permiso para registrar ventas a nombre de otro usuario' })
+      }
+      const target = await db.query.users.findFirst({
+        where: (u, { eq, and }) => and(eq(u.id, onBehalfOfUserId), eq(u.tenantId, tenantId), eq(u.active, true)),
+        with: { role: { columns: { permissions: true } } },
+      })
+      if (!target) return reply.code(400).send({ error: 'Cajero no encontrado' })
+      const targetPerms = (target as any).role?.permissions as string[] | undefined
+      if (!Array.isArray(targetPerms) || !targetPerms.includes('sales.create')) {
+        return reply.code(400).send({ error: 'El usuario seleccionado no puede registrar ventas' })
+      }
+      userId = onBehalfOfUserId
+    }
 
     const isBackdated = (() => {
       if (!saleDate) return false

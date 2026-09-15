@@ -91,6 +91,7 @@ export const saleSchema = z.object({
   tip: z.number().min(0).default(0),
   notes: z.string().max(500).nullable().optional(),
   saleDate: z.string().datetime().optional(), // para ventas backdated
+  onBehalfOfUserId: z.string().uuid().optional(), // cajero en turno (requiere users.manage)
 })
 
 // Document

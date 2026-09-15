@@ -93,6 +93,17 @@ function calculateCampaignDiscount(cart: CartItem[], campaigns: PosCampaign[]): 
 export default function POSPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
+
+  // Permissions from token — only admin/manager (users.manage) can pick a cashier
+  const permissions: string[] = (() => {
+    try {
+      const payload = token.split('.')[1]
+      const padded = payload + '='.repeat((4 - payload.length % 4) % 4)
+      return JSON.parse(atob(padded)).permissions ?? []
+    } catch { return [] }
+  })()
+  const canManageCashier = permissions.includes('users.manage')
+
   const [search, setSearch] = useState('')
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
   const [discount, setDiscount] = useState(0)
@@ -108,6 +119,7 @@ export default function POSPage() {
   const [notesModalOpen, setNotesModalOpen] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
   const [printingBill, setPrintingBill] = useState(false)
+  const [selectedCashierId, setSelectedCashierId] = useState<string>('')
 
   // Multicomanda state
   const [comandasState, setComandasState] = useState<ComandasState>({ comandas: [], activeId: '' })
@@ -138,6 +150,9 @@ export default function POSPage() {
   // Point simulator status (staging only)
   const { data: pointMock } = useQuery({ queryKey: ['point-mock-status'], queryFn: () => api('/api/admin/point/mock-status', { token }), enabled: !!token })
   const mockEnabled = pointMock?.mockEnabled ?? false
+
+  // Cashier-on-shift selector (admin/manager only)
+  const { data: cashiers } = useQuery({ queryKey: ['cashiers'], queryFn: () => api('/api/admin/users/cashiers', { token }), enabled: !!token && canManageCashier })
   const requireCashAmount = tenantConfig?.config?.modules?.requireCashAmount ?? false
   const tipReminderEnabled = tenantConfig?.config?.modules?.tipReminder ?? false
 
@@ -150,6 +165,10 @@ export default function POSPage() {
 
   // Load single cart
   useEffect(() => { setSingleCart(loadCart()); setSingleCartLoaded(true) }, [])
+
+  // Persist the cashier-on-shift selection across sales
+  useEffect(() => { try { setSelectedCashierId(localStorage.getItem('storehub-cashier') ?? '') } catch {} }, [])
+  useEffect(() => { try { if (selectedCashierId) localStorage.setItem('storehub-cashier', selectedCashierId); else localStorage.removeItem('storehub-cashier') } catch {} }, [selectedCashierId])
   useEffect(() => { if (singleCartLoaded) saveCart(singleCart) }, [singleCart, singleCartLoaded])
 
   // Load multicomanda state
@@ -311,6 +330,7 @@ export default function POSPage() {
       paymentMethod, discount, tip,
       ...(notes && { notes }),
       ...(!isToday && { saleDate: new Date(saleDate).toISOString() }),
+      ...(canManageCashier && selectedCashierId && { onBehalfOfUserId: selectedCashierId }),
     })
   }
 
@@ -431,6 +451,20 @@ export default function POSPage() {
   const cartContent = (
     <div className="flex flex-col h-full min-h-0">
       {comandaTabs}
+      {canManageCashier && cashiers?.length > 0 && (
+        <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+          <span className="text-xs text-[var(--color-text)] whitespace-nowrap">👤 Cajero:</span>
+          <select
+            value={selectedCashierId}
+            onChange={e => setSelectedCashierId(e.target.value)}
+            className="text-xs bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1 flex-1 text-[var(--color-text-dark)]"
+            title="La venta se registrará a nombre de este cajero"
+          >
+            <option value="">Yo (usuario actual)</option>
+            {cashiers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-2 flex-shrink-0">
         <h2 className="font-semibold text-[var(--color-text-dark)] text-lg">
           {multicomandaEnabled && activeComanda ? activeComanda.name : 'Resumen de venta'}
@@ -795,6 +829,7 @@ export default function POSPage() {
           tip={tip}
           tenantName={tenantConfig?.name ?? ''}
           mockEnabled={mockEnabled}
+          onBehalfOfUserId={canManageCashier && selectedCashierId ? selectedCashierId : undefined}
           onSuccess={() => {
             setPointModal(null)
             if (multicomandaEnabled) {
@@ -817,7 +852,7 @@ export default function POSPage() {
   )
 }
 
-function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantName, mockEnabled, onSuccess, onCancel }: { orderId: string; token: string; cart: any[]; total: number; discount: number; tip: number; tenantName: string; mockEnabled?: boolean; onSuccess: () => void; onCancel: () => void }) {
+function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantName, mockEnabled, onBehalfOfUserId, onSuccess, onCancel }: { orderId: string; token: string; cart: any[]; total: number; discount: number; tip: number; tenantName: string; mockEnabled?: boolean; onBehalfOfUserId?: string; onSuccess: () => void; onCancel: () => void }) {
   const [status, setStatus] = useState('created')
   const [error, setError] = useState('')
   const [paid, setPaid] = useState(false)
@@ -836,7 +871,7 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
           // Register the sale immediately
           api('/api/admin/point/register-sale', {
             method: 'POST', token,
-            body: JSON.stringify({ orderId, items: cart.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip }),
+            body: JSON.stringify({ orderId, items: cart.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip, ...(onBehalfOfUserId && { onBehalfOfUserId }) }),
           }).catch(() => {})
           setPaid(true)
           return

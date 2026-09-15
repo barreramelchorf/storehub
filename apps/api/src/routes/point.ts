@@ -151,11 +151,28 @@ export async function pointRoutes(app: FastifyInstance) {
 
   // Register sale after Point payment is confirmed (called from frontend after polling)
   app.post('/api/admin/point/register-sale', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
-    const { orderId, items, total, discount, tip } = request.body as {
+    const { orderId, items, total, discount, tip, onBehalfOfUserId } = request.body as {
       orderId: string; items: Array<{ productId: string; name: string; quantity: number; price: number; modifiers?: any[] }>
-      total: number; discount?: number; tip?: number
+      total: number; discount?: number; tip?: number; onBehalfOfUserId?: string
     }
     if (!orderId || !items?.length) return reply.code(400).send({ error: 'orderId and items required' })
+
+    // "Cashier on shift" attribution (admin/manager only)
+    let effectiveUserId = request.user.id
+    if (onBehalfOfUserId && onBehalfOfUserId !== request.user.id) {
+      if (!request.user.permissions.includes('users.manage')) {
+        return reply.code(403).send({ error: 'No tienes permiso para registrar ventas a nombre de otro usuario' })
+      }
+      const target = await db.query.users.findFirst({
+        where: (u, { eq, and }) => and(eq(u.id, onBehalfOfUserId), eq(u.tenantId, request.tenant.id), eq(u.active, true)),
+        with: { role: { columns: { permissions: true } } },
+      })
+      const targetPerms = (target as any)?.role?.permissions as string[] | undefined
+      if (!target || !Array.isArray(targetPerms) || !targetPerms.includes('sales.create')) {
+        return reply.code(400).send({ error: 'Cajero inválido' })
+      }
+      effectiveUserId = onBehalfOfUserId
+    }
 
     // Idempotency: check if already registered
     const existing = await db.query.sales.findFirst({
@@ -169,7 +186,7 @@ export async function pointRoutes(app: FastifyInstance) {
 
     const [sale] = await db.insert(sales).values({
       tenantId,
-      userId: request.user.id,
+      userId: effectiveUserId,
       total: String(total),
       discount: String(discount ?? 0),
       tip: String(tip ?? 0),
