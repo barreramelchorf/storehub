@@ -106,6 +106,13 @@ Pendientes a resolver en siguientes iteraciones.
 - Flujo: POS cobra → API crea payment intent → Point recibe → cliente paga → webhook confirma
 - Investigar: vinculación de dispositivo, notificaciones de pago, manejo de errores/timeout
 
+### Confirmación de impresión vía webhook (Point)
+- Hoy la impresión de tickets/cuenta es request/response: confirmamos que MP **aceptó/encoló** la acción (201 + actionId) y mostramos "✓ Enviado a la terminal". No confirmamos que el papel salió físicamente.
+- Modelo real de MP (y Square): la acción de impresión tiene estados (`created` → `printed`/`error`) que se confirman vía **webhook** o consultando `GET /terminals/v1/actions/:id`.
+- **Mejora futura**: suscribirse a los webhooks de acciones de terminal de MP para mostrar "✓ Impreso" definitivo o "⚠ Falló la impresión" (ej: sin papel), en vez de solo "enviado".
+- El simulador de staging replica el modelo actual (devuelve el actionId, no hace seguimiento del estado final).
+- Prioridad: baja — el cajero tiene el papel físico como confirmación inmediata.
+
 ### APM / Monitoreo de errores
 - Actualmente no hay monitoreo de errores ni métricas de rendimiento
 - Opciones gratuitas: Sentry (free tier 5K eventos/mes), Grafana Cloud (free tier), Uptime Kuma (self-hosted)

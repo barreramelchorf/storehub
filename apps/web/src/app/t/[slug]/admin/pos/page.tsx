@@ -120,6 +120,7 @@ export default function POSPage() {
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
   const [printingBill, setPrintingBill] = useState(false)
   const [selectedCashierId, setSelectedCashierId] = useState<string>('')
+  const [toast, setToast] = useState<string>('')
 
   // Multicomanda state
   const [comandasState, setComandasState] = useState<ComandasState>({ comandas: [], activeId: '' })
@@ -169,6 +170,9 @@ export default function POSPage() {
   // Persist the cashier-on-shift selection across sales
   useEffect(() => { try { setSelectedCashierId(localStorage.getItem('storehub-cashier') ?? '') } catch {} }, [])
   useEffect(() => { try { if (selectedCashierId) localStorage.setItem('storehub-cashier', selectedCashierId); else localStorage.removeItem('storehub-cashier') } catch {} }, [selectedCashierId])
+
+  // Temporary toast feedback (auto-dismiss)
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3000); return () => clearTimeout(t) }, [toast])
   useEffect(() => { if (singleCartLoaded) saveCart(singleCart) }, [singleCart, singleCartLoaded])
 
   // Load multicomanda state
@@ -486,6 +490,7 @@ export default function POSPage() {
                           total, discount, tip, tenantName: tenantConfig?.name ?? '', isBill: true,
                         }),
                       })
+                      setToast('🧾 Cuenta enviada a la terminal')
                     } catch (e: any) { alert(e.message ?? 'Error al imprimir la cuenta') }
                     finally { setPrintingBill(false) }
                   }}
@@ -625,6 +630,13 @@ export default function POSPage() {
 
   return (
     <>
+      {/* Toast feedback */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] bg-[var(--color-text-dark)] text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          {toast}
+        </div>
+      )}
+
       {/* Desktop layout */}
       <div className="hidden lg:flex gap-6 h-[calc(100vh-6rem)]">
         <div className="flex-1 flex flex-col min-h-0">
@@ -857,6 +869,8 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
   const [error, setError] = useState('')
   const [paid, setPaid] = useState(false)
   const [printing, setPrinting] = useState(false)
+  const [printed, setPrinted] = useState(false)
+  const [printError, setPrintError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -889,10 +903,15 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
 
   const handlePrint = async () => {
     setPrinting(true)
-    await api('/api/admin/point/print-ticket', {
-      method: 'POST', token,
-      body: JSON.stringify({ items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip, tenantName, paymentMethod: 'card' }),
-    }).catch(() => {})
+    try {
+      await api('/api/admin/point/print-ticket', {
+        method: 'POST', token,
+        body: JSON.stringify({ items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })), total, discount, tip, tenantName, paymentMethod: 'card' }),
+      })
+      setPrinted(true)
+    } catch (e: any) {
+      setPrintError(e?.message ?? 'Error al imprimir')
+    }
     setPrinting(false)
   }
 
@@ -923,9 +942,10 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
           <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-2">Pago exitoso</h2>
           <p className="text-sm text-[var(--color-text)] mb-4">${total.toFixed(2)}</p>
           <div className="space-y-2">
-            <button onClick={handlePrint} disabled={printing} className="w-full py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] disabled:opacity-50">
-              {printing ? 'Imprimiendo...' : '🖨️ Imprimir ticket'}
+            <button onClick={handlePrint} disabled={printing || printed} className="w-full py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] disabled:opacity-50">
+              {printing ? 'Enviando...' : printed ? '✓ Enviado a la terminal' : '🖨️ Imprimir ticket'}
             </button>
+            {printError && <p className="text-red-500 text-xs">{printError}</p>}
             <button onClick={onSuccess} className="btn-primary w-full">Cerrar</button>
           </div>
         </div>
