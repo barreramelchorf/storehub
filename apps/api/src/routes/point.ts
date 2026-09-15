@@ -202,16 +202,16 @@ export async function pointRoutes(app: FastifyInstance) {
     return { ok: true, saleId: sale.id }
   })
 
-  // Print custom ticket on terminal after payment
+  // Print custom ticket on terminal (after payment, or a pre-payment bill/cuenta)
   app.post('/api/admin/point/print-ticket', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
-    const { items, total, tenantName, discount, tip, paymentMethod } = request.body as {
+    const { items, total, tenantName, discount, tip, paymentMethod, isBill } = request.body as {
       items: Array<{ name: string; quantity: number; price: number; modifiers?: Array<{ name: string; price: number }> }>
-      total: number; tenantName: string; discount?: number; tip?: number; paymentMethod?: string
+      total: number; tenantName: string; discount?: number; tip?: number; paymentMethod?: string; isBill?: boolean
     }
 
     // Staging simulator — just log, don't call MP
     if (pointMockEnabled()) {
-      request.log.info({ tenantName, total, itemCount: items?.length }, '[point-mock] Print ticket (simulator, not printed)')
+      request.log.info({ tenantName, total, itemCount: items?.length, isBill: !!isBill }, `[point-mock] Print ${isBill ? 'bill/cuenta' : 'ticket'} (simulator, not printed)`)
       return { ok: true, actionId: `mock-print-${Date.now()}` }
     }
 
@@ -226,6 +226,7 @@ export async function pointRoutes(app: FastifyInstance) {
     const timeStr = now.toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' })
 
     let content = `{center}{w}${tenantName}{/w}{br}{br}`
+    if (isBill) content += `{center}{b}CUENTA{/b}{br}`
     content += `{s}${dateStr} ${timeStr}{/s}{br}`
     content += `--------------------------------{br}`
 
@@ -243,8 +244,13 @@ export async function pointRoutes(app: FastifyInstance) {
     if (discount && discount > 0) content += `{s}Descuento: -$${discount.toFixed(2)}{/s}{br}`
     if (tip && tip > 0) content += `{s}Propina: +$${tip.toFixed(2)}{/s}{br}`
     content += `{b}TOTAL: $${total.toFixed(2)}{/b}{br}`
-    content += `{s}Pago: ${paymentMethod === 'card' ? 'Tarjeta' : paymentMethod ?? 'Tarjeta'}{/s}{br}`
-    content += `{br}{center}{s}¡Gracias por su compra!{/s}{br}`
+    if (isBill) {
+      content += `{br}{center}{s}Esta cuenta no es un{/s}{br}`
+      content += `{center}{s}comprobante de pago{/s}{br}`
+    } else {
+      content += `{s}Pago: ${paymentMethod === 'card' ? 'Tarjeta' : paymentMethod ?? 'Tarjeta'}{/s}{br}`
+      content += `{br}{center}{s}¡Gracias por su compra!{/s}{br}`
+    }
 
     // Pad to minimum 100 chars
     while (content.length < 100) content += ' '

@@ -107,6 +107,7 @@ export default function POSPage() {
   const [notes, setNotes] = useState('')
   const [notesModalOpen, setNotesModalOpen] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
+  const [printingBill, setPrintingBill] = useState(false)
 
   // Multicomanda state
   const [comandasState, setComandasState] = useState<ComandasState>({ comandas: [], activeId: '' })
@@ -438,6 +439,25 @@ export default function POSPage() {
           {cart.length > 0 && (
             <>
               <span className="text-xs text-[var(--color-text)] bg-[var(--color-surface)] px-2 py-1 rounded-full">{itemCount}</span>
+              {(tenantConfig?.config?.payments?.pointTerminalId || mockEnabled) && (
+                <button
+                  disabled={printingBill}
+                  onClick={async () => {
+                    setPrintingBill(true)
+                    try {
+                      await api('/api/admin/point/print-ticket', {
+                        method: 'POST', token,
+                        body: JSON.stringify({
+                          items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, modifiers: i.modifiers })),
+                          total, discount, tip, tenantName: tenantConfig?.name ?? '', isBill: true,
+                        }),
+                      })
+                    } catch (e: any) { alert(e.message ?? 'Error al imprimir la cuenta') }
+                    finally { setPrintingBill(false) }
+                  }}
+                  className="text-[var(--color-text)] opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30"
+                  title="Imprimir cuenta (antes del pago)">🧾</button>
+              )}
               <button onClick={() => setNotesModalOpen(true)} className={`transition-colors ${notes ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)] opacity-50 hover:opacity-100'}`} title={notes ? 'Editar nota' : 'Agregar nota'}>📝</button>
               <button onClick={() => {
                 if (cart.length > 0) {
