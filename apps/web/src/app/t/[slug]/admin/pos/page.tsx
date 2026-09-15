@@ -133,6 +133,10 @@ export default function POSPage() {
 
   // Active campaigns for discount preview (backend recomputes authoritatively on sale)
   const { data: campaigns } = useQuery({ queryKey: ['pos-campaigns'], queryFn: () => api('/api/public/campaigns', { token }), enabled: !!token })
+
+  // Point simulator status (staging only)
+  const { data: pointMock } = useQuery({ queryKey: ['point-mock-status'], queryFn: () => api('/api/admin/point/mock-status', { token }), enabled: !!token })
+  const mockEnabled = pointMock?.mockEnabled ?? false
   const requireCashAmount = tenantConfig?.config?.modules?.requireCashAmount ?? false
   const tipReminderEnabled = tenantConfig?.config?.modules?.tipReminder ?? false
 
@@ -546,7 +550,7 @@ export default function POSPage() {
               className="flex-1 py-2.5 rounded-lg bg-[var(--color-primary)] text-white font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
               {saleMutation.isPending ? '...' : 'Cobrar'}
             </button>
-            {tenantConfig?.config?.payments?.pointTerminalId && (
+            {(tenantConfig?.config?.payments?.pointTerminalId || mockEnabled) && (
               <button onClick={async () => {
                 if (tipReminderEnabled && tip === 0) { setTipReminderAction('point'); setTipReminderAmount(''); return }
                 try {
@@ -554,7 +558,7 @@ export default function POSPage() {
                   setPointModal({ orderId: res.orderId, status: 'created' })
                 } catch (e: any) { alert(e.message ?? 'Error al enviar a terminal') }
               }} className="flex-1 py-2.5 rounded-lg bg-[#009ee3] text-white text-sm font-medium hover:bg-[#007eb5] transition-colors">
-                💳 Terminal
+                {mockEnabled ? '💳 Terminal (test)' : '💳 Terminal'}
               </button>
             )}
           </div>
@@ -770,6 +774,7 @@ export default function POSPage() {
           discount={discount}
           tip={tip}
           tenantName={tenantConfig?.name ?? ''}
+          mockEnabled={mockEnabled}
           onSuccess={() => {
             setPointModal(null)
             if (multicomandaEnabled) {
@@ -792,7 +797,7 @@ export default function POSPage() {
   )
 }
 
-function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantName, onSuccess, onCancel }: { orderId: string; token: string; cart: any[]; total: number; discount: number; tip: number; tenantName: string; onSuccess: () => void; onCancel: () => void }) {
+function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantName, mockEnabled, onSuccess, onCancel }: { orderId: string; token: string; cart: any[]; total: number; discount: number; tip: number; tenantName: string; mockEnabled?: boolean; onSuccess: () => void; onCancel: () => void }) {
   const [status, setStatus] = useState('created')
   const [error, setError] = useState('')
   const [paid, setPaid] = useState(false)
@@ -880,6 +885,19 @@ function PointPaymentModal({ orderId, token, cart, total, discount, tip, tenantN
         <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-2">Esperando pago...</h2>
         <p className="text-sm text-[var(--color-text)] mb-4">Pide al cliente que pase su tarjeta en la terminal</p>
         <p className="text-xs text-[var(--color-text)] mb-4">Estado: {status}</p>
+
+        {mockEnabled && (
+          <div className="mb-3 p-3 rounded-lg border border-dashed border-amber-300 bg-amber-50">
+            <p className="text-[10px] font-medium text-amber-700 mb-2">🧪 Simulador (solo staging)</p>
+            <div className="flex gap-2">
+              <button onClick={() => api(`/api/admin/point/mock-resolve/${orderId}`, { method: 'POST', token, body: JSON.stringify({ outcome: 'paid' }) }).catch(() => {})}
+                className="flex-1 py-1.5 rounded-lg bg-green-500 text-white text-xs font-medium hover:bg-green-600">Cliente pagó</button>
+              <button onClick={() => api(`/api/admin/point/mock-resolve/${orderId}`, { method: 'POST', token, body: JSON.stringify({ outcome: 'canceled' }) }).catch(() => {})}
+                className="flex-1 py-1.5 rounded-lg bg-red-400 text-white text-xs font-medium hover:bg-red-500">Cliente canceló</button>
+            </div>
+          </div>
+        )}
+
         <button onClick={handleCancel} className="w-full py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface)]">
           Cancelar
         </button>

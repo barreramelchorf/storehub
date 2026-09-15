@@ -4,12 +4,23 @@ import { eq, sql } from 'drizzle-orm'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
 import crypto from 'crypto'
+import { pointMockEnabled, createMockOrder, getMockOrder, resolveMockOrder, cancelMockOrder } from '../lib/point-mock.js'
 
 export async function pointRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
   // Create a Point order (sends payment to terminal)
   app.post('/api/admin/point/charge', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
+    const { amount, description, items } = request.body as { amount: number; description?: string; items?: any[] }
+    if (!amount || amount <= 0) return reply.code(400).send({ error: 'amount is required and must be positive' })
+
+    // Staging simulator
+    if (pointMockEnabled()) {
+      const { orderId, status } = createMockOrder(amount)
+      request.log.info({ orderId, amount }, '[point-mock] Order created (simulator)')
+      return { orderId, status, externalReference: `mock-${orderId}`, items }
+    }
+
     const config = request.tenant.config as any
     const accessToken = config?.payments?.pointAccessToken
     const terminalId = config?.payments?.pointTerminalId
@@ -17,9 +28,6 @@ export async function pointRoutes(app: FastifyInstance) {
     if (!accessToken || !terminalId) {
       return reply.code(400).send({ error: 'Terminal Point no configurada. Agrega el Access Token y Terminal ID en Configuración → Pagos.' })
     }
-
-    const { amount, description, items } = request.body as { amount: number; description?: string; items?: any[] }
-    if (!amount || amount <= 0) return reply.code(400).send({ error: 'amount is required and must be positive' })
 
     const externalReference = `pos-${crypto.randomUUID().slice(0, 8)}`
     try {
@@ -59,11 +67,18 @@ export async function pointRoutes(app: FastifyInstance) {
 
   // Poll order status
   app.get('/api/admin/point/status/:orderId', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
+    const { orderId } = request.params as { orderId: string }
+
+    // Staging simulator
+    if (pointMockEnabled()) {
+      const mock = getMockOrder(orderId)
+      if (!mock) return reply.code(400).send({ error: 'Order not found' })
+      return mock
+    }
+
     const config = request.tenant.config as any
     const accessToken = config?.payments?.pointAccessToken
     if (!accessToken) return reply.code(400).send({ error: 'MP not configured' })
-
-    const { orderId } = request.params as { orderId: string }
 
     try {
       const res = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}`, {
@@ -85,11 +100,17 @@ export async function pointRoutes(app: FastifyInstance) {
 
   // Cancel a Point order
   app.post('/api/admin/point/cancel/:orderId', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
+    const { orderId } = request.params as { orderId: string }
+
+    // Staging simulator
+    if (pointMockEnabled()) {
+      cancelMockOrder(orderId)
+      return { status: 'canceled' }
+    }
+
     const config = request.tenant.config as any
     const accessToken = config?.payments?.pointAccessToken
     if (!accessToken) return reply.code(400).send({ error: 'MP not configured' })
-
-    const { orderId } = request.params as { orderId: string }
 
     try {
       const res = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}/cancel`, {
@@ -105,6 +126,22 @@ export async function pointRoutes(app: FastifyInstance) {
     } catch {
       return reply.code(500).send({ error: 'Error canceling order' })
     }
+  })
+
+  // [Simulator only] Manually resolve a mock order as paid or canceled
+  app.post('/api/admin/point/mock-resolve/:orderId', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
+    if (!pointMockEnabled()) return reply.code(404).send({ error: 'Not found' })
+    const { orderId } = request.params as { orderId: string }
+    const { outcome } = request.body as { outcome: 'paid' | 'canceled' }
+    if (outcome !== 'paid' && outcome !== 'canceled') return reply.code(400).send({ error: 'outcome must be paid or canceled' })
+    const ok = resolveMockOrder(orderId, outcome)
+    if (!ok) return reply.code(400).send({ error: 'Order not found' })
+    return { ok: true, outcome }
+  })
+
+  // Expose whether the mock is active (so the POS can show test controls)
+  app.get('/api/admin/point/mock-status', async () => {
+    return { mockEnabled: pointMockEnabled() }
   })
 
   // Get polling interval (so frontend knows how often to poll)
@@ -167,15 +204,21 @@ export async function pointRoutes(app: FastifyInstance) {
 
   // Print custom ticket on terminal after payment
   app.post('/api/admin/point/print-ticket', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
-    const config = request.tenant.config as any
-    const accessToken = config?.payments?.pointAccessToken
-    const terminalId = config?.payments?.pointTerminalId
-    if (!accessToken || !terminalId) return reply.code(400).send({ error: 'Point not configured' })
-
     const { items, total, tenantName, discount, tip, paymentMethod } = request.body as {
       items: Array<{ name: string; quantity: number; price: number; modifiers?: Array<{ name: string; price: number }> }>
       total: number; tenantName: string; discount?: number; tip?: number; paymentMethod?: string
     }
+
+    // Staging simulator — just log, don't call MP
+    if (pointMockEnabled()) {
+      request.log.info({ tenantName, total, itemCount: items?.length }, '[point-mock] Print ticket (simulator, not printed)')
+      return { ok: true, actionId: `mock-print-${Date.now()}` }
+    }
+
+    const config = request.tenant.config as any
+    const accessToken = config?.payments?.pointAccessToken
+    const terminalId = config?.payments?.pointTerminalId
+    if (!accessToken || !terminalId) return reply.code(400).send({ error: 'Point not configured' })
 
     // Build ticket content with MP tags
     const now = new Date()

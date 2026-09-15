@@ -65,6 +65,8 @@ export function createAppResources(args: AppResourcesArgs) {
       MINIO_USE_SSL: "false",
       LOG_LEVEL: args.logLevel ?? "info",
       POINT_POLLING_INTERVAL: args.pointPollingInterval ?? "3000",
+      // Point terminal simulator — staging only, never prod
+      POINT_MOCK: pulumi.getStack() === "staging" ? "true" : "false",
       PLATFORM_API_KEY: args.platformApiKey,
       DEFAULT_TENANT_SLUG: args.defaultTenantSlug ?? "",
       PORT: "3001",
