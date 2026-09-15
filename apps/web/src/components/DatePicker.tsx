@@ -48,30 +48,36 @@ export function DatePicker({ value, onChange, className }: DatePickerProps) {
         placeholder="Seleccionar fecha"
       />
       {open && (
-        <div className="absolute z-50 mt-1 bg-white rounded-xl shadow-lg border border-[var(--color-border)] p-3">
-          <DayPicker
-            mode="single"
-            selected={selected}
-            onSelect={handleSelect}
-            locale={es}
-            showOutsideDays
-            classNames={{
-              root: 'text-sm',
-              months: 'flex flex-col',
-              month_caption: 'flex justify-center items-center h-8 font-semibold text-[var(--color-text-dark)] capitalize',
-              nav: 'flex items-center justify-between absolute top-3 left-3 right-3',
-              button_previous: 'w-7 h-7 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center hover:bg-gray-100 text-xs',
-              button_next: 'w-7 h-7 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center hover:bg-gray-100 text-xs',
-              weekdays: 'flex',
-              weekday: 'w-8 h-8 flex items-center justify-center text-xs text-[var(--color-text)] font-medium',
-              week: 'flex',
-              day: 'w-8 h-8 flex items-center justify-center text-xs rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors',
-              day_button: 'w-full h-full flex items-center justify-center',
-              selected: 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]',
-              today: 'font-bold text-[var(--color-primary)]',
-              outside: 'text-gray-300',
-            }}
-          />
+        <div
+          className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false) }}
+        >
+          <div className="bg-white rounded-xl shadow-xl border border-[var(--color-border)] p-4">
+            <DayPicker
+              mode="single"
+              selected={selected}
+              onSelect={handleSelect}
+              locale={es}
+              showOutsideDays
+              defaultMonth={selected}
+              classNames={{
+                root: 'text-sm',
+                months: 'flex flex-col',
+                month_caption: 'flex justify-center items-center h-8 font-semibold text-[var(--color-text-dark)] capitalize',
+                nav: 'flex items-center justify-between absolute top-4 left-4 right-4',
+                button_previous: 'w-7 h-7 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center hover:bg-gray-100 text-xs',
+                button_next: 'w-7 h-7 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center hover:bg-gray-100 text-xs',
+                weekdays: 'flex',
+                weekday: 'w-9 h-9 flex items-center justify-center text-xs text-[var(--color-text)] font-medium',
+                week: 'flex',
+                day: 'w-9 h-9 flex items-center justify-center text-sm rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors',
+                day_button: 'w-full h-full flex items-center justify-center',
+                selected: 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]',
+                today: 'font-bold text-[var(--color-primary)]',
+                outside: 'text-gray-300',
+              }}
+            />
+          </div>
         </div>
       )}
     </div>
