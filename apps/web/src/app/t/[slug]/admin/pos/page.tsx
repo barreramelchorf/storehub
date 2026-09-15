@@ -106,6 +106,7 @@ export default function POSPage() {
   const [saleDate, setSaleDate] = useState('')
   const [notes, setNotes] = useState('')
   const [notesModalOpen, setNotesModalOpen] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
 
   // Multicomanda state
   const [comandasState, setComandasState] = useState<ComandasState>({ comandas: [], activeId: '' })
@@ -358,7 +359,19 @@ export default function POSPage() {
           )}
           {c.cart.length > 0 && <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center ${c.id === comandasState.activeId ? 'bg-white/30' : 'bg-[var(--color-primary)] text-white'}`}>{c.cart.reduce((s, i) => s + i.quantity, 0)}</span>}
           {comandasState.comandas.length > 1 && (
-            <button onClick={(e) => { e.stopPropagation(); closeComanda(c.id) }} className={`ml-1 text-xs opacity-50 hover:opacity-100 ${c.id === comandasState.activeId ? 'text-white' : 'text-[var(--color-text)]'}`}>✕</button>
+            <button onClick={(e) => {
+              e.stopPropagation()
+              const itemsInComanda = c.cart.reduce((s, i) => s + i.quantity, 0)
+              if (itemsInComanda > 0) {
+                setConfirmAction({
+                  title: 'Cerrar comanda',
+                  message: `"${c.name}" tiene ${itemsInComanda} producto(s). Si la cierras se eliminarán. ¿Continuar?`,
+                  onConfirm: () => closeComanda(c.id),
+                })
+              } else {
+                closeComanda(c.id)
+              }
+            }} className={`ml-1 text-xs opacity-50 hover:opacity-100 ${c.id === comandasState.activeId ? 'text-white' : 'text-[var(--color-text)]'}`}>✕</button>
           )}
         </div>
       ))}
@@ -422,7 +435,15 @@ export default function POSPage() {
             <>
               <span className="text-xs text-[var(--color-text)] bg-[var(--color-surface)] px-2 py-1 rounded-full">{itemCount}</span>
               <button onClick={() => setNotesModalOpen(true)} className={`transition-colors ${notes ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)] opacity-50 hover:opacity-100'}`} title={notes ? 'Editar nota' : 'Agregar nota'}>📝</button>
-              <button onClick={() => setCart([])} className="text-red-400 hover:text-red-600 transition-colors" title="Vaciar carrito">🗑️</button>
+              <button onClick={() => {
+                if (cart.length > 0) {
+                  setConfirmAction({
+                    title: 'Vaciar carrito',
+                    message: `Se eliminarán ${itemCount} producto(s) de la venta. ¿Continuar?`,
+                    onConfirm: () => setCart([]),
+                  })
+                }
+              }} className="text-red-400 hover:text-red-600 transition-colors" title="Vaciar carrito">🗑️</button>
             </>
           )}
         </div>
@@ -593,6 +614,26 @@ export default function POSPage() {
           </div>
         )}
       </div>
+
+      {/* Confirmation modal */}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={() => setConfirmAction(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-1">{confirmAction.title}</h2>
+            <p className="text-sm text-[var(--color-text)] mb-4">{confirmAction.message}</p>
+            <div className="flex gap-2">
+              <button onClick={() => { confirmAction.onConfirm(); setConfirmAction(null) }}
+                className="flex-1 py-2.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors">
+                Sí, eliminar
+              </button>
+              <button onClick={() => setConfirmAction(null)}
+                className="flex-1 py-2.5 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notes modal */}
       {notesModalOpen && (
