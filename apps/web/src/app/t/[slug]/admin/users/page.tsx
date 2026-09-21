@@ -40,8 +40,8 @@ export default function UsersPage() {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block card overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="hidden md:block card overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead><tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]"><th className="p-3 text-left table-header">Usuario</th><th className="p-3 table-header">Email</th><th className="p-3 table-header">Rol</th><th className="p-3 table-header">Estado</th><th className="p-3 table-header">Acciones</th></tr></thead>
           <tbody>
             {users?.map((u: any) => (
