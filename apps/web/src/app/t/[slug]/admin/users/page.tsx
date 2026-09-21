@@ -39,7 +39,8 @@ export default function UsersPage() {
         <button onClick={openNew} className="btn-primary">+ Nuevo usuario</button>
       </div>
 
-      <div className="card overflow-hidden">
+      {/* Desktop table */}
+      <div className="hidden md:block card overflow-hidden">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]"><th className="p-3 text-left table-header">Usuario</th><th className="p-3 table-header">Email</th><th className="p-3 table-header">Rol</th><th className="p-3 table-header">Estado</th><th className="p-3 table-header">Acciones</th></tr></thead>
           <tbody>
@@ -59,6 +60,33 @@ export default function UsersPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {users?.map((u: any) => (
+          <div key={u.id} className="card p-4">
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-[var(--color-text-dark)] truncate">{u.username ?? '-'}</p>
+                <p className="text-xs text-[var(--color-text)] truncate">{u.email}</p>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{roles?.find((r: any) => r.id === u.roleId)?.name ?? '-'}</span>
+                  {u.active
+                    ? <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Activo</span>
+                    : <span className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-full">Inactivo</span>}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--color-border)]">
+              <button onClick={() => openEdit(u)} className="flex-1 text-xs py-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-dark)] font-medium hover:bg-gray-100 transition-colors">Editar</button>
+              <button onClick={() => { if(confirm('¿Desactivar usuario? No podrá iniciar sesión.')) deleteMutation.mutate(u.id) }} className="text-xs py-2 px-3 rounded-lg bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors">{u.active ? 'Desactivar' : 'Inactivo'}</button>
+            </div>
+          </div>
+        ))}
+        {(!users || users.length === 0) && (
+          <div className="card p-8 text-center text-[var(--color-text)]">No hay usuarios</div>
+        )}
       </div>
 
       {modal && (
