@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, products } from '@storehub/db'
+import { db, sales, saleItems, salePayments, products } from '@storehub/db'
 import { eq, sql } from 'drizzle-orm'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
@@ -195,6 +195,9 @@ export async function pointRoutes(app: FastifyInstance) {
       status: 'approved',
       saleDate: new Date(today + 'T00:00:00.000Z'),
     }).returning()
+
+    // Terminal sale is a single card payment for the full total
+    await db.insert(salePayments).values({ saleId: sale.id, method: 'card', amount: String(total) })
 
     for (const item of items) {
       await db.insert(saleItems).values({

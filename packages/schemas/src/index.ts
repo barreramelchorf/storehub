@@ -86,13 +86,22 @@ export const saleItemSchema = z.object({
 
 export const saleSchema = z.object({
   items: z.array(saleItemSchema).min(1),
-  paymentMethod: z.enum(['cash', 'card', 'transfer', 'other']),
+  paymentMethod: z.enum(['cash', 'card', 'transfer', 'other']).optional(),
+  // Split payments: one or more payments whose amounts sum to the sale total.
+  // If omitted, the sale is a single payment for its full total using paymentMethod.
+  payments: z.array(z.object({
+    method: z.enum(['cash', 'card', 'transfer', 'other']),
+    amount: z.number().positive(),
+  })).min(1).optional(),
   discount: z.number().min(0).default(0),
   tip: z.number().min(0).default(0),
   notes: z.string().max(500).nullable().optional(),
   saleDate: z.string().datetime().optional(), // para ventas backdated
   onBehalfOfUserId: z.string().uuid().optional(), // cajero en turno (requiere users.manage)
-})
+}).refine(
+  (d) => d.paymentMethod !== undefined || (d.payments && d.payments.length > 0),
+  { message: 'Debe especificar paymentMethod o payments' }
+)
 
 // Document
 export const documentSchema = z.object({

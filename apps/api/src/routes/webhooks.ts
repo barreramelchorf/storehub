@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, tenants, users } from '@storehub/db'
+import { db, sales, saleItems, salePayments, tenants, users } from '@storehub/db'
 import { eq, and } from 'drizzle-orm'
 
 export async function webhookRoutes(app: FastifyInstance) {
@@ -94,6 +94,9 @@ export async function webhookRoutes(app: FastifyInstance) {
       status: 'approved',
       saleDate: new Date(today + 'T00:00:00.000Z'),
     }).returning()
+
+    // Online checkout is a single card payment for the full total
+    await db.insert(salePayments).values({ saleId: sale.id, method: 'card', amount: String(total) })
 
     // Create sale items
     for (const item of cartItems) {

@@ -103,6 +103,14 @@ export const saleItems = pgTable('sale_items', {
   subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(),
 }, (t) => [index('sale_items_product_idx').on(t.productId)])
 
+// Sale Payments (split payments: a sale can be paid with multiple methods)
+export const salePayments = pgTable('sale_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  saleId: uuid('sale_id').notNull().references(() => sales.id, { onDelete: 'cascade' }),
+  method: paymentMethodEnum('method').notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+}, (t) => [index('sale_payments_sale_idx').on(t.saleId)])
+
 // Sale Approvals
 export const saleApprovals = pgTable('sale_approvals', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -234,6 +242,11 @@ export const rolesRelations = relations(roles, ({ many }) => ({
 export const salesRelations = relations(sales, ({ many, one }) => ({
   items: many(saleItems),
   user: one(users, { fields: [sales.userId], references: [users.id] }),
+  payments: many(salePayments),
+}))
+
+export const salePaymentsRelations = relations(salePayments, ({ one }) => ({
+  sale: one(sales, { fields: [salePayments.saleId], references: [sales.id] }),
 }))
 
 export const saleItemsRelations = relations(saleItems, ({ one }) => ({

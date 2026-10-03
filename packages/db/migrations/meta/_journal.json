@@ -113,6 +113,13 @@
       "when": 1789150000000,
       "tag": "0015_add_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790000000000,
+      "tag": "0016_add_sale_payments",
+      "breakpoints": true
     }
   ]
 }

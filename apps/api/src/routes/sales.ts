@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, products, auditLog } from '@storehub/db'
+import { db, sales, saleItems, salePayments, products, auditLog } from '@storehub/db'
 import { eq, sql } from 'drizzle-orm'
 import { saleSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
@@ -64,7 +64,7 @@ export async function saleRoutes(app: FastifyInstance) {
     const body = saleSchema.safeParse(request.body)
     if (!body.success) return reply.code(400).send({ error: body.error.flatten() })
 
-    const { items, paymentMethod, discount, tip, notes, saleDate, onBehalfOfUserId } = body.data
+    const { items, paymentMethod, payments, discount, tip, notes, saleDate, onBehalfOfUserId } = body.data
     const tenantId = request.tenant.id
 
     // "Cashier on shift": admins/managers can attribute the sale to another
@@ -142,9 +142,31 @@ export async function saleRoutes(app: FastifyInstance) {
 
     const totalDiscount = discount + campaignDiscount
 
+    // Resolve payments. If a split `payments` array was provided, validate its
+    // sum equals the sale total. Otherwise, treat it as a single payment for the
+    // full total using the given paymentMethod (backward compatible).
+    const round2 = (n: number) => Math.round(n * 100) / 100
+    let resolvedPayments: Array<{ method: string; amount: number }>
+    if (payments && payments.length > 0) {
+      const sum = round2(payments.reduce((s, p) => s + p.amount, 0))
+      if (sum !== round2(total)) {
+        return reply.code(400).send({ error: `La suma de los pagos ($${sum}) no coincide con el total ($${round2(total)})` })
+      }
+      resolvedPayments = payments.map(p => ({ method: p.method, amount: round2(p.amount) }))
+    } else {
+      resolvedPayments = [{ method: paymentMethod!, amount: round2(total) }]
+    }
+
+    // Effective paymentMethod on the sale (back-compat): single method if only
+    // one, otherwise the method contributing the largest amount ("dominant").
+    const distinctMethods = [...new Set(resolvedPayments.map(p => p.method))]
+    const effectivePaymentMethod = distinctMethods.length === 1
+      ? distinctMethods[0]
+      : resolvedPayments.slice().sort((a, b) => b.amount - a.amount)[0].method
+
     const [sale] = await db.insert(sales).values({
       tenantId, userId, total: String(total), discount: String(totalDiscount), tip: String(tip),
-      paymentMethod, notes: notes ?? null, status: status as any,
+      paymentMethod: effectivePaymentMethod as any, notes: notes ?? null, status: status as any,
       saleDate: saleDate ? new Date(saleDate) : (() => {
         // Default to today's date in business timezone (midnight UTC of the calendar day)
         const tz = process.env.BUSINESS_TIMEZONE ?? 'America/Mexico_City'
@@ -154,6 +176,8 @@ export async function saleRoutes(app: FastifyInstance) {
     }).returning()
 
     await db.insert(saleItems).values(saleItemValues.map(i => ({ ...i, saleId: sale.id })))
+
+    await db.insert(salePayments).values(resolvedPayments.map(p => ({ saleId: sale.id, method: p.method as any, amount: String(p.amount) })))
 
     if (status === 'approved') {
       for (const item of items) {
