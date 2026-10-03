@@ -49,6 +49,22 @@ Pendientes a resolver en siguientes iteraciones.
 - **Sin límite** de comandas simultáneas
 - Complejidad: media-alta (UI de tabs, multi-state management, localStorage multi-cart)
 
+### Pagos divididos / split payments (fase 1: manual) — PARCIALMENTE IMPLEMENTADO, EN PAUSA
+- **Caso de uso**: una cuenta se paga con varios métodos (ej: $60 efectivo + $40 tarjeta).
+- **Ya hecho en código (commits locales, NO desplegado, NO probado)**:
+  - Schema: tabla `sale_payments` (id, saleId FK, method enum, amount) + relación `sales.payments`
+  - Migración `0016_add_sale_payments.sql`: crea la tabla + **backfill idempotente** (una fila por venta existente con su método+total, garantiza `SUM(payments)=sales.total` para que el histórico y el cierre mensual cuadren exacto)
+  - `saleSchema`: `paymentMethod` ahora opcional + `payments[]` opcional, con refine (requiere uno u otro)
+  - Sale creation (`sales.ts`): valida `sum(payments)==total` (2 decimales), setea `sales.paymentMethod` efectivo (único o dominante), inserta filas en `sale_payments`
+  - Todos los paths de venta pueblan `sale_payments`: POS manual, terminal (`point.ts` → card), checkout online (`webhooks.ts` → card)
+- **Pendiente (tareas 3-6)**:
+  - Analytics `salesByPayment`: cambiar para agregar desde `sale_payments` (montos reales por método) en vez del enum único de `sales`. **Crítico**: validar que el histórico da los mismos números tras el backfill (cierre mensual + transferencias deben cuadrar).
+  - POS: UI de pago dividido (elegir métodos + montos, validar suma == total)
+  - Mostrar desglose del split en el detalle de venta (sales page + dashboard)
+  - Verificar builds + correctitud del backfill en staging, luego push
+- **Fase 2 (futura)**: integrar el split con el cobro por terminal Point (parte por terminal + parte manual). Hoy el split es solo manual (no dispara terminal).
+- **Riesgo clave**: el cambio de analytics no debe perder ni alterar datos históricos — el backfill está diseñado para eso, pero hay que verificarlo contra números reales antes de desplegar a prod.
+
 ### Variantes de producto (distinto a modificadores)
 - **Problema**: Hoy las variantes se meten como modificadores, pero no lo son. Un modificador es un extra aditivo (leche +$5). Una variante es el **mismo producto en formas mutuamente excluyentes** (Tarta de fresa / mora / piña), cada una con su propio precio y stock. Al meterlas como modificadores, en analytics la info se mezcla (todo cuenta como "Tarta").
 - **Diseño propuesto**:
