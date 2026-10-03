@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db, sales, saleItems, products, auditLog } from '@storehub/db'
-import { eq, sql } from 'drizzle-orm'
-import { saleSchema } from '@storehub/schemas'
+import { eq, and, sql } from 'drizzle-orm'
+import { saleSchema, saleEditSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission, requireAnyPermission } from '../middleware/permissions.js'
 import { loadActiveCampaigns } from '../lib/campaign-loader.js'
@@ -231,6 +231,76 @@ export async function saleRoutes(app: FastifyInstance) {
     }
 
     return { ok: true }
+  })
+
+  // PATCH /api/admin/sales/:id — admin/manager only, edit a few fields directly.
+  // Editable: tip, paymentMethod, userId (cashier), saleDate. Items are NOT editable
+  // (cashiers use delete + recreate). No approval flow — restricted to users.manage.
+  app.patch('/api/admin/sales/:id', { preHandler: requirePermission('users.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const parsed = saleEditSchema.safeParse(request.body)
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues.map(i => i.message).join(', ') })
+
+    const tenantId = request.tenant.id
+    const sale = await db.query.sales.findFirst({
+      where: (s, { eq, and }) => and(eq(s.id, id), eq(s.tenantId, tenantId)),
+    })
+    if (!sale) return reply.code(404).send({ error: 'Venta no encontrada' })
+    if (sale.status === 'cancelled') return reply.code(400).send({ error: 'No se puede editar una venta cancelada' })
+
+    const { tip, paymentMethod, userId, saleDate } = parsed.data
+    const updates: Record<string, any> = {}
+    const changes: Record<string, { from: any; to: any }> = {}
+
+    if (tip !== undefined && Number(tip) !== Number(sale.tip)) {
+      // Recalculate total: total = (current total - old tip) + new tip
+      const newTotal = Math.round((Number(sale.total) - Number(sale.tip) + tip) * 100) / 100
+      updates.tip = String(tip)
+      updates.total = String(newTotal)
+      changes.tip = { from: Number(sale.tip), to: tip }
+      changes.total = { from: Number(sale.total), to: newTotal }
+    }
+
+    if (paymentMethod !== undefined && paymentMethod !== sale.paymentMethod) {
+      updates.paymentMethod = paymentMethod
+      changes.paymentMethod = { from: sale.paymentMethod, to: paymentMethod }
+    }
+
+    if (userId !== undefined && userId !== sale.userId) {
+      // Validate the target user exists, belongs to tenant, is active, and can sell
+      const target = await db.query.users.findFirst({
+        where: (u, { eq, and }) => and(eq(u.id, userId), eq(u.tenantId, tenantId), eq(u.active, true)),
+        with: { role: { columns: { permissions: true } } },
+      })
+      const perms = (target as any)?.role?.permissions as string[] | undefined
+      if (!target || !Array.isArray(perms) || !perms.includes('sales.create')) {
+        return reply.code(400).send({ error: 'El cajero seleccionado no es válido' })
+      }
+      updates.userId = userId
+      changes.userId = { from: sale.userId, to: userId }
+    }
+
+    if (saleDate !== undefined) {
+      const newDate = new Date(saleDate)
+      if (newDate.getTime() !== new Date(sale.saleDate).getTime()) {
+        updates.saleDate = newDate
+        changes.saleDate = { from: sale.saleDate, to: newDate.toISOString() }
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return reply.code(400).send({ error: 'No hay cambios que aplicar' })
+    }
+
+    const [updated] = await db.update(sales).set(updates).where(and(eq(sales.id, id), eq(sales.tenantId, tenantId))).returning()
+
+    await db.insert(auditLog).values({
+      tenantId, userId: request.user.id,
+      eventType: 'sale_edited', entityType: 'sale', entityId: id,
+      payload: { changes, editedBy: request.user.id },
+    })
+
+    return updated
   })
 
   // DELETE /api/admin/sales/:id — admin/manager delete directly, cashier must use request-delete

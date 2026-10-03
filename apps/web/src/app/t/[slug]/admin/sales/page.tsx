@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
+import { DatePicker } from '@/components/DatePicker'
 
 export default function SalesPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
@@ -17,6 +18,8 @@ export default function SalesPage() {
   const [reprinting, setReprinting] = useState(false)
   const [reprintDone, setReprintDone] = useState(false)
   const [reprintError, setReprintError] = useState('')
+  const [editMode, setEditMode] = useState(false)
+  const [editForm, setEditForm] = useState<{ tip: string; paymentMethod: string; userId: string; saleDate: string }>({ tip: '', paymentMethod: '', userId: '', saleDate: '' })
 
   // Get user permissions from token
   const permissions: string[] = (() => {
@@ -44,8 +47,43 @@ export default function SalesPage() {
   const { data: pointMock } = useQuery({ queryKey: ['point-mock-status'], queryFn: () => api('/api/admin/point/mock-status', { token }), enabled: !!token })
   const terminalAvailable = !!tenantConfig?.config?.payments?.pointTerminalId || (pointMock?.mockEnabled ?? false)
 
-  // Reset reprint feedback when opening a different sale
-  useEffect(() => { setReprinting(false); setReprintDone(false); setReprintError('') }, [selectedSale?.id])
+  // Cashiers list (for the edit "cajero" dropdown) — admin/manager only
+  const { data: cashiers } = useQuery({ queryKey: ['cashiers'], queryFn: () => api('/api/admin/users/cashiers', { token }), enabled: !!token && isAdminOrManager })
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => api(`/api/admin/sales/${id}`, { method: 'PATCH', body: JSON.stringify(body), token }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-detail'] })
+      setEditMode(false); setSelectedSale(null)
+    },
+  })
+
+  // Reset reprint + edit state when opening a different sale
+  useEffect(() => { setReprinting(false); setReprintDone(false); setReprintError('') ; setEditMode(false) }, [selectedSale?.id])
+
+  const openEdit = () => {
+    const d = new Date(selectedSale.saleDate)
+    const yyyy = d.getUTCFullYear(); const mm = String(d.getUTCMonth() + 1).padStart(2, '0'); const dd = String(d.getUTCDate()).padStart(2, '0')
+    setEditForm({
+      tip: String(Number(selectedSale.tip) || 0),
+      paymentMethod: selectedSale.paymentMethod,
+      userId: saleDetail?.user?.id ?? '',
+      saleDate: `${yyyy}-${mm}-${dd}`,
+    })
+    setEditMode(true)
+  }
+
+  const submitEdit = () => {
+    const body: any = {}
+    if (Number(editForm.tip) !== Number(selectedSale.tip)) body.tip = Number(editForm.tip)
+    if (editForm.paymentMethod !== selectedSale.paymentMethod) body.paymentMethod = editForm.paymentMethod
+    if (editForm.userId && editForm.userId !== (saleDetail?.user?.id ?? '')) body.userId = editForm.userId
+    const origDate = (() => { const d = new Date(selectedSale.saleDate); return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}` })()
+    if (editForm.saleDate && editForm.saleDate !== origDate) body.saleDate = new Date(editForm.saleDate + 'T00:00:00.000Z').toISOString()
+    if (Object.keys(body).length === 0) { setEditMode(false); return }
+    editMutation.mutate({ id: selectedSale.id, body })
+  }
 
   const handleReprint = async () => {
     if (!saleDetail?.items) return
@@ -235,30 +273,80 @@ export default function SalesPage() {
               </div>
             )}
 
-            <div className="space-y-1 pt-3 border-t border-[var(--color-border)]">
-              {saleDetail?.user && <div className="flex justify-between text-sm mb-2"><span className="text-[var(--color-text)]">Cajero</span><span className="font-medium">{saleDetail.user.username || saleDetail.user.email}</span></div>}
-              {Number(selectedSale.discount) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Descuento</span><span className="text-green-600">-${Number(selectedSale.discount).toFixed(2)}</span></div>}
-              {Number(selectedSale.tip) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Propina</span><span>+${Number(selectedSale.tip).toFixed(2)}</span></div>}
-              <div className="flex justify-between font-bold text-lg pt-2"><span>Total</span><span>${Number(selectedSale.total).toFixed(2)}</span></div>
-              <p className="text-xs text-[var(--color-text)]">{paymentLabels[selectedSale.paymentMethod] ?? selectedSale.paymentMethod}</p>
-            </div>
+            {!editMode && (
+              <div className="space-y-1 pt-3 border-t border-[var(--color-border)]">
+                {saleDetail?.user && <div className="flex justify-between text-sm mb-2"><span className="text-[var(--color-text)]">Cajero</span><span className="font-medium">{saleDetail.user.username || saleDetail.user.email}</span></div>}
+                {Number(selectedSale.discount) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Descuento</span><span className="text-green-600">-${Number(selectedSale.discount).toFixed(2)}</span></div>}
+                {Number(selectedSale.tip) > 0 && <div className="flex justify-between text-sm"><span className="text-[var(--color-text)]">Propina</span><span>+${Number(selectedSale.tip).toFixed(2)}</span></div>}
+                <div className="flex justify-between font-bold text-lg pt-2"><span>Total</span><span>${Number(selectedSale.total).toFixed(2)}</span></div>
+                <p className="text-xs text-[var(--color-text)]">{paymentLabels[selectedSale.paymentMethod] ?? selectedSale.paymentMethod}</p>
+              </div>
+            )}
 
-            {terminalAvailable && saleDetail?.items && (
+            {/* Edit mode (admin/manager only) */}
+            {editMode && (
+              <div className="space-y-3 pt-3 border-t border-[var(--color-border)]">
+                <p className="text-xs font-medium text-[var(--color-text)]">Editar venta</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Propina</label>
+                    <input type="number" min="0" step="0.01" value={editForm.tip} onChange={e => setEditForm(f => ({ ...f, tip: e.target.value }))} className="input" />
+                  </div>
+                  <div>
+                    <label className="label">Método de pago</label>
+                    <select value={editForm.paymentMethod} onChange={e => setEditForm(f => ({ ...f, paymentMethod: e.target.value }))} className="input">
+                      <option value="cash">Efectivo</option>
+                      <option value="card">Tarjeta</option>
+                      <option value="transfer">Transferencia</option>
+                      <option value="other">Otro</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Cajero</label>
+                  <select value={editForm.userId} onChange={e => setEditForm(f => ({ ...f, userId: e.target.value }))} className="input">
+                    {cashiers?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {saleDetail?.user && !cashiers?.some((c: any) => c.id === saleDetail.user.id) && (
+                      <option value={saleDetail.user.id}>{saleDetail.user.username || saleDetail.user.email} (actual)</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Fecha de venta</label>
+                  <DatePicker value={editForm.saleDate} onChange={(v) => setEditForm(f => ({ ...f, saleDate: v }))} />
+                </div>
+                <p className="text-[10px] text-[var(--color-text)]">Nota: la propina ajusta el total. Para cambiar productos, elimina y vuelve a crear la venta.</p>
+                <div className="flex gap-2">
+                  <button onClick={submitEdit} disabled={editMutation.isPending} className="btn-primary flex-1">{editMutation.isPending ? 'Guardando...' : 'Guardar cambios'}</button>
+                  <button onClick={() => setEditMode(false)} className="btn-secondary">Cancelar</button>
+                </div>
+                {editMutation.isError && <p className="text-red-500 text-xs">{(editMutation.error as Error).message}</p>}
+              </div>
+            )}
+
+            {!editMode && isAdminOrManager && selectedSale.status !== 'cancelled' && (
+              <button onClick={openEdit}
+                className="w-full mt-4 py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] font-medium hover:bg-[var(--color-surface)] transition-colors">
+                ✏️ Editar venta
+              </button>
+            )}
+
+            {!editMode && terminalAvailable && saleDetail?.items && (
               <button onClick={handleReprint} disabled={reprinting}
                 className="w-full mt-4 py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] font-medium hover:bg-[var(--color-surface)] transition-colors disabled:opacity-50">
                 {reprinting ? 'Enviando...' : reprintDone ? '✓ Enviado · Reimprimir ticket 🧾' : '🧾 Reimprimir ticket'}
               </button>
             )}
-            {reprintError && <p className="text-red-500 text-xs mt-1">{reprintError}</p>}
-            {reprintDone && !reprintError && <p className="text-[10px] text-[var(--color-text)] mt-1">Si no salió (sin papel, etc.), toca de nuevo para reenviar.</p>}
+            {!editMode && reprintError && <p className="text-red-500 text-xs mt-1">{reprintError}</p>}
+            {!editMode && reprintDone && !reprintError && <p className="text-[10px] text-[var(--color-text)] mt-1">Si no salió (sin papel, etc.), toca de nuevo para reenviar.</p>}
 
-            {selectedSale.status === 'approved' && (
+            {!editMode && selectedSale.status === 'approved' && (
               <button onClick={() => { setShowDeleteConfirm(selectedSale.id); setSelectedSale(null) }}
                 className="w-full mt-4 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-colors">
                 Eliminar venta
               </button>
             )}
-            {selectedSale.notes && (
+            {!editMode && selectedSale.notes && (
               <div className="mt-4 p-3 bg-amber-50 rounded-lg">
                 <p className="text-xs font-medium text-amber-700 mb-1">📝 Notas:</p>
                 <p className="text-sm text-amber-900">{selectedSale.notes}</p>

@@ -101,6 +101,14 @@ export const documentSchema = z.object({
   active: z.boolean().default(true),
 })
 
+// Edit past sale (admin/manager only) — only these fields are editable
+export const saleEditSchema = z.object({
+  tip: z.number().min(0).optional(),
+  paymentMethod: z.enum(['cash', 'card', 'transfer', 'other']).optional(),
+  userId: z.string().uuid().optional(), // cambiar cajero
+  saleDate: z.string().datetime().optional(),
+}).refine(d => Object.keys(d).length > 0, { message: 'Nada que actualizar' })
+
 // Campaign (offer campaigns: NxM, percentage)
 export const campaignSchema = z.object({
   name: z.string().min(1).max(100),
