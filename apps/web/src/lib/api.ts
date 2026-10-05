@@ -45,7 +45,7 @@ export async function api<T = any>(path: string, opts: FetchOptions = {}): Promi
 
   const res = await fetch(url, {
     headers: {
-      'Content-Type': 'application/json',
+      ...((rest as any).body != null && { 'Content-Type': 'application/json' }),
       ...(token && { Authorization: `Bearer ${token}` }),
       ...(isServer && host && { 'x-forwarded-host': host }),
       ...(isServer && host && { 'x-tenant-slug': resolveSlug(host) }),
