@@ -168,8 +168,8 @@ export default function POSPage() {
     enabled: !!token && cashSessionsEnabled,
   })
   const { data: cashHistory } = useQuery({
-    queryKey: ['cash-sessions-history'],
-    queryFn: () => api('/api/admin/cash-sessions?pageSize=1', { token }),
+    queryKey: ['cash-session-last-close'],
+    queryFn: () => api('/api/admin/cash-session/last-close', { token }),
     enabled: !!token && cashSessionsEnabled && openCashModal,
   })
   const cashSessionOpen = !!currentCashSession
@@ -197,9 +197,8 @@ export default function POSPage() {
 
   // Prefill opening float with the previous close count (editable)
   useEffect(() => {
-    if (openCashModal && cashHistory?.items?.length > 0) {
-      const last = cashHistory.items[0]
-      if (last?.closingCount != null && openFloat === '') setOpenFloat(String(Number(last.closingCount)))
+    if (openCashModal && cashHistory?.closingCount != null && openFloat === '') {
+      setOpenFloat(String(Number(cashHistory.closingCount)))
     }
   }, [openCashModal, cashHistory])
   useEffect(() => { if (singleCartLoaded) saveCart(singleCart) }, [singleCart, singleCartLoaded])

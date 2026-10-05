@@ -38,6 +38,17 @@ export async function cashSessionRoutes(app: FastifyInstance) {
     return open ?? null
   })
 
+  // Last closing count — for prefilling the opening float. Minimal data, so it's
+  // available to any cashier (sales.create) without exposing full history.
+  app.get('/api/admin/cash-session/last-close', { preHandler: requirePermission('sales.create') }, async (request) => {
+    const last = await db.query.cashSessions.findFirst({
+      where: (c, { eq, and }) => and(eq(c.tenantId, request.tenant.id), eq(c.status, 'closed')),
+      orderBy: (c, { desc }) => [desc(c.closedAt)],
+      columns: { closingCount: true },
+    })
+    return { closingCount: last?.closingCount ?? null }
+  })
+
   // Open a session
   app.post('/api/admin/cash-session/open', { preHandler: requirePermission('sales.create') }, async (request, reply) => {
     const { openingFloat } = request.body as { openingFloat?: number }
@@ -139,8 +150,8 @@ export async function cashSessionRoutes(app: FastifyInstance) {
     return reopened
   })
 
-  // History (list closed/open sessions, newest first)
-  app.get('/api/admin/cash-sessions', { preHandler: requirePermission('sales.create') }, async (request) => {
+  // History (list closed/open sessions, newest first) — admin/manager only
+  app.get('/api/admin/cash-sessions', { preHandler: requirePermission('users.manage') }, async (request) => {
     const { page = '1', pageSize = '30' } = request.query as Record<string, string>
     const limit = Math.min(Number(pageSize), 100)
     const offset = (Number(page) - 1) * limit
