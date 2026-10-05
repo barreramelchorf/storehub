@@ -1,5 +1,6 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
@@ -16,6 +17,7 @@ export default function CashSessionsPage() {
     } catch { return [] }
   })()
   const canReopen = permissions.includes('cash.view')
+  const [reopenTarget, setReopenTarget] = useState<any>(null)
 
   const { data } = useQuery({ queryKey: ['cash-sessions'], queryFn: () => api('/api/admin/cash-sessions?pageSize=60', { token }) })
 
@@ -82,7 +84,7 @@ export default function CashSessionsPage() {
                   {canReopen && (
                     <td className="p-3 text-center">
                       {s.status === 'closed' && !anyOpen && (
-                        <button onClick={() => { if (confirm('¿Reabrir esta caja? Volverá a estar activa para registrar ventas.')) reopenMutation.mutate(s.id) }}
+                        <button onClick={() => setReopenTarget(s)}
                           disabled={reopenMutation.isPending}
                           className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50">Reabrir</button>
                       )}
@@ -117,12 +119,34 @@ export default function CashSessionsPage() {
                 {s.difference != null && <div className={`flex justify-between font-medium ${diffColor(s.difference)}`}><span>Diferencia</span><span>{diffLabel(s.difference)}</span></div>}
               </div>
               {canReopen && s.status === 'closed' && !anyOpen && (
-                <button onClick={() => { if (confirm('¿Reabrir esta caja? Volverá a estar activa para registrar ventas.')) reopenMutation.mutate(s.id) }}
+                <button onClick={() => setReopenTarget(s)}
                   disabled={reopenMutation.isPending}
                   className="w-full mt-3 text-xs py-2 rounded-lg bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition-colors disabled:opacity-50">Reabrir caja</button>
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Reopen confirmation modal (styled, consistent with the app) */}
+      {reopenTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setReopenTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-1">Reabrir caja</h2>
+            <p className="text-sm text-[var(--color-text)] mb-4">La caja del {reopenTarget.businessDate} volverá a estar activa para registrar ventas. ¿Continuar?</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { reopenMutation.mutate(reopenTarget.id, { onSuccess: () => setReopenTarget(null) }) }}
+                disabled={reopenMutation.isPending}
+                className="flex-1 py-2.5 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                {reopenMutation.isPending ? 'Reabriendo...' : 'Sí, reabrir'}
+              </button>
+              <button onClick={() => setReopenTarget(null)} className="flex-1 py-2.5 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text-dark)] hover:bg-[var(--color-surface)] transition-colors">
+                Cancelar
+              </button>
+            </div>
+            {reopenMutation.isError && <p className="text-red-500 text-xs mt-2">{(reopenMutation.error as Error).message}</p>}
+          </div>
         </div>
       )}
     </div>
