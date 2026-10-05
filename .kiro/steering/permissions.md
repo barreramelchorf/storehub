@@ -4,8 +4,8 @@
 
 | Rol | Permisos |
 |-----|----------|
-| **administrador** | `sales.create`, `sales.view`, `sales.delete`, `sales.override_price`, `sales.backdate`, `inventory.view`, `inventory.manage`, `inventory.restock`, `analytics.view`, `audit.view`, `settings.manage`, `users.manage`, `documents.manage` |
-| **gerente** | `sales.create`, `sales.view`, `sales.delete`, `sales.override_price`, `sales.backdate`, `inventory.view`, `inventory.manage`, `inventory.restock`, `analytics.view`, `audit.view`, `documents.manage` |
+| **administrador** | `sales.create`, `sales.view`, `sales.delete`, `sales.override_price`, `sales.backdate`, `inventory.view`, `inventory.manage`, `inventory.restock`, `analytics.view`, `audit.view`, `settings.manage`, `users.manage`, `documents.manage`, `cash.view` |
+| **gerente** | `sales.create`, `sales.view`, `sales.delete`, `sales.override_price`, `sales.backdate`, `inventory.view`, `inventory.manage`, `inventory.restock`, `analytics.view`, `audit.view`, `documents.manage`, `cash.view` |
 | **cajero** | `sales.create`, `sales.delete` |
 | **almacenista** | `inventory.view`, `inventory.restock` |
 | **cajero_almacenista** | `sales.create`, `sales.delete`, `inventory.view`, `inventory.restock` |
@@ -77,6 +77,7 @@
 | Dashboard | `analytics.view` |
 | Punto de Venta | `sales.create` |
 | Ventas | `sales.delete` |
+| Caja | `cash.view` (+ módulo `cashSessions` activo) |
 | Inventario | `inventory.view` |
 | Analytics | `analytics.view` |
 | Aprobaciones | `users.manage` |

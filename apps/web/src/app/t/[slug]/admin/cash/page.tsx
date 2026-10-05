@@ -15,7 +15,7 @@ export default function CashSessionsPage() {
       return JSON.parse(atob(padded)).permissions ?? []
     } catch { return [] }
   })()
-  const canReopen = permissions.includes('users.manage')
+  const canReopen = permissions.includes('cash.view')
 
   const { data } = useQuery({ queryKey: ['cash-sessions'], queryFn: () => api('/api/admin/cash-sessions?pageSize=60', { token }) })
 

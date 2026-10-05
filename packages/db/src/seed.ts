@@ -36,7 +36,7 @@ async function seed() {
   const [adminRole] = await db.insert(roles).values({
     tenantId: tenant.id,
     name: 'administrador',
-    permissions: ['sales.create','sales.view','sales.delete','sales.override_price','sales.backdate','inventory.view','inventory.manage','inventory.restock','analytics.view','audit.view','settings.manage','users.manage','documents.manage'],
+    permissions: ['sales.create','sales.view','sales.delete','sales.override_price','sales.backdate','inventory.view','inventory.manage','inventory.restock','analytics.view','audit.view','settings.manage','users.manage','documents.manage','cash.view'],
     isDefault: true,
   }).returning()
 
@@ -44,7 +44,7 @@ async function seed() {
   await db.insert(roles).values({
     tenantId: tenant.id,
     name: 'gerente',
-    permissions: ['sales.create','sales.view','sales.delete','sales.override_price','sales.backdate','inventory.view','inventory.manage','inventory.restock','analytics.view','audit.view','documents.manage'],
+    permissions: ['sales.create','sales.view','sales.delete','sales.override_price','sales.backdate','inventory.view','inventory.manage','inventory.restock','analytics.view','audit.view','documents.manage','cash.view'],
     isDefault: true,
   })
 

@@ -124,8 +124,8 @@ export async function cashSessionRoutes(app: FastifyInstance) {
     return closed
   })
 
-  // Reopen a session closed by accident — admin/manager only
-  app.post('/api/admin/cash-session/:id/reopen', { preHandler: requirePermission('users.manage') }, async (request, reply) => {
+  // Reopen a session closed by accident — requires cash.view
+  app.post('/api/admin/cash-session/:id/reopen', { preHandler: requirePermission('cash.view') }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const tenantId = request.tenant.id
 
@@ -150,8 +150,8 @@ export async function cashSessionRoutes(app: FastifyInstance) {
     return reopened
   })
 
-  // History (list closed/open sessions, newest first) — admin/manager only
-  app.get('/api/admin/cash-sessions', { preHandler: requirePermission('users.manage') }, async (request) => {
+  // History (list closed/open sessions, newest first) — requires cash.view
+  app.get('/api/admin/cash-sessions', { preHandler: requirePermission('cash.view') }, async (request) => {
     const { page = '1', pageSize = '30' } = request.query as Record<string, string>
     const limit = Math.min(Number(pageSize), 100)
     const offset = (Number(page) - 1) * limit
