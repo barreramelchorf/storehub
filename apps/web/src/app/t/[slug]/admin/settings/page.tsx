@@ -8,7 +8,7 @@ import { useParams } from 'next/navigation'
 export default function SettingsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '', multicomanda: false, modifiers: false, requireCashAmount: false, tipReminder: false, weekStart: 1, mercadoPagoAccessToken: '', pointAccessToken: '', pointTerminalId: '' })
+  const [form, setForm] = useState({ name: '', primaryColor: '#635BFF', secondaryColor: '#0A2540', address: '', phone: '', whatsapp: '', email: '', hours: '', instagram: '', facebook: '', tiktok: '', website: '', metaTitle: '', metaDescription: '', multicomanda: false, modifiers: false, requireCashAmount: false, tipReminder: false, cashSessions: false, weekStart: 1, mercadoPagoAccessToken: '', pointAccessToken: '', pointTerminalId: '' })
 
   const { data: info } = useQuery({ queryKey: ['settings'], queryFn: () => api('/api/admin/settings', { token }) })
 
@@ -25,6 +25,7 @@ export default function SettingsPage() {
         multicomanda: c.modules?.multicomanda ?? false,
         modifiers: c.modules?.modifiers ?? false,
         requireCashAmount: c.modules?.requireCashAmount ?? false, tipReminder: c.modules?.tipReminder ?? false,
+        cashSessions: c.modules?.cashSessions ?? false,
         weekStart: c.weekStart ?? 1,
         mercadoPagoAccessToken: c.payments?.mercadoPagoAccessToken ?? '',
         pointAccessToken: c.payments?.pointAccessToken ?? '',
@@ -44,7 +45,7 @@ export default function SettingsPage() {
           social: { instagram: form.instagram, facebook: form.facebook, tiktok: form.tiktok, website: form.website },
           meta: { title: form.metaTitle, description: form.metaDescription },
           weekStart: form.weekStart,
-          modules: { ...info?.config?.modules, pos: true, inventory: true, analytics: true, multicomanda: form.multicomanda, modifiers: form.modifiers, requireCashAmount: form.requireCashAmount, tipReminder: form.tipReminder },
+          modules: { ...info?.config?.modules, pos: true, inventory: true, analytics: true, multicomanda: form.multicomanda, modifiers: form.modifiers, requireCashAmount: form.requireCashAmount, tipReminder: form.tipReminder, cashSessions: form.cashSessions },
           payments: { mercadoPagoAccessToken: form.mercadoPagoAccessToken || undefined, pointAccessToken: form.pointAccessToken || undefined, pointTerminalId: form.pointTerminalId || undefined },
         },
       }),
@@ -139,6 +140,13 @@ export default function SettingsPage() {
                 <p className="text-xs text-[var(--color-text)]">Pregunta al cajero si desea agregar propina antes de cobrar</p>
               </div>
               <input type="checkbox" checked={form.tipReminder} onChange={e => setForm(f => ({ ...f, tipReminder: e.target.checked }))} className="w-5 h-5 rounded border-[var(--color-border)] text-[var(--color-primary)]" />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <p className="text-sm font-medium text-[var(--color-text-dark)]">Apertura y cierre de caja</p>
+                <p className="text-xs text-[var(--color-text)]">Exige abrir la caja (con fondo inicial) antes de vender en efectivo y cerrarla contando el efectivo al final del día</p>
+              </div>
+              <input type="checkbox" checked={form.cashSessions} onChange={e => setForm(f => ({ ...f, cashSessions: e.target.checked }))} className="w-5 h-5 rounded border-[var(--color-border)] text-[var(--color-primary)]" />
             </label>
           </div>
         </div>

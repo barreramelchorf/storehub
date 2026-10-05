@@ -14,6 +14,7 @@ import { modifierRoutes } from './routes/modifiers.js'
 import { campaignRoutes } from './routes/campaigns.js'
 import { pointRoutes } from './routes/point.js'
 import { saleRoutes } from './routes/sales.js'
+import { cashSessionRoutes } from './routes/cash-sessions.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { documentRoutes } from './routes/documents.js'
 import { uploadRoutes } from './routes/upload.js'
@@ -75,6 +76,7 @@ await app.register(async (tenantApp) => {
   await tenantApp.register(campaignRoutes)
   await tenantApp.register(pointRoutes)
   await tenantApp.register(saleRoutes)
+  await tenantApp.register(cashSessionRoutes)
   await tenantApp.register(analyticsRoutes)
   await tenantApp.register(documentRoutes)
   await tenantApp.register(uploadRoutes)

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, products } from '@storehub/db'
-import { eq, sql } from 'drizzle-orm'
+import { db, sales, saleItems, products, cashSessions } from '@storehub/db'
+import { eq, and, sql } from 'drizzle-orm'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
 import crypto from 'crypto'
@@ -184,6 +184,16 @@ export async function pointRoutes(app: FastifyInstance) {
     const tz = 'America/Mexico_City'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
 
+    // If cash sessions module is on, link this terminal sale to the open session
+    // (card doesn't affect expected cash, but keeps the session's card snapshot accurate).
+    let cashSessionId: string | null = null
+    if ((request.tenant.config as any)?.modules?.cashSessions === true) {
+      const openSession = await db.query.cashSessions.findFirst({
+        where: (c, { eq, and }) => and(eq(c.tenantId, tenantId), eq(c.status, 'open')),
+      })
+      cashSessionId = openSession?.id ?? null
+    }
+
     const [sale] = await db.insert(sales).values({
       tenantId,
       userId: effectiveUserId,
@@ -193,6 +203,7 @@ export async function pointRoutes(app: FastifyInstance) {
       paymentMethod: 'card',
       notes: `point:${orderId}`,
       status: 'approved',
+      cashSessionId,
       saleDate: new Date(today + 'T00:00:00.000Z'),
     }).returning()
 

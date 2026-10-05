@@ -121,6 +121,11 @@ export default function POSPage() {
   const [printingBill, setPrintingBill] = useState(false)
   const [selectedCashierId, setSelectedCashierId] = useState<string>('')
   const [toast, setToast] = useState<string>('')
+  const [openCashModal, setOpenCashModal] = useState(false)
+  const [closeCashModal, setCloseCashModal] = useState(false)
+  const [openFloat, setOpenFloat] = useState('')
+  const [closeCount, setCloseCount] = useState('')
+  const [closeReport, setCloseReport] = useState<any>(null)
 
   // Multicomanda state
   const [comandasState, setComandasState] = useState<ComandasState>({ comandas: [], activeId: '' })
@@ -154,6 +159,22 @@ export default function POSPage() {
 
   // Cashier-on-shift selector (admin/manager only)
   const { data: cashiers } = useQuery({ queryKey: ['cashiers'], queryFn: () => api('/api/admin/users/cashiers', { token }), enabled: !!token && canManageCashier })
+
+  // Cash sessions
+  const cashSessionsEnabled = tenantConfig?.config?.modules?.cashSessions ?? false
+  const { data: currentCashSession, refetch: refetchCashSession } = useQuery({
+    queryKey: ['cash-session-current'],
+    queryFn: () => api('/api/admin/cash-session/current', { token }),
+    enabled: !!token && cashSessionsEnabled,
+  })
+  const { data: cashHistory } = useQuery({
+    queryKey: ['cash-sessions-history'],
+    queryFn: () => api('/api/admin/cash-sessions?pageSize=1', { token }),
+    enabled: !!token && cashSessionsEnabled && openCashModal,
+  })
+  const cashSessionOpen = !!currentCashSession
+  // Gate: block cobro only when the module is on AND no session is open
+  const cashGateBlocked = cashSessionsEnabled && !cashSessionOpen
   const requireCashAmount = tenantConfig?.config?.modules?.requireCashAmount ?? false
   const tipReminderEnabled = tenantConfig?.config?.modules?.tipReminder ?? false
 
@@ -173,6 +194,14 @@ export default function POSPage() {
 
   // Temporary toast feedback (auto-dismiss)
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3000); return () => clearTimeout(t) }, [toast])
+
+  // Prefill opening float with the previous close count (editable)
+  useEffect(() => {
+    if (openCashModal && cashHistory?.items?.length > 0) {
+      const last = cashHistory.items[0]
+      if (last?.closingCount != null && openFloat === '') setOpenFloat(String(Number(last.closingCount)))
+    }
+  }, [openCashModal, cashHistory])
   useEffect(() => { if (singleCartLoaded) saveCart(singleCart) }, [singleCart, singleCartLoaded])
 
   // Load multicomanda state
@@ -229,6 +258,16 @@ export default function POSPage() {
       setSingleCart(typeof updater === 'function' ? updater(singleCart) : updater)
     }
   }
+
+  const openCashMutation = useMutation({
+    mutationFn: (floatAmount: number) => api('/api/admin/cash-session/open', { method: 'POST', body: JSON.stringify({ openingFloat: floatAmount }), token }),
+    onSuccess: () => { setOpenCashModal(false); setOpenFloat(''); refetchCashSession(); setToast('🧰 Caja abierta') },
+  })
+
+  const closeCashMutation = useMutation({
+    mutationFn: (count: number) => api('/api/admin/cash-session/close', { method: 'POST', body: JSON.stringify({ closingCount: count }), token }),
+    onSuccess: (report: any) => { setCloseReport(report); setCloseCount(''); refetchCashSession() },
+  })
 
   const saleMutation = useMutation({
     mutationFn: (body: any) => api('/api/admin/sales', { method: 'POST', body: JSON.stringify(body), token }),
@@ -455,6 +494,21 @@ export default function POSPage() {
   const cartContent = (
     <div className="flex flex-col h-full min-h-0">
       {comandaTabs}
+      {cashSessionsEnabled && (
+        <div className="flex-shrink-0 mb-2">
+          {cashSessionOpen ? (
+            <div className="flex items-center justify-between text-xs bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
+              <span className="text-green-700 font-medium">🧰 Caja abierta · fondo ${Number(currentCashSession.openingFloat).toFixed(0)}</span>
+              <button onClick={() => { setCloseReport(null); setCloseCount(''); setCloseCashModal(true) }} className="text-green-700 underline hover:text-green-900">Cerrar caja</button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <span className="text-amber-700 font-medium">🔒 Caja cerrada — abre para vender</span>
+              <button onClick={() => { setOpenFloat(''); setOpenCashModal(true) }} className="bg-amber-500 text-white px-3 py-1 rounded-md font-medium hover:bg-amber-600">Abrir caja</button>
+            </div>
+          )}
+        </div>
+      )}
       {canManageCashier && cashiers?.length > 0 && (
         <div className="flex items-center gap-2 mb-2 flex-shrink-0">
           <span className="text-xs text-[var(--color-text)] whitespace-nowrap">👤 Cajero:</span>
@@ -605,7 +659,7 @@ export default function POSPage() {
             <button onClick={() => {
               if (tipReminderEnabled && tip === 0) { setTipReminderAction('checkout'); setTipReminderAmount(''); return }
               handleCheckout()
-            }} disabled={!cart.length || saleMutation.isPending || (paymentMethod === 'cash' && requireCashAmount && (!paidWith || Number(paidWith) < total))}
+            }} disabled={!cart.length || saleMutation.isPending || cashGateBlocked || (paymentMethod === 'cash' && requireCashAmount && (!paidWith || Number(paidWith) < total))}
               className="flex-1 py-2.5 rounded-lg bg-[var(--color-primary)] text-white font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
               {saleMutation.isPending ? '...' : 'Cobrar'}
             </button>
@@ -684,6 +738,65 @@ export default function POSPage() {
           </div>
         )}
       </div>
+
+      {/* Open cash session modal */}
+      {openCashModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={() => setOpenCashModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-1">🧰 Abrir caja</h2>
+            <p className="text-xs text-[var(--color-text)] mb-4">Declara el fondo inicial de efectivo con el que empiezas el día.</p>
+            <label className="label">Fondo inicial</label>
+            <input type="number" min="0" step="0.01" value={openFloat} onChange={e => setOpenFloat(e.target.value)} className="input w-full" placeholder="$0.00" autoFocus />
+            <p className="text-[10px] text-[var(--color-text)] mt-1">Sugerido: lo que quedó en el cierre anterior. Edítalo si es distinto.</p>
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => openCashMutation.mutate(Number(openFloat))} disabled={openFloat === '' || openCashMutation.isPending} className="btn-primary flex-1">{openCashMutation.isPending ? 'Abriendo...' : 'Abrir caja'}</button>
+              <button onClick={() => setOpenCashModal(false)} className="btn-secondary">Cancelar</button>
+            </div>
+            {openCashMutation.isError && <p className="text-red-500 text-xs mt-2">{(openCashMutation.error as Error).message}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Close cash session modal (blind count) + report */}
+      {closeCashModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={() => { if (closeReport) { setCloseCashModal(false); setCloseReport(null) } }}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            {!closeReport ? (
+              <>
+                <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-1">Cerrar caja</h2>
+                <p className="text-xs text-[var(--color-text)] mb-4">Cuenta el efectivo físico en la caja e ingrésalo. El sistema calculará si cuadra.</p>
+                <label className="label">Efectivo contado</label>
+                <input type="number" min="0" step="0.01" value={closeCount} onChange={e => setCloseCount(e.target.value)} className="input w-full" placeholder="$0.00" autoFocus />
+                <div className="flex gap-2 mt-4">
+                  <button onClick={() => closeCashMutation.mutate(Number(closeCount))} disabled={closeCount === '' || closeCashMutation.isPending} className="btn-primary flex-1">{closeCashMutation.isPending ? 'Cerrando...' : 'Cerrar caja'}</button>
+                  <button onClick={() => setCloseCashModal(false)} className="btn-secondary">Cancelar</button>
+                </div>
+                {closeCashMutation.isError && <p className="text-red-500 text-xs mt-2">{(closeCashMutation.error as Error).message}</p>}
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-[var(--color-text-dark)] mb-3">Resumen de cierre</h2>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between"><span className="text-[var(--color-text)]">Fondo inicial</span><span>${Number(closeReport.openingFloat).toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-[var(--color-text)]">Ventas efectivo</span><span>${Number(closeReport.cashSales).toFixed(2)}</span></div>
+                  <div className="flex justify-between font-medium border-t border-[var(--color-border)] pt-1.5"><span>Efectivo esperado</span><span>${Number(closeReport.expectedCash).toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-[var(--color-text)]">Efectivo contado</span><span>${Number(closeReport.closingCount).toFixed(2)}</span></div>
+                  <div className={`flex justify-between font-bold text-base pt-1.5 ${Number(closeReport.difference) === 0 ? 'text-green-600' : Number(closeReport.difference) > 0 ? 'text-amber-600' : 'text-red-600'}`}>
+                    <span>{Number(closeReport.difference) === 0 ? 'Cuadra ✓' : Number(closeReport.difference) > 0 ? 'Sobrante' : 'Faltante'}</span>
+                    <span>${Math.abs(Number(closeReport.difference)).toFixed(2)}</span>
+                  </div>
+                  <div className="pt-2 mt-1 border-t border-[var(--color-border)] text-xs text-[var(--color-text)] space-y-1">
+                    <div className="flex justify-between"><span>Tarjeta (informativo)</span><span>${Number(closeReport.cardSales).toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span>Transferencia (informativo)</span><span>${Number(closeReport.transferSales).toFixed(2)}</span></div>
+                  </div>
+                  {closeReport.lateClose && <p className="text-[10px] text-amber-600 pt-1">⚠ Cierre tardío (correspondía al día {closeReport.businessDate})</p>}
+                </div>
+                <button onClick={() => { setCloseCashModal(false); setCloseReport(null) }} className="btn-primary w-full mt-4">Entendido</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Confirmation modal */}
       {confirmAction && (

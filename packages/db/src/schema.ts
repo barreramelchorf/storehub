@@ -5,6 +5,7 @@ import { relations } from 'drizzle-orm'
 export const giroEnum = pgEnum('giro_type', ['cafeteria', 'electronics', 'bakery', 'restaurant', 'other'])
 export const saleStatusEnum = pgEnum('sale_status', ['approved', 'pending_approval', 'rejected', 'cancelled', 'pending_delete'])
 export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'card', 'transfer', 'other'])
+export const cashSessionStatusEnum = pgEnum('cash_session_status', ['open', 'closed'])
 
 // Tenants
 export const tenants = pgTable('tenants', {
@@ -72,6 +73,30 @@ export const products = pgTable('products', {
   index('products_category_idx').on(t.categoryId),
 ])
 
+// Cash Sessions (apertura/cierre de caja)
+export const cashSessions = pgTable('cash_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  status: cashSessionStatusEnum('status').notNull().default('open'),
+  openedBy: uuid('opened_by').notNull().references(() => users.id),
+  openedAt: timestamp('opened_at').notNull().defaultNow(),
+  openingFloat: numeric('opening_float', { precision: 10, scale: 2 }).notNull(),
+  closedBy: uuid('closed_by').references(() => users.id),
+  closedAt: timestamp('closed_at'),
+  closingCount: numeric('closing_count', { precision: 10, scale: 2 }),
+  expectedCash: numeric('expected_cash', { precision: 10, scale: 2 }),
+  difference: numeric('difference', { precision: 10, scale: 2 }),
+  cashSales: numeric('cash_sales', { precision: 10, scale: 2 }),
+  cardSales: numeric('card_sales', { precision: 10, scale: 2 }),
+  transferSales: numeric('transfer_sales', { precision: 10, scale: 2 }),
+  otherSales: numeric('other_sales', { precision: 10, scale: 2 }),
+  businessDate: text('business_date').notNull(), // YYYY-MM-DD in business tz
+  lateClose: boolean('late_close').notNull().default(false),
+}, (t) => [
+  index('cash_sessions_tenant_status_idx').on(t.tenantId, t.status),
+  index('cash_sessions_tenant_date_idx').on(t.tenantId, t.businessDate),
+])
+
 // Sales
 export const sales = pgTable('sales', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -81,6 +106,7 @@ export const sales = pgTable('sales', {
   discount: numeric('discount', { precision: 10, scale: 2 }).notNull().default('0'),
   tip: numeric('tip', { precision: 10, scale: 2 }).notNull().default('0'),
   paymentMethod: paymentMethodEnum('payment_method').notNull(),
+  cashSessionId: uuid('cash_session_id').references(() => cashSessions.id),
   notes: text('notes'),
   status: saleStatusEnum('status').notNull().default('approved'),
   saleDate: timestamp('sale_date').notNull().defaultNow(),

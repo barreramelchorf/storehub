@@ -54,6 +54,7 @@ Pendientes a resolver en siguientes iteraciones.
 - **Ya hecho en código (commits locales, NO desplegado, NO probado)**:
   - Schema: tabla `sale_payments` (id, saleId FK, method enum, amount) + relación `sales.payments`
   - Migración `0016_add_sale_payments.sql`: crea la tabla + **backfill idempotente** (una fila por venta existente con su método+total, garantiza `SUM(payments)=sales.total` para que el histórico y el cierre mensual cuadren exacto)
+  - ⚠️ **CONFLICTO DE MIGRACIÓN AL MERGEAR**: main ya usó `0016` para cash sessions. Al retomar/mergear `feature/split-payments`, renumerar su migración a `0017_add_sale_payments.sql` y ajustar el `_journal.json` (idx 17). Resolver el conflicto del journal manualmente.
   - `saleSchema`: `paymentMethod` ahora opcional + `payments[]` opcional, con refine (requiere uno u otro)
   - Sale creation (`sales.ts`): valida `sum(payments)==total` (2 decimales), setea `sales.paymentMethod` efectivo (único o dominante), inserta filas en `sale_payments`
   - Todos los paths de venta pueblan `sale_payments`: POS manual, terminal (`point.ts` → card), checkout online (`webhooks.ts` → card)

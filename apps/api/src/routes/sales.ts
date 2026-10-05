@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, sales, saleItems, products, auditLog } from '@storehub/db'
+import { db, sales, saleItems, products, auditLog, cashSessions } from '@storehub/db'
 import { eq, and, sql } from 'drizzle-orm'
 import { saleSchema, saleEditSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
@@ -66,6 +66,20 @@ export async function saleRoutes(app: FastifyInstance) {
 
     const { items, paymentMethod, discount, tip, notes, saleDate, onBehalfOfUserId } = body.data
     const tenantId = request.tenant.id
+
+    // Cash sessions gate: if the module is on, a session must be open to sell.
+    // The open session's id is stamped on the sale so the close can reconcile cash.
+    const cashSessionsEnabled = (request.tenant.config as any)?.modules?.cashSessions === true
+    let activeCashSessionId: string | null = null
+    if (cashSessionsEnabled) {
+      const openSession = await db.query.cashSessions.findFirst({
+        where: (c, { eq, and }) => and(eq(c.tenantId, tenantId), eq(c.status, 'open')),
+      })
+      if (!openSession) {
+        return reply.code(409).send({ error: 'Debes abrir la caja antes de registrar ventas', code: 'CASH_SESSION_REQUIRED' })
+      }
+      activeCashSessionId = openSession.id
+    }
 
     // "Cashier on shift": admins/managers can attribute the sale to another
     // sales-capable user. Anyone else can only sell as themselves.
@@ -145,6 +159,7 @@ export async function saleRoutes(app: FastifyInstance) {
     const [sale] = await db.insert(sales).values({
       tenantId, userId, total: String(total), discount: String(totalDiscount), tip: String(tip),
       paymentMethod, notes: notes ?? null, status: status as any,
+      cashSessionId: activeCashSessionId,
       saleDate: saleDate ? new Date(saleDate) : (() => {
         // Default to today's date in business timezone (midnight UTC of the calendar day)
         const tz = process.env.BUSINESS_TIMEZONE ?? 'America/Mexico_City'

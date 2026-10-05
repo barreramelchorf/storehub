@@ -38,6 +38,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
     { href: base, label: 'Dashboard', icon: '📊', permission: 'analytics.view' },
     { href: `${base}/pos`, label: 'Punto de Venta', icon: '🛒', permission: 'sales.create' },
     { href: `${base}/sales`, label: 'Ventas', icon: '💰', permission: 'sales.delete' },
+    { href: `${base}/cash`, label: 'Caja', icon: '🧰', permission: 'sales.create', module: 'cashSessions' },
     { href: `${base}/inventory`, label: 'Inventario', icon: '📦', permission: 'inventory.view' },
     { href: `${base}/campaigns`, label: 'Campañas', icon: '🎁', permission: 'inventory.manage' },
     { href: `${base}/analytics`, label: 'Analytics', icon: '📈', permission: 'analytics.view' },
@@ -163,7 +164,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
       <aside className={`fixed md:sticky md:top-0 top-0 left-0 h-full md:h-screen w-60 bg-[var(--color-secondary)] text-white p-5 flex flex-col z-50 transition-transform md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <h2 className="text-lg font-bold mb-8 tracking-tight">{tenantName}</h2>
         <nav className="flex-1 space-y-1">
-          {nav.map(n => (
+          {nav.filter((n: any) => !n.module || tenantConfig?.config?.modules?.[n.module] === true).map(n => (
             <Link key={n.href} href={n.href}
               className={`flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm transition-colors ${(pathname === n.href || pathname === n.href.replace('/admin', `/t/${slug}/admin`)) ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'}`}>
               <span>{n.icon}</span>{n.label}
