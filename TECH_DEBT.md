@@ -91,7 +91,7 @@ Pendientes a resolver en siguientes iteraciones.
 
 ### CI/CD completo con Pulumi ✅
 - **Implementado**: push main → build SHA tag → auto deploy staging; tag v* → re-tag → auto deploy prod
-- **Falta**: tests corriendo en CI antes de merge
+- ~~**Falta**: tests corriendo en CI antes de merge~~ ✅ Job `test` corre API + Web (vitest) y bloquea build/promote-prod si falla
 - **Falta**: linting en CI
 
 ### Vault (HashiCorp) para secretos
