@@ -493,21 +493,6 @@ export default function POSPage() {
   const cartContent = (
     <div className="flex flex-col h-full min-h-0">
       {comandaTabs}
-      {cashSessionsEnabled && (
-        <div className="flex-shrink-0 mb-2">
-          {cashSessionOpen ? (
-            <div className="flex items-center justify-between text-xs bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
-              <span className="text-green-700 font-medium">🧰 Caja abierta · fondo ${Number(currentCashSession.openingFloat).toFixed(0)}</span>
-              <button onClick={() => { setCloseReport(null); setCloseCount(''); setCloseCashModal(true) }} className="text-green-700 underline hover:text-green-900">Cerrar caja</button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              <span className="text-amber-700 font-medium">🔒 Caja cerrada — abre para vender</span>
-              <button onClick={() => { setOpenFloat(''); setOpenCashModal(true) }} className="bg-amber-500 text-white px-3 py-1 rounded-md font-medium hover:bg-amber-600">Abrir caja</button>
-            </div>
-          )}
-        </div>
-      )}
       {canManageCashier && cashiers?.length > 0 && (
         <div className="flex items-center gap-2 mb-2 flex-shrink-0">
           <span className="text-xs text-[var(--color-text)] whitespace-nowrap">👤 Cajero:</span>
@@ -681,6 +666,22 @@ export default function POSPage() {
     </div>
   )
 
+  // Cash session status bar — rendered in the POS header (always visible,
+  // independent of the cart) so open/close is reachable even with no cart.
+  const cashBar = cashSessionsEnabled ? (
+    cashSessionOpen ? (
+      <div className="flex items-center justify-between gap-2 text-sm bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 flex-shrink-0">
+        <span className="text-green-700 font-medium">🧰 Caja abierta · fondo ${Number(currentCashSession.openingFloat).toFixed(0)}</span>
+        <button onClick={() => { setCloseReport(null); setCloseCount(''); setCloseCashModal(true) }} className="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-green-700 whitespace-nowrap">Cerrar caja</button>
+      </div>
+    ) : (
+      <div className="flex items-center justify-between gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 flex-shrink-0">
+        <span className="text-amber-700 font-medium">🔒 Caja cerrada — ábrela para vender</span>
+        <button onClick={() => { setOpenFloat(''); setOpenCashModal(true) }} className="bg-amber-500 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-600 whitespace-nowrap">Abrir caja</button>
+      </div>
+    )
+  ) : null
+
   return (
     <>
       {/* Toast feedback */}
@@ -694,6 +695,7 @@ export default function POSPage() {
       <div className="hidden lg:flex gap-6 h-[calc(100vh-6rem)]">
         <div className="flex-1 flex flex-col min-h-0">
           <h1 className="text-2xl font-bold text-[var(--color-text-dark)] mb-4 flex-shrink-0">Punto de Venta</h1>
+          {cashBar}
           {productsGrid}
         </div>
         <div className="w-96 flex-shrink-0">
@@ -706,6 +708,7 @@ export default function POSPage() {
       {/* Mobile layout */}
       <div className="lg:hidden flex flex-col h-[calc(100vh-7rem)]">
         <h1 className="text-xl font-bold text-[var(--color-text-dark)] mb-3 flex-shrink-0">Punto de Venta</h1>
+        {cashBar}
         {/* Mobile comanda tabs */}
         {comandaTabs}
         {productsGrid}
