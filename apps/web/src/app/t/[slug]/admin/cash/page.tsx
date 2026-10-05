@@ -1,13 +1,34 @@
 'use client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 
 export default function CashSessionsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
+  const queryClient = useQueryClient()
+
+  const permissions: string[] = (() => {
+    try {
+      const payload = token.split('.')[1]
+      const padded = payload + '='.repeat((4 - payload.length % 4) % 4)
+      return JSON.parse(atob(padded)).permissions ?? []
+    } catch { return [] }
+  })()
+  const canReopen = permissions.includes('users.manage')
 
   const { data } = useQuery({ queryKey: ['cash-sessions'], queryFn: () => api('/api/admin/cash-sessions?pageSize=60', { token }) })
+
+  const reopenMutation = useMutation({
+    mutationFn: (id: string) => api(`/api/admin/cash-session/${id}/reopen`, { method: 'POST', token }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-sessions'] })
+      queryClient.invalidateQueries({ queryKey: ['cash-session-current'] })
+    },
+  })
+
+  // Is there any open session? (reopen is only allowed when none is open)
+  const anyOpen = data?.items?.some((s: any) => s.status === 'open')
 
   const fmt = (n: any) => `$${Number(n ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
   const diffColor = (d: any) => Number(d) === 0 ? 'text-green-600' : Number(d) > 0 ? 'text-amber-600' : 'text-red-600'
@@ -38,6 +59,7 @@ export default function CashSessionsPage() {
                 <th className="p-3 table-header">Esperado</th>
                 <th className="p-3 table-header">Contado</th>
                 <th className="p-3 table-header">Diferencia</th>
+                {canReopen && <th className="p-3 table-header">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -57,6 +79,15 @@ export default function CashSessionsPage() {
                   <td className="p-3 text-center">{s.expectedCash != null ? fmt(s.expectedCash) : '—'}</td>
                   <td className="p-3 text-center">{s.closingCount != null ? fmt(s.closingCount) : '—'}</td>
                   <td className={`p-3 text-center font-medium ${s.difference != null ? diffColor(s.difference) : ''}`}>{s.difference != null ? diffLabel(s.difference) : '—'}</td>
+                  {canReopen && (
+                    <td className="p-3 text-center">
+                      {s.status === 'closed' && !anyOpen && (
+                        <button onClick={() => { if (confirm('¿Reabrir esta caja? Volverá a estar activa para registrar ventas.')) reopenMutation.mutate(s.id) }}
+                          disabled={reopenMutation.isPending}
+                          className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50">Reabrir</button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -85,6 +116,11 @@ export default function CashSessionsPage() {
                 <div className="flex justify-between"><span className="text-[var(--color-text)]">Contado</span><span>{s.closingCount != null ? fmt(s.closingCount) : '—'}</span></div>
                 {s.difference != null && <div className={`flex justify-between font-medium ${diffColor(s.difference)}`}><span>Diferencia</span><span>{diffLabel(s.difference)}</span></div>}
               </div>
+              {canReopen && s.status === 'closed' && !anyOpen && (
+                <button onClick={() => { if (confirm('¿Reabrir esta caja? Volverá a estar activa para registrar ventas.')) reopenMutation.mutate(s.id) }}
+                  disabled={reopenMutation.isPending}
+                  className="w-full mt-3 text-xs py-2 rounded-lg bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition-colors disabled:opacity-50">Reabrir caja</button>
+              )}
             </div>
           ))}
         </div>
