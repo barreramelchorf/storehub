@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 export default function DocumentsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
@@ -13,6 +14,7 @@ export default function DocumentsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const updateFileRef = useRef<HTMLInputElement>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<any>(null)
 
   const { data: docs } = useQuery({ queryKey: ['documents'], queryFn: () => api('/api/admin/documents', { token }) })
 
@@ -112,7 +114,7 @@ export default function DocumentsPage() {
                 >
                   {updateFileMutation.isPending && updatingId === d.id ? '...' : '📄 Actualizar'}
                 </button>
-                <button onClick={() => { if(confirm('¿Eliminar?')) deleteMutation.mutate(d.id) }} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Eliminar</button>
+                <button onClick={() => setDeleteTarget(d)} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Eliminar</button>
               </div>
             </div>
           ))}
@@ -120,6 +122,16 @@ export default function DocumentsPage() {
         {updateFileMutation.isSuccess && <p className="text-green-500 text-xs mt-2">✓ Documento actualizado</p>}
         {updateFileMutation.isError && <p className="text-red-500 text-xs mt-2">{(updateFileMutation.error as Error).message}</p>}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Eliminar documento"
+        message={`¿Eliminar "${deleteTarget?.name ?? ''}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

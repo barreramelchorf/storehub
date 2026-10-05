@@ -4,12 +4,14 @@ import { useState } from 'react'
 import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
 export default function CampaignsPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
+  const [deleteTarget, setDeleteTarget] = useState<any>(null)
 
   const emptyCampaign = { id: null as string | null, name: '', type: 'nxm' as 'nxm' | 'percentage', buy: '3', pay: '2', percent: '10', daysOfWeek: [] as number[], active: true, priority: 0, productIds: [] as string[], categoryIds: [] as string[] }
   const [form, setForm] = useState<typeof emptyCampaign | null>(null)
@@ -73,7 +75,7 @@ export default function CampaignsPage() {
                     productIds: (c.productLinks ?? []).map((l: any) => l.productId),
                     categoryIds: (c.categoryLinks ?? []).map((l: any) => l.categoryId),
                   })} className="btn-secondary text-xs px-2 py-1">Editar</button>
-                  <button onClick={() => { if (confirm(`¿Eliminar campaña "${c.name}"?`)) deleteMutation.mutate(c.id) }} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Eliminar</button>
+                  <button onClick={() => setDeleteTarget(c)} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Eliminar</button>
                 </div>
               </div>
             )
@@ -181,6 +183,16 @@ export default function CampaignsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Eliminar campaña"
+        message={`¿Eliminar la campaña "${deleteTarget?.name ?? ''}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

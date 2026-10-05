@@ -6,12 +6,14 @@ import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 import { ImageUpload } from '@/components/ImageUpload'
 import { AssignModal } from '@/components/AssignModal'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 import Link from 'next/link'
 
 export default function InventoryPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; confirmLabel?: string; onConfirm: () => void } | null>(null)
   const [tab, setTab] = useState<'products' | 'categories' | 'modifiers'>('products')
   const [modal, setModal] = useState<{ type: 'product' | 'category' | 'restock'; id: string | null } | null>(null)
   const [modalTab, setModalTab] = useState<'product' | 'modifier'>('product')
@@ -174,7 +176,7 @@ export default function InventoryPage() {
                       <div className="flex justify-center gap-1">
                         <button onClick={() => openRestock(p)} className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+Stock</button>
                         <button onClick={() => openEditProduct(p)} className="btn-secondary text-xs px-2 py-1">Editar</button>
-                        <button onClick={() => { if(confirm('¿Eliminar?')) deleteMutation.mutate(p.id) }} className="btn-danger">Eliminar</button>
+                        <button onClick={() => setConfirmAction({ title: 'Eliminar producto', message: `¿Eliminar ""?`, confirmLabel: 'Eliminar', onConfirm: () => deleteMutation.mutate(p.id) })} className="btn-danger">Eliminar</button>
                       </div>
                     </td>
                   </tr>
@@ -203,7 +205,7 @@ export default function InventoryPage() {
                 <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--color-border)]">
                   <button onClick={() => openRestock(p)} className="flex-1 text-xs py-2 rounded-lg bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition-colors">+ Reabastecer</button>
                   <button onClick={() => openEditProduct(p)} className="flex-1 text-xs py-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-dark)] font-medium hover:bg-gray-100 transition-colors">Editar</button>
-                  <button onClick={() => { if(confirm('¿Eliminar?')) deleteMutation.mutate(p.id) }} className="text-xs py-2 px-3 rounded-lg bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors">🗑️</button>
+                  <button onClick={() => setConfirmAction({ title: 'Eliminar producto', message: `¿Eliminar ""?`, confirmLabel: 'Eliminar', onConfirm: () => deleteMutation.mutate(p.id) })} className="text-xs py-2 px-3 rounded-lg bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors">🗑️</button>
                 </div>
               </div>
             ))}
@@ -226,7 +228,7 @@ export default function InventoryPage() {
                       <div className="flex justify-center gap-1">
                         <button onClick={() => setCategoryProductsModal({ categoryId: c.id, categoryName: c.name })} className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">Productos</button>
                         <button onClick={() => openEditCategory(c)} className="btn-secondary text-xs px-2 py-1">Editar</button>
-                        <button onClick={() => { if(confirm('¿Eliminar?')) catDeleteMutation.mutate(c.id) }} className="btn-danger">Eliminar</button>
+                        <button onClick={() => setConfirmAction({ title: 'Eliminar categoría', message: `¿Eliminar ""?`, confirmLabel: 'Eliminar', onConfirm: () => catDeleteMutation.mutate(c.id) })} className="btn-danger">Eliminar</button>
                       </div>
                     </td>
                   </tr>
@@ -254,12 +256,15 @@ export default function InventoryPage() {
                     <h3 className="text-sm font-semibold text-[var(--color-text-dark)]">{g.name}</h3>
                     <div className="flex gap-1">
                       <button onClick={() => setModifierModalForm({ type: 'rename', groupId: g.id, groupName: g.name, name: g.name, price: '' })} className="btn-secondary text-xs px-2 py-1">Renombrar</button>
-                      <button onClick={async () => {
-                        if (confirm(`¿Eliminar grupo "${g.name}" y todas sus opciones?`)) {
+                      <button onClick={() => setConfirmAction({
+                        title: 'Eliminar grupo',
+                        message: `¿Eliminar el grupo "${g.name}" y todas sus opciones?`,
+                        confirmLabel: 'Eliminar',
+                        onConfirm: async () => {
                           await api(`/api/admin/modifiers/${g.id}`, { method: 'DELETE', token })
                           queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-                        }
-                      }} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100">Eliminar</button>
+                        },
+                      })} className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100">Eliminar</button>
                     </div>
                   </div>
 
@@ -270,12 +275,15 @@ export default function InventoryPage() {
                         <span className="text-sm text-[var(--color-text-dark)]">{opt.name}</span>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-medium text-[var(--color-primary)]">+${Number(opt.price).toFixed(2)}</span>
-                          <button onClick={async () => {
-                            if (confirm(`¿Eliminar "${opt.name}"?`)) {
+                          <button onClick={() => setConfirmAction({
+                            title: 'Eliminar opción',
+                            message: `¿Eliminar "${opt.name}"?`,
+                            confirmLabel: 'Eliminar',
+                            onConfirm: async () => {
                               await api(`/api/admin/modifiers/options/${opt.id}`, { method: 'DELETE', token })
                               queryClient.invalidateQueries({ queryKey: ['modifiers'] })
-                            }
-                          }} className="text-xs text-red-500 hover:text-red-700">✕</button>
+                            },
+                          })} className="text-xs text-red-500 hover:text-red-700">✕</button>
                         </div>
                       </div>
                     ))}
@@ -563,6 +571,15 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.title ?? ''}
+        message={confirmAction?.message ?? ''}
+        confirmLabel={confirmAction?.confirmLabel ?? 'Confirmar'}
+        onConfirm={() => { confirmAction?.onConfirm(); setConfirmAction(null) }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   )
 }

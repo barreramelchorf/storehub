@@ -5,11 +5,13 @@ import { api } from '@/lib/api'
 import { getAuthStore } from '@/lib/store'
 import { useParams } from 'next/navigation'
 import { passwordRequirements } from '@storehub/schemas'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 export default function UsersPage() {
   const params = useParams(); const token = getAuthStore(params.slug as string)(s => s.token)!
   const queryClient = useQueryClient()
   const [modal, setModal] = useState<{ id: string | null } | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<any>(null)
   const [form, setForm] = useState({ email: '', username: '', password: '', roleId: '', mustChangePassword: true })
   const [showPassword, setShowPassword] = useState(false)
 
@@ -53,7 +55,7 @@ export default function UsersPage() {
                 <td className="p-3 text-center">
                   <div className="flex justify-center gap-1">
                     <button onClick={() => openEdit(u)} className="btn-secondary text-xs px-2 py-1">Editar</button>
-                    <button onClick={() => { if(confirm('¿Desactivar usuario? No podrá iniciar sesión.')) deleteMutation.mutate(u.id) }} className="btn-danger">{u.active ? 'Desactivar' : 'Inactivo'}</button>
+                    <button onClick={() => { if (u.active) setDeactivateTarget(u) }} className="btn-danger">{u.active ? 'Desactivar' : 'Inactivo'}</button>
                   </div>
                 </td>
               </tr>
@@ -80,7 +82,7 @@ export default function UsersPage() {
             </div>
             <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--color-border)]">
               <button onClick={() => openEdit(u)} className="flex-1 text-xs py-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-dark)] font-medium hover:bg-gray-100 transition-colors">Editar</button>
-              <button onClick={() => { if(confirm('¿Desactivar usuario? No podrá iniciar sesión.')) deleteMutation.mutate(u.id) }} className="text-xs py-2 px-3 rounded-lg bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors">{u.active ? 'Desactivar' : 'Inactivo'}</button>
+              <button onClick={() => { if (u.active) setDeactivateTarget(u) }} className="text-xs py-2 px-3 rounded-lg bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors">{u.active ? 'Desactivar' : 'Inactivo'}</button>
             </div>
           </div>
         ))}
@@ -150,6 +152,16 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deactivateTarget}
+        title="Desactivar usuario"
+        message={`${deactivateTarget?.username || deactivateTarget?.email || 'Este usuario'} no podrá iniciar sesión. ¿Continuar?`}
+        confirmLabel="Desactivar"
+        loading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(deactivateTarget.id, { onSuccess: () => setDeactivateTarget(null) })}
+        onCancel={() => setDeactivateTarget(null)}
+      />
     </div>
   )
 }
