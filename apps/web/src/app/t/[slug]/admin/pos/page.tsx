@@ -666,20 +666,24 @@ export default function POSPage() {
     </div>
   )
 
-  // Cash session status bar — rendered in the POS header (always visible,
-  // independent of the cart) so open/close is reachable even with no cart.
-  const cashBar = cashSessionsEnabled ? (
-    cashSessionOpen ? (
-      <div className="flex items-center justify-between gap-2 text-sm bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 flex-shrink-0">
-        <span className="text-green-700 font-medium">🧰 Caja abierta · fondo ${Number(currentCashSession.openingFloat).toFixed(0)}</span>
-        <button onClick={() => { setCloseReport(null); setCloseCount(''); setCloseCashModal(true) }} className="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-green-700 whitespace-nowrap">Cerrar caja</button>
-      </div>
-    ) : (
-      <div className="flex items-center justify-between gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 flex-shrink-0">
-        <span className="text-amber-700 font-medium">🔒 Caja cerrada — ábrela para vender</span>
-        <button onClick={() => { setOpenFloat(''); setOpenCashModal(true) }} className="bg-amber-500 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-600 whitespace-nowrap">Abrir caja</button>
-      </div>
-    )
+  // Cash session UI (A+B): compact chip when open (keeps product space),
+  // prominent banner only when closed (sales are blocked anyway).
+  // Chip goes inline next to the title; banner is a full-width row.
+  const cashChip = cashSessionsEnabled && cashSessionOpen ? (
+    <button
+      onClick={() => { setCloseReport(null); setCloseCount(''); setCloseCashModal(true) }}
+      title={`Caja abierta · fondo $${Number(currentCashSession.openingFloat).toFixed(0)} — toca para cerrar`}
+      className="flex items-center gap-1 text-xs font-medium bg-green-50 text-green-700 border border-green-200 rounded-full px-2.5 py-1 hover:bg-green-100 transition-colors whitespace-nowrap"
+    >
+      🧰 Caja
+    </button>
+  ) : null
+
+  const cashClosedBanner = cashSessionsEnabled && !cashSessionOpen ? (
+    <div className="flex items-center justify-between gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 flex-shrink-0">
+      <span className="text-amber-700 font-medium">🔒 Caja cerrada — ábrela para vender</span>
+      <button onClick={() => { setOpenFloat(''); setOpenCashModal(true) }} className="bg-amber-500 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-600 whitespace-nowrap">Abrir caja</button>
+    </div>
   ) : null
 
   return (
@@ -694,8 +698,11 @@ export default function POSPage() {
       {/* Desktop layout */}
       <div className="hidden lg:flex gap-6 h-[calc(100vh-6rem)]">
         <div className="flex-1 flex flex-col min-h-0">
-          <h1 className="text-2xl font-bold text-[var(--color-text-dark)] mb-4 flex-shrink-0">Punto de Venta</h1>
-          {cashBar}
+          <div className="flex items-center gap-3 mb-4 flex-shrink-0">
+            <h1 className="text-2xl font-bold text-[var(--color-text-dark)]">Punto de Venta</h1>
+            {cashChip}
+          </div>
+          {cashClosedBanner}
           {productsGrid}
         </div>
         <div className="w-96 flex-shrink-0">
@@ -707,8 +714,11 @@ export default function POSPage() {
 
       {/* Mobile layout */}
       <div className="lg:hidden flex flex-col h-[calc(100vh-7rem)]">
-        <h1 className="text-xl font-bold text-[var(--color-text-dark)] mb-3 flex-shrink-0">Punto de Venta</h1>
-        {cashBar}
+        <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+          <h1 className="text-xl font-bold text-[var(--color-text-dark)]">Punto de Venta</h1>
+          {cashChip}
+        </div>
+        {cashClosedBanner}
         {/* Mobile comanda tabs */}
         {comandaTabs}
         {productsGrid}
