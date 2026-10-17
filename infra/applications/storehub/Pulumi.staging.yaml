@@ -50,7 +50,7 @@ config:
   storehub:hpa:
     api:
       minReplicas: 1
-      maxReplicas: 2
+      maxReplicas: 1
       cpuTarget: 80
     web:
       minReplicas: 1
