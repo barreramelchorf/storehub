@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation'
 import { DatePicker } from '@/components/DatePicker'
 
 interface CartItem { productId: string; name: string; price: number; quantity: number; modifiers?: Array<{ id: string; name: string; price: number }> }
-interface Comanda { id: string; name: string; cart: CartItem[]; discount: number; tip: number; paymentMethod: string }
+interface Comanda { id: string; name: string; cart: CartItem[]; discount: number; tip: number; paymentMethod: string; fromSplit?: boolean }
 interface ComandasState { comandas: Comanda[]; activeId: string }
 
 const CART_KEY = 'storehub-cart'
@@ -132,6 +132,11 @@ export default function POSPage() {
   const [comandasLoaded, setComandasLoaded] = useState(false)
   const [editingName, setEditingName] = useState<string | null>(null)
   const renameRef = useRef<HTMLInputElement>(null)
+
+  // Split-comanda state: when active, each cart line shows a stepper for how many
+  // units to move to a brand-new comanda. selection maps cart index -> qty to move.
+  const [splitMode, setSplitMode] = useState(false)
+  const [splitSelection, setSplitSelection] = useState<Record<number, number>>({})
 
   // Single cart state (used when multicomanda OFF)
   const [singleCart, setSingleCart] = useState<CartItem[]>([])
@@ -353,7 +358,11 @@ export default function POSPage() {
   }
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0)
-  const campaignResult = calculateCampaignDiscount(cart, campaigns ?? [])
+  // Campaign promos only apply to simple (non-split) comandas — splitting a bill
+  // would create ambiguity over which half earns a NxM/percentage offer.
+  const campaignResult = (multicomandaEnabled && activeComanda?.fromSplit)
+    ? { totalDiscount: 0, applied: [] }
+    : calculateCampaignDiscount(cart, campaigns ?? [])
   const total = subtotal - discount - campaignResult.totalDiscount + tip
   const itemCount = cart.reduce((s, i) => s + i.quantity, 0)
 
@@ -383,7 +392,58 @@ export default function POSPage() {
     setComandasState(prev => ({ comandas: [...prev.comandas, newComanda], activeId: newComanda.id }))
   }
 
+  // --- Split comanda ---
+  // Next auto-name "Comanda N" avoiding collisions with existing "Comanda <num>" names.
+  const nextComandaName = () => {
+    let max = comandasState.comandas.length
+    for (const c of comandasState.comandas) {
+      const m = /^Comanda (\d+)$/.exec(c.name)
+      if (m) max = Math.max(max, Number(m[1]))
+    }
+    return `Comanda ${max + 1}`
+  }
+  const enterSplitMode = () => { setSplitSelection({}); setSplitMode(true) }
+  const cancelSplit = () => { setSplitMode(false); setSplitSelection({}) }
+  const setSplitQty = (idx: number, qty: number, max: number) => {
+    const clamped = Math.max(0, Math.min(qty, max))
+    setSplitSelection(prev => {
+      const next = { ...prev }
+      if (clamped <= 0) delete next[idx]
+      else next[idx] = clamped
+      return next
+    })
+  }
+  const splitSelectedCount = Object.values(splitSelection).reduce((s, n) => s + n, 0)
+  const confirmSplit = () => {
+    if (!activeComanda || splitSelectedCount <= 0) return
+    // Build the moved items (respecting per-line quantities + modifiers) and
+    // the remaining cart for the original comanda.
+    const movedItems: CartItem[] = []
+    const remainingCart: CartItem[] = []
+    activeComanda.cart.forEach((item, idx) => {
+      const moveQty = splitSelection[idx] ?? 0
+      if (moveQty > 0) movedItems.push({ ...item, quantity: moveQty })
+      const keepQty = item.quantity - moveQty
+      if (keepQty > 0) remainingCart.push({ ...item, quantity: keepQty })
+    })
+    if (movedItems.length === 0) return
+    const newComanda: Comanda = {
+      id: generateId(), name: nextComandaName(), cart: movedItems,
+      discount: 0, tip: 0, paymentMethod: 'cash', fromSplit: true,
+    }
+    setComandasState(prev => ({
+      ...prev,
+      comandas: prev.comandas.map(c =>
+        c.id === prev.activeId ? { ...c, cart: remainingCart, fromSplit: true } : c
+      ).concat(newComanda),
+      activeId: newComanda.id,
+    }))
+    setSplitMode(false); setSplitSelection({})
+    setToast(`✂️ ${movedItems.reduce((s, i) => s + i.quantity, 0)} producto(s) movido(s) a ${newComanda.name}`)
+  }
+
   const switchComanda = (id: string) => {
+    setSplitMode(false); setSplitSelection({})
     setComandasState(prev => ({ ...prev, activeId: id }))
   }
 
@@ -536,6 +596,9 @@ export default function POSPage() {
                   title="Imprimir cuenta (antes del pago)">🧾</button>
               )}
               <button onClick={() => setNotesModalOpen(true)} className={`transition-colors ${notes ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)] opacity-50 hover:opacity-100'}`} title={notes ? 'Editar nota' : 'Agregar nota'}>📝</button>
+              {multicomandaEnabled && itemCount > 1 && !splitMode && (
+                <button onClick={enterSplitMode} className="text-[var(--color-text)] opacity-50 hover:opacity-100 transition-opacity" title="Dividir comanda">✂️</button>
+              )}
               <button onClick={() => {
                 if (cart.length > 0) {
                   setConfirmAction({
@@ -573,9 +636,20 @@ export default function POSPage() {
               <p className="text-[11px] text-[var(--color-text)]">${item.price.toFixed(2)} c/u</p>
             </div>
             <div className="flex items-center gap-1.5 ml-2">
-              <button onClick={() => updateQty(idx, item.quantity - 1)} className="w-5 h-5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] flex items-center justify-center hover:bg-gray-100">−</button>
-              <span className="text-xs font-bold w-3 text-center">{item.quantity}</span>
-              <button onClick={() => updateQty(idx, item.quantity + 1)} className="w-5 h-5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] flex items-center justify-center hover:bg-gray-100">+</button>
+              {splitMode ? (
+                <div className="flex items-center gap-1" title="Unidades a mover a la nueva comanda">
+                  <span className="text-[10px] text-[var(--color-text)]">mover</span>
+                  <button onClick={() => setSplitQty(idx, (splitSelection[idx] ?? 0) - 1, item.quantity)} className="w-5 h-5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] flex items-center justify-center hover:bg-gray-100">−</button>
+                  <span className={`text-xs font-bold w-6 text-center ${(splitSelection[idx] ?? 0) > 0 ? 'text-[var(--color-primary)]' : ''}`}>{splitSelection[idx] ?? 0}/{item.quantity}</span>
+                  <button onClick={() => setSplitQty(idx, (splitSelection[idx] ?? 0) + 1, item.quantity)} className="w-5 h-5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] flex items-center justify-center hover:bg-gray-100">+</button>
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => updateQty(idx, item.quantity - 1)} className="w-5 h-5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] flex items-center justify-center hover:bg-gray-100">−</button>
+                  <span className="text-xs font-bold w-3 text-center">{item.quantity}</span>
+                  <button onClick={() => updateQty(idx, item.quantity + 1)} className="w-5 h-5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[10px] flex items-center justify-center hover:bg-gray-100">+</button>
+                </>
+              )}
             </div>
             <p className="text-sm font-bold ml-2 w-14 text-right">${(item.price * item.quantity).toFixed(2)}</p>
           </div>
@@ -583,7 +657,27 @@ export default function POSPage() {
         })}
       </div>
 
-      {cart.length > 0 && (
+      {splitMode && (
+        <div className="border-t border-[var(--color-border)] pt-2 mt-1 space-y-2 flex-shrink-0">
+          <p className="text-[11px] text-[var(--color-text)]">Elige cuántas unidades mover a una <span className="font-semibold">comanda nueva</span>. El resto queda en <span className="font-semibold">{activeComanda?.name}</span>.</p>
+          <div className="flex items-center justify-between text-xs font-medium">
+            <span>Seleccionados: <span className="text-[var(--color-primary)] font-bold">{splitSelectedCount}</span> / {itemCount}</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={cancelSplit} className="btn-secondary flex-1 py-2 text-sm">Cancelar</button>
+            <button onClick={confirmSplit} disabled={splitSelectedCount <= 0 || splitSelectedCount >= itemCount}
+              className="btn-primary flex-1 py-2 text-sm disabled:opacity-40"
+              title={splitSelectedCount >= itemCount ? 'No puedes mover todos los productos; dejaría la comanda vacía' : ''}>
+              ✂️ Dividir a comanda nueva
+            </button>
+          </div>
+          {splitSelectedCount >= itemCount && itemCount > 0 && (
+            <p className="text-[10px] text-red-500">No puedes mover todos los productos — la comanda original quedaría vacía.</p>
+          )}
+        </div>
+      )}
+
+      {!splitMode && cart.length > 0 && (
         <div className="border-t border-[var(--color-border)] pt-2 mt-1 space-y-1.5 flex-shrink-0">
           <div className="grid grid-cols-2 gap-2">
             <div><label className="label text-[10px]">Descuento</label><input type="number" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} className="input py-1 text-sm" placeholder="$0" /></div>
