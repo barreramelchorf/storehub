@@ -26,7 +26,7 @@ import { platformRoutes } from "./routes/platform.js"
 import { webhookRoutes } from './routes/webhooks.js'
 import { publicRoutes } from './routes/public.js'
 import { storageRoutes } from './routes/storage.js'
-import { loyaltyPublicRoutes } from './routes/loyalty-public.js'
+import { loyaltyPublicRoutes, loyaltyPassRoutes } from './routes/loyalty-public.js'
 import { loyaltyAdminRoutes } from './routes/loyalty-admin.js'
 import { loyaltyAppleWsRoutes } from './routes/loyalty-apple-ws.js'
 import { resolveTenant } from './middleware/tenant.js'
@@ -70,6 +70,10 @@ await app.register(webhookRoutes)
 // Apple Wallet web service (no tenant scope: device knows only passTypeId +
 // serialNumber; auth is the per-pass ApplePass token). Contract fixed by Apple.
 await app.register(loyaltyAppleWsRoutes)
+
+// Loyalty pass downloads (no tenant scope: opened directly by the browser from
+// the platform domain; tenant is resolved from the card id, not the host).
+await app.register(loyaltyPassRoutes)
 
 // Tenant-scoped routes
 await app.register(async (tenantApp) => {

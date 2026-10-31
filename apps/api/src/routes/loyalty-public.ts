@@ -89,7 +89,15 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
       googleUrl: isGoogleConfigured() ? `${base}/api/public/loyalty/card/${card.id}/google` : null,
     })
   })
+}
 
+/**
+ * Pass download routes — NOT tenant-scoped. These are opened directly by the
+ * browser ("Add to Wallet") against the platform domain, so there's no
+ * x-tenant-slug header. The tenant is implied by the card id itself, so we
+ * resolve everything from the card without needing resolveTenant.
+ */
+export async function loyaltyPassRoutes(app: FastifyInstance) {
   // Apple .pkpass download
   app.get('/api/public/loyalty/card/:id/apple.pkpass', async (request, reply) => {
     if (!isAppleConfigured()) return reply.code(503).send({ error: 'Apple Wallet no configurado' })
