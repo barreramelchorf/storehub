@@ -26,6 +26,9 @@ import { platformRoutes } from "./routes/platform.js"
 import { webhookRoutes } from './routes/webhooks.js'
 import { publicRoutes } from './routes/public.js'
 import { storageRoutes } from './routes/storage.js'
+import { loyaltyPublicRoutes } from './routes/loyalty-public.js'
+import { loyaltyAdminRoutes } from './routes/loyalty-admin.js'
+import { loyaltyAppleWsRoutes } from './routes/loyalty-apple-ws.js'
 import { resolveTenant } from './middleware/tenant.js'
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
@@ -64,6 +67,10 @@ await app.register(async (tenantApp) => {
 await app.register(platformRoutes)
 await app.register(webhookRoutes)
 
+// Apple Wallet web service (no tenant scope: device knows only passTypeId +
+// serialNumber; auth is the per-pass ApplePass token). Contract fixed by Apple.
+await app.register(loyaltyAppleWsRoutes)
+
 // Tenant-scoped routes
 await app.register(async (tenantApp) => {
   tenantApp.addHook("preHandler", resolveTenant)
@@ -84,6 +91,8 @@ await app.register(async (tenantApp) => {
   await tenantApp.register(profileRoutes)
   await tenantApp.register(auditRoutes)
   await tenantApp.register(settingsRoutes)
+  await tenantApp.register(loyaltyPublicRoutes)
+  await tenantApp.register(loyaltyAdminRoutes)
 })
 
 const port = Number(process.env.PORT ?? 3001)

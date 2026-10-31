@@ -139,3 +139,46 @@ export const createUserSchema = z.object({
 })
 
 export const slugSchema = z.string().regex(/^[a-z0-9-]+$/).min(2).max(63)
+
+// ─── Loyalty (Apple/Google Wallet) ──────────────────────────────────────────
+
+// Public self-enrollment (cliente se auto-registra en la página pública)
+export const loyaltyEnrollSchema = z.object({
+  customerName: z.string().min(1, 'El nombre es requerido').max(120),
+  customerEmail: z.string().email('Correo inválido').optional().or(z.literal('')),
+  customerPhone: z.string().min(7, 'Teléfono inválido').max(20).optional().or(z.literal('')),
+}).refine((d) => (d.customerEmail && d.customerEmail !== '') || (d.customerPhone && d.customerPhone !== ''), {
+  message: 'Proporciona al menos un correo o un teléfono',
+})
+
+// Program config (admin)
+export const loyaltyProgramSchema = z.object({
+  name: z.string().min(1).max(100),
+  active: z.boolean().default(true),
+  pointsPerVisit: z.number().int().min(1).max(1000).default(1),
+  rewardThreshold: z.number().int().min(1).max(100000).nullable().optional(),
+  rewardDescription: z.string().max(300).nullable().optional(),
+  branding: z.object({
+    logoUrl: z.string().url().optional(),
+    bgColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    fgColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    labelColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  }).default({}),
+})
+
+// Scan a card (cajero) — the QR payload is the card id
+export const loyaltyScanSchema = z.object({
+  cardId: z.string().uuid('cardId inválido'),
+})
+
+// Manual points adjustment (admin) — note required for auditability
+export const loyaltyAdjustSchema = z.object({
+  points: z.number().int().refine((n) => n !== 0, { message: 'El ajuste no puede ser 0' }),
+  note: z.string().min(1, 'La nota es requerida para ajustes manuales').max(300),
+})
+
+// Offer campaign (admin) — updates the "Oferta" field on all active cards
+export const loyaltyCampaignSchema = z.object({
+  message: z.string().min(1, 'El mensaje es requerido').max(200),
+  expiresAt: z.string().datetime().nullable().optional(),
+})

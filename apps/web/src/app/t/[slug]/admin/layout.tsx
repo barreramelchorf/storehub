@@ -41,6 +41,7 @@ export default function TenantAdminLayout({ children }: { children: React.ReactN
     { href: `${base}/cash`, label: 'Caja', icon: '🧰', permission: 'cash.view', module: 'cashSessions' },
     { href: `${base}/inventory`, label: 'Inventario', icon: '📦', permission: 'inventory.view' },
     { href: `${base}/campaigns`, label: 'Campañas', icon: '🎁', permission: 'inventory.manage' },
+    { href: `${base}/loyalty`, label: 'Lealtad', icon: '🎟️', permission: 'loyalty.manage', module: 'loyalty' },
     { href: `${base}/analytics`, label: 'Analytics', icon: '📈', permission: 'analytics.view' },
     { href: `${base}/approvals`, label: 'Aprobaciones', icon: '✅', permission: 'users.manage' },
     { href: `${base}/documents`, label: 'Documentos', icon: '📄', permission: 'documents.manage' },

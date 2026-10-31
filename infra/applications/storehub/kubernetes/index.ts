@@ -31,6 +31,19 @@ export interface AppResourcesArgs {
   runSeed?: boolean;
   ingressHost?: string;
   customDomains?: { host: string; tenantSlug: string }[];
+  // --- Loyalty / Wallet (optional; module degrades gracefully if unset) ---
+  applePassTypeId?: string;
+  appleTeamId?: string;
+  applePassCert?: pulumi.Input<string>;
+  applePassKey?: pulumi.Input<string>;
+  applePassCertPassword?: pulumi.Input<string>;
+  appleWwdrCert?: pulumi.Input<string>;
+  applePassOrgName?: string;
+  googleWalletIssuerId?: string;
+  googleWalletSaJson?: pulumi.Input<string>;
+  loyaltyWebServiceUrl?: string;
+  loyaltyPushRateMax?: string;
+  loyaltyPushRateMs?: string;
 }
 
 export function createAppResources(args: AppResourcesArgs) {
@@ -53,6 +66,12 @@ export function createAppResources(args: AppResourcesArgs) {
       MINIO_ACCESS_KEY: args.minioAccessKey,
       MINIO_SECRET_KEY: args.minioSecretKey,
       ...(args.resendApiKey && { RESEND_API_KEY: args.resendApiKey }),
+      // Loyalty / Wallet secrets (optional). Multiline PEMs are fine in a Secret.
+      ...(args.applePassCert && { APPLE_PASS_CERT: args.applePassCert }),
+      ...(args.applePassKey && { APPLE_PASS_KEY: args.applePassKey }),
+      ...(args.applePassCertPassword && { APPLE_PASS_CERT_PASSWORD: args.applePassCertPassword }),
+      ...(args.appleWwdrCert && { APPLE_WWDR_CERT: args.appleWwdrCert }),
+      ...(args.googleWalletSaJson && { GOOGLE_WALLET_SA_JSON: args.googleWalletSaJson }),
     },
   });
 
@@ -73,6 +92,15 @@ export function createAppResources(args: AppResourcesArgs) {
       PLATFORM_API_KEY: args.platformApiKey,
       DEFAULT_TENANT_SLUG: args.defaultTenantSlug ?? "",
       PORT: "3001",
+      // Loyalty / Wallet non-secret config (IDs, names, tuning). Empty string
+      // when unset → config.ts treats empty as "not configured" and degrades.
+      APPLE_PASS_TYPE_ID: args.applePassTypeId ?? "",
+      APPLE_TEAM_ID: args.appleTeamId ?? "",
+      APPLE_PASS_ORG_NAME: args.applePassOrgName ?? "StoreHub",
+      GOOGLE_WALLET_ISSUER_ID: args.googleWalletIssuerId ?? "",
+      LOYALTY_WEB_SERVICE_URL: args.loyaltyWebServiceUrl ?? "",
+      LOYALTY_PUSH_RATE_MAX: args.loyaltyPushRateMax ?? "10",
+      LOYALTY_PUSH_RATE_MS: args.loyaltyPushRateMs ?? "1000",
     },
   });
 

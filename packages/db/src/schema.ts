@@ -248,6 +248,98 @@ export const campaignCategories = pgTable('campaign_categories', {
   index('campaign_categories_campaign_idx').on(t.campaignId),
 ])
 
+// ─── Loyalty (Apple/Google Wallet passes) ───────────────────────────────────
+// Módulo INDEPENDIENTE del POS. Un tenant puede tener solo lealtad, solo POS, o ambos.
+// No depende de la tabla `sales`. Gateado por config.modules.loyalty (default false).
+
+export const loyaltyPlatformEnum = pgEnum('loyalty_platform', ['apple', 'google', 'unknown'])
+export const loyaltyCardStatusEnum = pgEnum('loyalty_card_status', ['active', 'blocked'])
+export const loyaltyTxTypeEnum = pgEnum('loyalty_tx_type', ['earn', 'redeem', 'adjust'])
+export const loyaltyCampaignStatusEnum = pgEnum('loyalty_campaign_status', ['pending', 'sending', 'sent', 'failed'])
+
+// Loyalty Programs (uno por tenant en v1)
+export const loyaltyPrograms = pgTable('loyalty_programs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  active: boolean('active').notNull().default(true),
+  pointsPerVisit: integer('points_per_visit').notNull().default(1),
+  rewardThreshold: integer('reward_threshold'),
+  rewardDescription: text('reward_description'),
+  // branding jsonb: { logoUrl, bgColor, fgColor, labelColor }
+  branding: jsonb('branding').notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  unique('loyalty_programs_tenant_unique').on(t.tenantId),
+  index('loyalty_programs_tenant_idx').on(t.tenantId),
+])
+
+// Loyalty Cards (una por cliente inscrito)
+export const loyaltyCards = pgTable('loyalty_cards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  programId: uuid('program_id').notNull().references(() => loyaltyPrograms.id, { onDelete: 'cascade' }),
+  customerName: text('customer_name').notNull(),
+  customerEmail: text('customer_email'),
+  customerPhone: text('customer_phone'),
+  points: integer('points').notNull().default(0),
+  totalVisits: integer('total_visits').notNull().default(0),
+  serialNumber: text('serial_number').notNull().unique(),
+  authToken: text('auth_token').notNull(),
+  platform: loyaltyPlatformEnum('platform').notNull().default('unknown'),
+  status: loyaltyCardStatusEnum('status').notNull().default('active'),
+  lastScanAt: timestamp('last_scan_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('loyalty_cards_tenant_idx').on(t.tenantId),
+  index('loyalty_cards_serial_idx').on(t.serialNumber),
+  index('loyalty_cards_tenant_phone_idx').on(t.tenantId, t.customerPhone),
+])
+
+// Loyalty Transactions (log de movimientos de puntos, auditoría)
+export const loyaltyTransactions = pgTable('loyalty_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  cardId: uuid('card_id').notNull().references(() => loyaltyCards.id, { onDelete: 'cascade' }),
+  type: loyaltyTxTypeEnum('type').notNull(),
+  points: integer('points').notNull(),
+  balanceAfter: integer('balance_after').notNull(),
+  performedBy: uuid('performed_by').references(() => users.id),
+  note: text('note'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('loyalty_transactions_card_idx').on(t.cardId),
+  index('loyalty_transactions_tenant_idx').on(t.tenantId),
+])
+
+// Apple Pass Registrations (dispositivos para push, requerido por el web service de Apple)
+export const applePassRegistrations = pgTable('apple_pass_registrations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  cardId: uuid('card_id').notNull().references(() => loyaltyCards.id, { onDelete: 'cascade' }),
+  deviceLibraryId: text('device_library_id').notNull(),
+  pushToken: text('push_token').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  unique('apple_pass_registrations_unique').on(t.cardId, t.deviceLibraryId),
+  index('apple_pass_registrations_card_idx').on(t.cardId),
+])
+
+// Loyalty Campaigns (campañas de oferta -> actualizan el campo "Oferta" del pase)
+export const loyaltyCampaigns = pgTable('loyalty_campaigns', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  programId: uuid('program_id').notNull().references(() => loyaltyPrograms.id, { onDelete: 'cascade' }),
+  message: text('message').notNull(),
+  expiresAt: timestamp('expires_at'),
+  status: loyaltyCampaignStatusEnum('status').notNull().default('pending'),
+  targetCount: integer('target_count').notNull().default(0),
+  sentCount: integer('sent_count').notNull().default(0),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('loyalty_campaigns_tenant_status_idx').on(t.tenantId, t.status),
+])
+
 // Relations
 export const usersRelations = relations(users, ({ one }) => ({
   role: one(roles, { fields: [users.roleId], references: [roles.id] }),
@@ -300,4 +392,30 @@ export const campaignProductsRelations = relations(campaignProducts, ({ one }) =
 export const campaignCategoriesRelations = relations(campaignCategories, ({ one }) => ({
   campaign: one(campaigns, { fields: [campaignCategories.campaignId], references: [campaigns.id] }),
   category: one(categories, { fields: [campaignCategories.categoryId], references: [categories.id] }),
+}))
+
+// Loyalty relations
+export const loyaltyProgramsRelations = relations(loyaltyPrograms, ({ many }) => ({
+  cards: many(loyaltyCards),
+  campaigns: many(loyaltyCampaigns),
+}))
+
+export const loyaltyCardsRelations = relations(loyaltyCards, ({ one, many }) => ({
+  program: one(loyaltyPrograms, { fields: [loyaltyCards.programId], references: [loyaltyPrograms.id] }),
+  transactions: many(loyaltyTransactions),
+  registrations: many(applePassRegistrations),
+}))
+
+export const loyaltyTransactionsRelations = relations(loyaltyTransactions, ({ one }) => ({
+  card: one(loyaltyCards, { fields: [loyaltyTransactions.cardId], references: [loyaltyCards.id] }),
+  performer: one(users, { fields: [loyaltyTransactions.performedBy], references: [users.id] }),
+}))
+
+export const applePassRegistrationsRelations = relations(applePassRegistrations, ({ one }) => ({
+  card: one(loyaltyCards, { fields: [applePassRegistrations.cardId], references: [loyaltyCards.id] }),
+}))
+
+export const loyaltyCampaignsRelations = relations(loyaltyCampaigns, ({ one }) => ({
+  program: one(loyaltyPrograms, { fields: [loyaltyCampaigns.programId], references: [loyaltyPrograms.id] }),
+  creator: one(users, { fields: [loyaltyCampaigns.createdBy], references: [users.id] }),
 }))

@@ -26,6 +26,7 @@
     "jose": "5.9.6",
     "mercadopago": "^3.4.0",
     "minio": "8.0.2",
+    "passkit-generator": "3.7.0",
     "pino": "9.5.0",
     "postgres": "3.4.5",
     "resend": "^6.17.2",
