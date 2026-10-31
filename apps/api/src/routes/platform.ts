@@ -44,16 +44,28 @@ export async function platformRoutes(app: FastifyInstance) {
   })
 
   app.get('/api/platform/tenants', async () => {
-    return db.query.tenants.findMany({ columns: { id: true, slug: true, name: true, giro: true, customDomain: true, createdAt: true } })
+    return db.query.tenants.findMany({ columns: { id: true, slug: true, name: true, giro: true, customDomain: true, config: true, createdAt: true } })
   })
 
   app.put('/api/platform/tenants/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { name, customDomain, giro } = request.body as any
+    const { name, customDomain, giro, loyaltyEnabled } = request.body as any
     const updates: any = {}
     if (name) updates.name = name
     if (customDomain !== undefined) updates.customDomain = customDomain || null
     if (giro) updates.giro = giro
+
+    // Loyalty is a StoreHub-sold add-on toggled centrally from the platform
+    // panel (NOT by the tenant). Merge into config.modules so we don't clobber
+    // branding/contact/other modules the tenant owns.
+    if (loyaltyEnabled !== undefined) {
+      const current = await db.query.tenants.findFirst({ where: (t, { eq }) => eq(t.id, id), columns: { config: true } })
+      const config = (current?.config as any) ?? {}
+      updates.config = {
+        ...config,
+        modules: { ...(config.modules ?? {}), loyalty: Boolean(loyaltyEnabled) },
+      }
+    }
 
     const [updated] = await db.update(tenants).set(updates).where(eq(tenants.id, id)).returning()
     if (!updated) return reply.code(404).send({ error: 'Tenant not found' })
