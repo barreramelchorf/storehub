@@ -141,6 +141,13 @@
       "when": 1791000300000,
       "tag": "0019_add_loyalty_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791000400000,
+      "tag": "0020_add_pass_updated_at",
+      "breakpoints": true
     }
   ]
 }

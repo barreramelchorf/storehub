@@ -74,17 +74,18 @@ export async function loyaltyAppleWsRoutes(app: FastifyInstance) {
     const cardIds = regs.map((r) => r.cardId)
     const since = passesUpdatedSince ? new Date(Number(passesUpdatedSince) * 1000) : null
 
-    // Select registered cards, optionally only those updated since the tag.
+    // Select registered cards, optionally only those changed since the tag.
+    // Use pass_updated_at (advances on ANY pass change), NOT last_scan_at.
     const cards = await db.query.loyaltyCards.findMany({
       where: (c, { inArray, and, gt }) => since
-        ? and(inArray(c.id, cardIds), gt(c.lastScanAt, since))
+        ? and(inArray(c.id, cardIds), gt(c.passUpdatedAt, since))
         : inArray(c.id, cardIds),
-      columns: { serialNumber: true, lastScanAt: true },
+      columns: { serialNumber: true, passUpdatedAt: true },
     })
     if (cards.length === 0) return reply.code(204).send()
 
     const lastUpdated = Math.floor(
-      Math.max(...cards.map((c) => (c.lastScanAt ? c.lastScanAt.getTime() : Date.now()))) / 1000,
+      Math.max(...cards.map((c) => c.passUpdatedAt.getTime())) / 1000,
     )
     return reply.send({
       serialNumbers: cards.map((c) => c.serialNumber),

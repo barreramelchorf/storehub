@@ -289,6 +289,9 @@ export const loyaltyCards = pgTable('loyalty_cards', {
   platform: loyaltyPlatformEnum('platform').notNull().default('unknown'),
   status: loyaltyCardStatusEnum('status').notNull().default('active'),
   lastScanAt: timestamp('last_scan_at'),
+  // Advances on ANY pass-visible change (scan, redeem, adjust, campaign). Used
+  // as the Apple web service `lastUpdated` tag so iOS reliably detects updates.
+  passUpdatedAt: timestamp('pass_updated_at').notNull().defaultNow(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => [
   index('loyalty_cards_tenant_idx').on(t.tenantId),

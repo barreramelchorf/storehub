@@ -35,6 +35,13 @@ export async function sendCardUpdate(cardId: string, offer?: string | null): Pro
     })
     if (!card) return
 
+    // Advance the pass update tag BEFORE pushing, so when the device pulls the
+    // "what changed?" serials list, pass_updated_at is already newer than its
+    // previous tag. Without this, iOS ignores the update (the bug campaigns hit).
+    await db.update(loyaltyCards)
+      .set({ passUpdatedAt: new Date() })
+      .where(eq(loyaltyCards.id, cardId))
+
     const cardRow: CardRow = {
       id: card.id,
       serialNumber: card.serialNumber,
