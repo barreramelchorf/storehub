@@ -152,14 +152,22 @@ function CardsTab({ token }: { token: string }) {
 function CampaignsTab({ token }: { token: string }) {
   const qc = useQueryClient()
   const [message, setMessage] = useState('')
+  const [programId, setProgramId] = useState('')
   const { data: campaigns } = useQuery({
     queryKey: ['loyalty-campaigns'],
     queryFn: () => api('/api/admin/loyalty/campaigns', { token }),
     refetchInterval: 5000,
   })
+  const { data: programs } = useQuery({
+    queryKey: ['loyalty-programs'],
+    queryFn: () => api('/api/admin/loyalty/programs', { token }),
+  })
+  const activePrograms = (programs ?? []).filter((p: any) => p.active)
+  // Auto-select when there's exactly one program.
+  const effectiveProgramId = programId || (activePrograms.length === 1 ? activePrograms[0].id : '')
 
   const create = useMutation({
-    mutationFn: () => api('/api/admin/loyalty/campaigns', { method: 'POST', token, body: JSON.stringify({ message }) }),
+    mutationFn: () => api('/api/admin/loyalty/campaigns', { method: 'POST', token, body: JSON.stringify({ message, programId: effectiveProgramId || undefined }) }),
     onSuccess: () => { setMessage(''); qc.invalidateQueries({ queryKey: ['loyalty-campaigns'] }) },
   })
 
@@ -167,7 +175,15 @@ function CampaignsTab({ token }: { token: string }) {
     <div className="space-y-6">
       <div className="bg-white rounded-xl border border-gray-100 p-5">
         <h3 className="font-bold text-gray-800 mb-1">Nueva oferta</h3>
-        <p className="text-sm text-gray-500 mb-3">Se enviará a todas las tarjetas activas (notificación discreta en el pase).</p>
+        <p className="text-sm text-gray-500 mb-3">Se enviará a todas las tarjetas activas del programa (notificación discreta en el pase).</p>
+        {activePrograms.length > 1 && (
+          <select
+            value={effectiveProgramId} onChange={(e) => setProgramId(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-gray-400">
+            <option value="">Elige el programa…</option>
+            {activePrograms.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        )}
         <textarea
           value={message} onChange={(e) => setMessage(e.target.value)} maxLength={200} rows={2}
           placeholder="Ej. 2x1 en cafés hoy 🎉"
@@ -176,7 +192,7 @@ function CampaignsTab({ token }: { token: string }) {
         <div className="flex items-center justify-between mt-2">
           <span className="text-xs text-gray-400">{message.length}/200</span>
           <button
-            onClick={() => create.mutate()} disabled={!message.trim() || create.isPending}
+            onClick={() => create.mutate()} disabled={!message.trim() || !effectiveProgramId || create.isPending}
             className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
             {create.isPending ? 'Enviando…' : 'Enviar oferta'}
           </button>
@@ -236,40 +252,94 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 
 function ProgramTab({ token }: { token: string }) {
   const qc = useQueryClient()
-  const { data: program, isLoading } = useQuery({
-    queryKey: ['loyalty-program'],
-    queryFn: () => api('/api/admin/loyalty/program', { token }),
+  const slug = useParams().slug as string
+  const { data: programs, isLoading } = useQuery({
+    queryKey: ['loyalty-programs'],
+    queryFn: () => api('/api/admin/loyalty/programs', { token }),
   })
+  // editing: null = list view; 'new' = create form; object = edit that program
+  const [editing, setEditing] = useState<any | null>(null)
 
-  const [form, setForm] = useState<any>(null)
-  const current = form ?? (program ? {
+  if (isLoading) return <p className="text-gray-500">Cargando…</p>
+
+  if (editing !== null) {
+    return <ProgramForm token={token} program={editing === 'new' ? null : editing}
+      onDone={() => { setEditing(null); qc.invalidateQueries({ queryKey: ['loyalty-programs'] }) }}
+      onCancel={() => setEditing(null)} />
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">Puedes tener varios programas (ej. "Café gratis" y "Postre gratis"), cada uno con su propio QR.</p>
+        <button onClick={() => setEditing('new')} className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-800 whitespace-nowrap">
+          + Nuevo programa
+        </button>
+      </div>
+
+      {programs?.length === 0 && <p className="text-gray-400 text-center py-8">Aún no hay programas. Crea el primero.</p>}
+
+      <div className="space-y-2">
+        {programs?.map((p: any) => (
+          <div key={p.id} className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-800">
+                  {p.name}
+                  {!p.active && <span className="ml-2 text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">inactivo</span>}
+                </p>
+                <p className="text-sm text-gray-400">
+                  {p.pointsPerVisit} pt/visita
+                  {p.rewardThreshold ? ` · ${p.rewardDescription ?? 'recompensa'} a los ${p.rewardThreshold}` : ''}
+                </p>
+              </div>
+              <button onClick={() => setEditing(p)} className="text-sm text-gray-600 underline">Editar</button>
+            </div>
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100 text-xs">
+              <a href={`/t/${slug}/loyalty?program=${p.id}`} target="_blank" rel="noopener noreferrer" className="text-gray-600 underline">Página de registro</a>
+              <a href={`/t/${slug}/loyalty-qr?program=${p.id}`} target="_blank" rel="noopener noreferrer" className="text-gray-600 underline">🖨️ Cartel con QR</a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ProgramForm({ token, program, onDone, onCancel }: { token: string; program: any | null; onDone: () => void; onCancel: () => void }) {
+  const [current, setCurrent] = useState<any>(program ? {
     name: program.name, active: program.active, pointsPerVisit: program.pointsPerVisit,
     welcomePoints: program.welcomePoints ?? 1,
     rewardThreshold: program.rewardThreshold ?? '', rewardDescription: program.rewardDescription ?? '',
     branding: program.branding ?? {},
   } : { name: '', active: true, pointsPerVisit: 1, welcomePoints: 1, rewardThreshold: '', rewardDescription: '', branding: {} })
+  const set = (patch: any) => setCurrent({ ...current, ...patch })
 
   const save = useMutation({
-    mutationFn: () => api('/api/admin/loyalty/program', {
-      method: 'PUT', token,
-      body: JSON.stringify({
-        name: current.name,
-        active: current.active,
-        pointsPerVisit: Number(current.pointsPerVisit) || 1,
-        welcomePoints: Number(current.welcomePoints) || 0,
-        rewardThreshold: current.rewardThreshold === '' ? null : Number(current.rewardThreshold),
-        rewardDescription: current.rewardDescription === '' ? null : current.rewardDescription,
-        branding: current.branding ?? {},
-      }),
-    }),
-    onSuccess: () => { setForm(null); qc.invalidateQueries({ queryKey: ['loyalty-program'] }) },
+    mutationFn: () => api(
+      program ? `/api/admin/loyalty/programs/${program.id}` : '/api/admin/loyalty/programs',
+      {
+        method: program ? 'PUT' : 'POST', token,
+        body: JSON.stringify({
+          name: current.name,
+          active: current.active,
+          pointsPerVisit: Number(current.pointsPerVisit) || 1,
+          welcomePoints: Number(current.welcomePoints) || 0,
+          rewardThreshold: current.rewardThreshold === '' ? null : Number(current.rewardThreshold),
+          rewardDescription: current.rewardDescription === '' ? null : current.rewardDescription,
+          branding: current.branding ?? {},
+        }),
+      },
+    ),
+    onSuccess: onDone,
   })
-
-  if (isLoading) return <p className="text-gray-500">Cargando…</p>
-  const set = (patch: any) => setForm({ ...current, ...patch })
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4 max-w-lg">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold text-gray-800">{program ? 'Editar programa' : 'Nuevo programa'}</h3>
+        <button onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-700">← Volver</button>
+      </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del programa</label>
         <input type="text" value={current.name} onChange={(e) => set({ name: e.target.value })}
@@ -321,17 +391,8 @@ function ProgramTab({ token }: { token: string }) {
           className="bg-gray-900 text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
           {save.isPending ? 'Guardando…' : 'Guardar'}
         </button>
-        {save.isSuccess && <span className="text-sm text-green-600">Guardado ✓</span>}
         {save.isError && <span className="text-sm text-red-600">{(save.error as Error).message}</span>}
       </div>
-
-      <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
-        Página de registro para tus clientes: <code className="bg-gray-100 px-1.5 py-0.5 rounded">/t/{useParams().slug}/loyalty</code>
-        <br />
-        <a href={`/t/${useParams().slug}/loyalty-qr`} target="_blank" rel="noopener noreferrer" className="text-gray-600 underline mt-1 inline-block">
-          🖨️ Abrir cartel con QR para imprimir
-        </a>
-      </p>
     </div>
   )
 }

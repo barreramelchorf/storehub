@@ -4,24 +4,26 @@ import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: { params: { slug: string }; searchParams: { program?: string } }): Promise<Metadata> {
+  const q = searchParams.program ? `?program=${searchParams.program}` : ''
   const opts = { headers: { 'x-tenant-slug': params.slug } }
   try {
-    const info = await api('/api/public/loyalty/enroll', opts)
+    const info = await api(`/api/public/loyalty/enroll${q}`, opts)
     return { title: `${info.programName} — ${info.businessName}` }
   } catch {
     return { title: 'Programa de lealtad' }
   }
 }
 
-export default async function LoyaltyEnrollPage({ params }: { params: { slug: string } }) {
+export default async function LoyaltyEnrollPage({ params, searchParams }: { params: { slug: string }; searchParams: { program?: string } }) {
   const opts = { headers: { 'x-tenant-slug': params.slug } }
+  const q = searchParams.program ? `?program=${searchParams.program}` : ''
 
   let program: any = null
   try {
-    program = await api('/api/public/loyalty/enroll', opts)
+    program = await api(`/api/public/loyalty/enroll${q}`, opts)
   } catch {
-    // Module disabled or no active program for this tenant.
+    // Module disabled, no program, or ambiguous (multiple, none specified).
   }
 
   if (!program) {
@@ -29,7 +31,7 @@ export default async function LoyaltyEnrollPage({ params }: { params: { slug: st
       <main className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-800">Programa de lealtad no disponible</h1>
-          <p className="text-gray-500 mt-2">Este negocio aún no tiene un programa de lealtad activo.</p>
+          <p className="text-gray-500 mt-2">Este negocio aún no tiene un programa de lealtad activo, o el enlace no especifica el programa.</p>
         </div>
       </main>
     )
@@ -55,7 +57,7 @@ export default async function LoyaltyEnrollPage({ params }: { params: { slug: st
       </header>
 
       <div className="max-w-md mx-auto px-6 py-8">
-        <LoyaltyEnrollClient slug={params.slug} />
+        <LoyaltyEnrollClient slug={params.slug} programId={program.programId} />
       </div>
     </main>
   )

@@ -21,10 +21,23 @@ function loyaltyEnabled(tenantConfig: unknown): boolean {
   return modules?.loyalty === true
 }
 
-async function activeProgram(tenantId: string) {
-  return db.query.loyaltyPrograms.findFirst({
+/**
+ * Resolve which program the enrollment targets.
+ * - If programId is given, use that specific active program of the tenant.
+ * - If not given (legacy links / single-program tenants), fall back to the only
+ *   active program — but only when there's exactly one, to avoid ambiguity.
+ * Returns null if it can't resolve unambiguously.
+ */
+async function resolveProgram(tenantId: string, programId?: string) {
+  if (programId) {
+    return db.query.loyaltyPrograms.findFirst({
+      where: (p, { eq, and }) => and(eq(p.id, programId), eq(p.tenantId, tenantId), eq(p.active, true)),
+    })
+  }
+  const active = await db.query.loyaltyPrograms.findMany({
     where: (p, { eq, and }) => and(eq(p.tenantId, tenantId), eq(p.active, true)),
   })
+  return active.length === 1 ? active[0] : null
 }
 
 async function toCardRow(id: string): Promise<CardRow | null> {
@@ -41,17 +54,22 @@ async function toCardRow(id: string): Promise<CardRow | null> {
 }
 
 export async function loyaltyPublicRoutes(app: FastifyInstance) {
-  // Program info for the enrollment page
+  // Program info for the enrollment page (optionally for a specific program)
   app.get('/api/public/loyalty/enroll', async (request, reply) => {
     if (!loyaltyEnabled(request.tenant.config)) {
       return reply.code(404).send({ error: 'Programa de lealtad no disponible' })
     }
-    const program = await activeProgram(request.tenant.id)
-    if (!program) return reply.code(404).send({ error: 'Programa de lealtad no disponible' })
+    const { program: programId } = request.query as { program?: string }
+    const program = await resolveProgram(request.tenant.id, programId)
+    if (!program) {
+      // Could not resolve: either no program, or multiple and none specified.
+      return reply.code(404).send({ error: 'Programa de lealtad no disponible', needsProgram: true })
+    }
     // Option C: program branding wins, inherit tenant store branding when unset.
     const pb = (program.branding ?? {}) as Record<string, string>
     const tb = ((request.tenant.config as any)?.branding ?? {}) as Record<string, string>
     return {
+      programId: program.id,
       programName: program.name,
       rewardDescription: program.rewardDescription,
       rewardThreshold: program.rewardThreshold,
@@ -65,27 +83,43 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
     }
   })
 
+  // List active programs of the tenant (for pickers / multi-program UIs).
+  app.get('/api/public/loyalty/programs', async (request, reply) => {
+    if (!loyaltyEnabled(request.tenant.config)) {
+      return reply.code(404).send({ error: 'Programa de lealtad no disponible' })
+    }
+    const programs = await db.query.loyaltyPrograms.findMany({
+      where: (p, { eq, and }) => and(eq(p.tenantId, request.tenant.id), eq(p.active, true)),
+      columns: { id: true, name: true, rewardDescription: true, rewardThreshold: true },
+    })
+    return { programs, businessName: request.tenant.name }
+  })
+
   // Self-enrollment: create a card, return wallet links
   app.post('/api/public/loyalty/enroll', async (request, reply) => {
     if (!loyaltyEnabled(request.tenant.config)) {
       return reply.code(404).send({ error: 'Programa de lealtad no disponible' })
     }
-    const program = await activeProgram(request.tenant.id)
-    if (!program) return reply.code(404).send({ error: 'Programa de lealtad no disponible' })
 
     const parsed = loyaltyEnrollSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
     }
-    const { customerName, customerEmail, customerPhone, birthDate } = parsed.data
+    const { customerName, customerEmail, customerPhone, birthDate, programId } = parsed.data
+
+    const program = await resolveProgram(request.tenant.id, programId)
+    if (!program) {
+      return reply.code(404).send({ error: 'Programa de lealtad no disponible', needsProgram: true })
+    }
+
     const email = customerEmail.trim().toLowerCase()
 
-    // Duplicate detection: one card per email per tenant. If a card already
-    // exists for this email, DO NOT create a new one — send a single-use
-    // recovery link to the registered email so only the owner can retrieve it.
+    // Duplicate detection: one card per email PER PROGRAM. If a card already
+    // exists for this email in this program, DO NOT create a new one — send a
+    // single-use recovery link so only the owner can retrieve it.
     const existing = await db.query.loyaltyCards.findFirst({
       where: (c, { eq, and, sql }) => and(
-        eq(c.tenantId, request.tenant.id),
+        eq(c.programId, program.id),
         sql`lower(${c.customerEmail}) = ${email}`,
       ),
     })
@@ -107,8 +141,6 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
         tenantName: request.tenant.name,
         recoveryUrl,
       }).catch(() => {})
-      // Same response whether or not it existed is not needed here (user knows
-      // their own email); explicit is clearer for the UI.
       return reply.code(200).send({ recovery: true })
     }
 

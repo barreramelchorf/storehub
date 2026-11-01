@@ -149,6 +149,7 @@ export const loyaltyEnrollSchema = z.object({
   customerEmail: z.string().email('Correo inválido'),
   customerPhone: z.string().min(7, 'Teléfono inválido').max(20).optional().or(z.literal('')),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)').optional().or(z.literal('')),
+  programId: z.string().uuid().optional(),
 })
 
 // Program config (admin)
@@ -182,4 +183,5 @@ export const loyaltyAdjustSchema = z.object({
 export const loyaltyCampaignSchema = z.object({
   message: z.string().min(1, 'El mensaje es requerido').max(200),
   expiresAt: z.string().datetime().nullable().optional(),
+  programId: z.string().uuid().optional(),
 })

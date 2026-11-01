@@ -167,6 +167,18 @@ Pendientes a resolver en siguientes iteraciones.
 - Para: resize de imágenes batch, emails, notificaciones futuras
 - Stack: BullMQ + Redis (Redis ya existe)
 
+### Date picker en campo de fecha de nacimiento (enrollment de lealtad)
+- El campo `birth_date` en la página pública de registro usa `<input type="date">` nativo.
+  Da buena experiencia en móvil (selector nativo del teléfono con rueda de año), pero
+  no es visualmente consistente con el `DatePicker` del admin (react-day-picker).
+- Opciones evaluadas:
+  - A) Extender `DatePicker.tsx` con `captionLayout="dropdown"` de react-day-picker (prop
+    opcional `yearNavigation` para no romper el POS). Mejor consistencia visual.
+  - B) Tres selects nativos (día/mes/año). Mejor UX para fechas de nacimiento.
+  - C) Mantener `<input type="date">` (buena UX móvil, simple). **Estado actual.**
+- Decisión pendiente. Si la captura es mayormente en móvil, C puede quedarse. Si se
+  captura en desktop con frecuencia (cajero), A o B valen la pena.
+
 ---
 
 ## Completados ✅

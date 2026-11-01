@@ -273,7 +273,6 @@ export const loyaltyPrograms = pgTable('loyalty_programs', {
   branding: jsonb('branding').notNull().default({}),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => [
-  unique('loyalty_programs_tenant_unique').on(t.tenantId),
   index('loyalty_programs_tenant_idx').on(t.tenantId),
 ])
 
@@ -304,6 +303,7 @@ export const loyaltyCards = pgTable('loyalty_cards', {
   index('loyalty_cards_tenant_idx').on(t.tenantId),
   index('loyalty_cards_serial_idx').on(t.serialNumber),
   index('loyalty_cards_tenant_phone_idx').on(t.tenantId, t.customerPhone),
+  index('loyalty_cards_program_email_idx').on(t.programId, t.customerEmail),
 ])
 
 // Loyalty Transactions (log de movimientos de puntos, auditoría)

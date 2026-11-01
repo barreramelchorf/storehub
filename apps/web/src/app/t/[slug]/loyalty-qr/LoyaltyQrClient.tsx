@@ -4,13 +4,14 @@ import QRCode from 'qrcode'
 
 interface Props {
   slug: string
+  programId?: string
   businessName: string
   programName: string
   rewardDescription?: string | null
   rewardThreshold?: number | null
 }
 
-export function LoyaltyQrClient({ slug, businessName, programName, rewardDescription, rewardThreshold }: Props) {
+export function LoyaltyQrClient({ slug, programId, businessName, programName, rewardDescription, rewardThreshold }: Props) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [enrollUrl, setEnrollUrl] = useState('')
 
@@ -18,12 +19,12 @@ export function LoyaltyQrClient({ slug, businessName, programName, rewardDescrip
     // Build the absolute enrollment URL from the current origin (works on the
     // platform domain and on tenant custom domains).
     const origin = window.location.origin
-    const url = `${origin}/t/${slug}/loyalty`
+    const url = `${origin}/t/${slug}/loyalty${programId ? `?program=${programId}` : ''}`
     setEnrollUrl(url)
     QRCode.toDataURL(url, { width: 1000, margin: 1, errorCorrectionLevel: 'M' })
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(null))
-  }, [slug])
+  }, [slug, programId])
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-10 text-center print:py-0">

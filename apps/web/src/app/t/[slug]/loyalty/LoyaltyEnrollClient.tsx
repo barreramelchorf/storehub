@@ -8,7 +8,7 @@ interface EnrollResult {
   googleUrl: string | null
 }
 
-export function LoyaltyEnrollClient({ slug }: { slug: string }) {
+export function LoyaltyEnrollClient({ slug, programId }: { slug: string; programId?: string }) {
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -28,7 +28,7 @@ export function LoyaltyEnrollClient({ slug }: { slug: string }) {
       const res = await api<EnrollResult & { recovery?: boolean }>('/api/public/loyalty/enroll', {
         method: 'POST',
         headers: { 'x-tenant-slug': slug },
-        body: JSON.stringify({ customerName, customerEmail, customerPhone, birthDate }),
+        body: JSON.stringify({ customerName, customerEmail, customerPhone, birthDate, programId }),
       })
       if ((res as any).recovery) {
         setRecoverySent(true)

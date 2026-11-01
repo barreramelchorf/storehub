@@ -21,10 +21,58 @@ import { pushDispatcher } from '../lib/loyalty/push-dispatcher.js'
 export async function loyaltyAdminRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
-  // ─── Program config ────────────────────────────────────────────────────────
+  // ─── Programs (CRUD) ───────────────────────────────────────────────────────
+  // List all programs of the tenant.
+  app.get('/api/admin/loyalty/programs', { preHandler: requirePermission('loyalty.manage') }, async (request) => {
+    return db.query.loyaltyPrograms.findMany({
+      where: (p, { eq }) => eq(p.tenantId, request.tenant.id),
+      orderBy: (p, { asc }) => [asc(p.createdAt)],
+    })
+  })
+
+  // Create a program.
+  app.post('/api/admin/loyalty/programs', { preHandler: requirePermission('loyalty.manage') }, async (request, reply) => {
+    const parsed = loyaltyProgramSchema.safeParse(request.body)
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
+    const data = parsed.data
+    const [created] = await db.insert(loyaltyPrograms).values({
+      tenantId: request.tenant.id,
+      name: data.name,
+      active: data.active,
+      pointsPerVisit: data.pointsPerVisit,
+      welcomePoints: data.welcomePoints,
+      rewardThreshold: data.rewardThreshold ?? null,
+      rewardDescription: data.rewardDescription ?? null,
+      branding: data.branding,
+    }).returning()
+    return reply.code(201).send(created)
+  })
+
+  // Edit a program.
+  app.put('/api/admin/loyalty/programs/:id', { preHandler: requirePermission('loyalty.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const parsed = loyaltyProgramSchema.safeParse(request.body)
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
+    const data = parsed.data
+    const [updated] = await db.update(loyaltyPrograms).set({
+      name: data.name,
+      active: data.active,
+      pointsPerVisit: data.pointsPerVisit,
+      welcomePoints: data.welcomePoints,
+      rewardThreshold: data.rewardThreshold ?? null,
+      rewardDescription: data.rewardDescription ?? null,
+      branding: data.branding,
+    }).where(and(eq(loyaltyPrograms.id, id), eq(loyaltyPrograms.tenantId, request.tenant.id))).returning()
+    if (!updated) return reply.code(404).send({ error: 'Programa no encontrado' })
+    return updated
+  })
+
+  // Legacy singular endpoints (backward compat): GET returns the first program;
+  // PUT upserts the first program (used before multi-program support existed).
   app.get('/api/admin/loyalty/program', { preHandler: requirePermission('loyalty.manage') }, async (request) => {
     const program = await db.query.loyaltyPrograms.findFirst({
       where: (p, { eq }) => eq(p.tenantId, request.tenant.id),
+      orderBy: (p, { asc }) => [asc(p.createdAt)],
     })
     return program ?? null
   })
@@ -35,7 +83,10 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     const tenantId = request.tenant.id
     const data = parsed.data
 
-    const existing = await db.query.loyaltyPrograms.findFirst({ where: (p, { eq }) => eq(p.tenantId, tenantId) })
+    const existing = await db.query.loyaltyPrograms.findFirst({
+      where: (p, { eq }) => eq(p.tenantId, tenantId),
+      orderBy: (p, { asc }) => [asc(p.createdAt)],
+    })
     if (existing) {
       const [updated] = await db.update(loyaltyPrograms).set({
         name: data.name,
@@ -217,8 +268,17 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
     const tenantId = request.tenant.id
 
-    const program = await db.query.loyaltyPrograms.findFirst({ where: (p, { eq }) => eq(p.tenantId, tenantId) })
-    if (!program) return reply.code(409).send({ error: 'No hay programa de lealtad configurado' })
+    // Resolve target program: explicit programId, else the only one (if single).
+    let program
+    if (parsed.data.programId) {
+      program = await db.query.loyaltyPrograms.findFirst({
+        where: (p, { eq, and }) => and(eq(p.id, parsed.data.programId!), eq(p.tenantId, tenantId)),
+      })
+    } else {
+      const all = await db.query.loyaltyPrograms.findMany({ where: (p, { eq }) => eq(p.tenantId, tenantId) })
+      program = all.length === 1 ? all[0] : undefined
+    }
+    if (!program) return reply.code(409).send({ error: 'Especifica el programa de la campaña' })
 
     // Target count = active cards of this program.
     const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
