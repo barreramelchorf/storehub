@@ -28,10 +28,25 @@ export async function buildPassData(card: CardRow, offer?: string | null): Promi
 
   const tenant = await db.query.tenants.findFirst({
     where: (t, { eq }) => eq(t.id, program.tenantId),
-    columns: { name: true },
+    columns: { name: true, config: true },
   })
 
-  const branding = (program.branding ?? {}) as PassBranding
+  // Branding resolution (Option C): the program's own colors win; when a color
+  // is unset, inherit from the tenant's store branding; finally fall back to the
+  // neutral defaults (applied downstream in apple/google builders).
+  const programBranding = (program.branding ?? {}) as PassBranding
+  const tenantBranding = (tenant?.config as any)?.branding ?? {}
+  const branding: PassBranding = {
+    // Pass background ← program.bgColor OR tenant primary color.
+    bgColor: programBranding.bgColor ?? tenantBranding.primaryColor,
+    // Foreground: program override, else white (tenant primary is a vivid color,
+    // so white text reads best on it).
+    fgColor: programBranding.fgColor,
+    // Labels ← program.labelColor OR tenant secondary color.
+    labelColor: programBranding.labelColor ?? tenantBranding.secondaryColor,
+    // Logo: program override, else the tenant store logo.
+    logoUrl: programBranding.logoUrl ?? tenantBranding.logoUrl,
+  }
 
   return {
     cardId: card.id,

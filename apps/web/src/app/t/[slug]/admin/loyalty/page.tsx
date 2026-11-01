@@ -214,6 +214,26 @@ function statusStyle(s: string) {
 }
 
 // ─── Program tab ─────────────────────────────────────────────────────────────
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="color"
+          value={value || '#1f2937'}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-9 w-9 rounded border border-gray-300 cursor-pointer p-0.5"
+          aria-label={`${label} color`}
+        />
+        {value
+          ? <button type="button" onClick={() => onChange('')} className="text-xs text-gray-400 hover:text-gray-600" title="Volver a heredar de la marca">limpiar</button>
+          : <span className="text-xs text-gray-400">hereda</span>}
+      </div>
+    </div>
+  )
+}
+
 function ProgramTab({ token }: { token: string }) {
   const qc = useQueryClient()
   const { data: program, isLoading } = useQuery({
@@ -277,6 +297,16 @@ function ProgramTab({ token }: { token: string }) {
         <input type="checkbox" checked={current.active} onChange={(e) => set({ active: e.target.checked })} />
         Programa activo
       </label>
+
+      <div className="border-t border-gray-100 pt-4">
+        <p className="text-sm font-medium text-gray-700 mb-1">Colores de la tarjeta (opcional)</p>
+        <p className="text-xs text-gray-400 mb-3">Si los dejas vacíos, la tarjeta hereda los colores de tu marca (los de tu tienda).</p>
+        <div className="grid grid-cols-3 gap-3">
+          <ColorField label="Fondo" value={current.branding?.bgColor ?? ''} onChange={(v: string) => set({ branding: { ...current.branding, bgColor: v || undefined } })} />
+          <ColorField label="Texto" value={current.branding?.fgColor ?? ''} onChange={(v: string) => set({ branding: { ...current.branding, fgColor: v || undefined } })} />
+          <ColorField label="Etiquetas" value={current.branding?.labelColor ?? ''} onChange={(v: string) => set({ branding: { ...current.branding, labelColor: v || undefined } })} />
+        </div>
+      </div>
 
       <div className="flex items-center gap-3 pt-2">
         <button onClick={() => save.mutate()} disabled={save.isPending || !current.name.trim()}

@@ -46,11 +46,19 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
     }
     const program = await activeProgram(request.tenant.id)
     if (!program) return reply.code(404).send({ error: 'Programa de lealtad no disponible' })
+    // Option C: program branding wins, inherit tenant store branding when unset.
+    const pb = (program.branding ?? {}) as Record<string, string>
+    const tb = ((request.tenant.config as any)?.branding ?? {}) as Record<string, string>
     return {
       programName: program.name,
       rewardDescription: program.rewardDescription,
       rewardThreshold: program.rewardThreshold,
-      branding: program.branding,
+      branding: {
+        bgColor: pb.bgColor ?? tb.primaryColor,
+        fgColor: pb.fgColor,
+        labelColor: pb.labelColor ?? tb.secondaryColor,
+        logoUrl: pb.logoUrl ?? tb.logoUrl,
+      },
       businessName: request.tenant.name,
     }
   })
