@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, integer, numeric, jsonb, timestamp, pgEnum, unique, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, boolean, integer, numeric, jsonb, timestamp, date, pgEnum, unique, index } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
 // Enums
@@ -282,6 +282,7 @@ export const loyaltyCards = pgTable('loyalty_cards', {
   customerName: text('customer_name').notNull(),
   customerEmail: text('customer_email'),
   customerPhone: text('customer_phone'),
+  birthDate: date('birth_date'),
   points: integer('points').notNull().default(0),
   totalVisits: integer('total_visits').notNull().default(0),
   serialNumber: text('serial_number').notNull().unique(),
@@ -344,6 +345,21 @@ export const loyaltyCampaigns = pgTable('loyalty_campaigns', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => [
   index('loyalty_campaigns_tenant_status_idx').on(t.tenantId, t.status),
+])
+
+// Loyalty Recovery Tokens (single-use, 30-min links to recover an existing card
+// when a returning user re-enrolls with an email that already has a card).
+export const loyaltyRecoveryTokens = pgTable('loyalty_recovery_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  cardId: uuid('card_id').notNull().references(() => loyaltyCards.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('loyalty_recovery_tokens_token_idx').on(t.token),
+  index('loyalty_recovery_tokens_card_idx').on(t.cardId),
 ])
 
 // Relations

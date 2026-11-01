@@ -155,6 +155,13 @@
       "when": 1791000500000,
       "tag": "0021_add_current_offer",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791000600000,
+      "tag": "0022_add_loyalty_recovery",
+      "breakpoints": true
     }
   ]
 }

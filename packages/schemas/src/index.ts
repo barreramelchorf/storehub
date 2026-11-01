@@ -143,12 +143,12 @@ export const slugSchema = z.string().regex(/^[a-z0-9-]+$/).min(2).max(63)
 // ─── Loyalty (Apple/Google Wallet) ──────────────────────────────────────────
 
 // Public self-enrollment (cliente se auto-registra en la página pública)
+// Correo OBLIGATORIO: es el canal de recuperación de tarjeta. birthDate opcional (analítica).
 export const loyaltyEnrollSchema = z.object({
   customerName: z.string().min(1, 'El nombre es requerido').max(120),
-  customerEmail: z.string().email('Correo inválido').optional().or(z.literal('')),
+  customerEmail: z.string().email('Correo inválido'),
   customerPhone: z.string().min(7, 'Teléfono inválido').max(20).optional().or(z.literal('')),
-}).refine((d) => (d.customerEmail && d.customerEmail !== '') || (d.customerPhone && d.customerPhone !== ''), {
-  message: 'Proporciona al menos un correo o un teléfono',
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)').optional().or(z.literal('')),
 })
 
 // Program config (admin)

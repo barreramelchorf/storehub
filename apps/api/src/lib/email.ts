@@ -134,3 +134,55 @@ export async function sendPasswordChangedEmail(params: PasswordChangedEmailParam
     console.error('[email] Failed to send password changed email:', error)
   }
 }
+
+interface LoyaltyRecoveryEmailParams {
+  to: string
+  customerName: string
+  tenantName: string
+  recoveryUrl: string
+}
+
+export async function sendLoyaltyRecoveryEmail(params: LoyaltyRecoveryEmailParams) {
+  if (!resend) {
+    console.warn('[email] RESEND_API_KEY not set, skipping loyalty recovery email')
+    return
+  }
+
+  const { to, customerName, tenantName, recoveryUrl } = params
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `Recupera tu tarjeta de lealtad de ${tenantName}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+          <h1 style="font-size: 24px; font-weight: bold; color: #0A2540; margin-bottom: 8px;">Recupera tu tarjeta</h1>
+          <p style="color: #425466; font-size: 16px; line-height: 1.5;">
+            Hola ${customerName}, recibimos una solicitud para recuperar tu tarjeta de lealtad
+            de ${tenantName}. Tus puntos siguen intactos — usa el botón para volver a agregarla
+            a tu teléfono.
+          </p>
+
+          <a href="${recoveryUrl}" style="display: inline-block; background: #635BFF; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 16px; margin: 24px 0;">
+            Recuperar mi tarjeta
+          </a>
+
+          <div style="background: #FFF8E1; border-radius: 8px; padding: 16px; margin: 24px 0; border-left: 4px solid #F59E0B;">
+            <p style="margin: 0; color: #92400E; font-size: 14px;">
+              ⚠️ Este enlace es de un solo uso y expira en 30 minutos. Si no solicitaste esto,
+              ignora este correo.
+            </p>
+          </div>
+
+          <p style="color: #98A6B8; font-size: 12px; margin-top: 40px; border-top: 1px solid #E3E8EE; padding-top: 20px;">
+            Este correo fue enviado automáticamente por ${tenantName} a través de StoreHub.
+          </p>
+        </div>
+      `,
+    })
+    console.log(`[email] Loyalty recovery email sent to ${to}`)
+  } catch (error) {
+    console.error('[email] Failed to send loyalty recovery email:', error)
+  }
+}

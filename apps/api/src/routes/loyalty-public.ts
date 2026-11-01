@@ -7,12 +7,14 @@
  */
 import type { FastifyInstance } from 'fastify'
 import crypto from 'node:crypto'
-import { db, loyaltyCards } from '@storehub/db'
+import { db, loyaltyCards, loyaltyRecoveryTokens } from '@storehub/db'
+import { eq } from 'drizzle-orm'
 import { loyaltyEnrollSchema } from '@storehub/schemas'
 import { buildApplePass } from '../lib/loyalty/apple-pass.js'
 import { buildGoogleSaveUrl } from '../lib/loyalty/google-pass.js'
 import { buildPassData, type CardRow } from '../lib/loyalty/pass-builder.js'
 import { isAppleConfigured, isGoogleConfigured, getWebServiceBaseUrl } from '../lib/loyalty/config.js'
+import { sendLoyaltyRecoveryEmail } from '../lib/email.js'
 
 function loyaltyEnabled(tenantConfig: unknown): boolean {
   const modules = (tenantConfig as { modules?: Record<string, boolean> } | null)?.modules
@@ -75,7 +77,40 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
     }
-    const { customerName, customerEmail, customerPhone } = parsed.data
+    const { customerName, customerEmail, customerPhone, birthDate } = parsed.data
+    const email = customerEmail.trim().toLowerCase()
+
+    // Duplicate detection: one card per email per tenant. If a card already
+    // exists for this email, DO NOT create a new one — send a single-use
+    // recovery link to the registered email so only the owner can retrieve it.
+    const existing = await db.query.loyaltyCards.findFirst({
+      where: (c, { eq, and, sql }) => and(
+        eq(c.tenantId, request.tenant.id),
+        sql`lower(${c.customerEmail}) = ${email}`,
+      ),
+    })
+
+    if (existing) {
+      const token = crypto.randomBytes(24).toString('hex')
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000) // 30 min
+      await db.insert(loyaltyRecoveryTokens).values({
+        tenantId: request.tenant.id,
+        cardId: existing.id,
+        token,
+        expiresAt,
+      })
+      const base = getWebServiceBaseUrl()
+      const recoveryUrl = `${base}/t/${request.tenant.slug}/loyalty/recover/${token}`
+      await sendLoyaltyRecoveryEmail({
+        to: existing.customerEmail!,
+        customerName: existing.customerName,
+        tenantName: request.tenant.name,
+        recoveryUrl,
+      }).catch(() => {})
+      // Same response whether or not it existed is not needed here (user knows
+      // their own email); explicit is clearer for the UI.
+      return reply.code(200).send({ recovery: true })
+    }
 
     const serialNumber = crypto.randomUUID()
     const authToken = crypto.randomBytes(24).toString('hex')
@@ -84,8 +119,9 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
       tenantId: request.tenant.id,
       programId: program.id,
       customerName,
-      customerEmail: customerEmail && customerEmail !== '' ? customerEmail : null,
+      customerEmail: email,
       customerPhone: customerPhone && customerPhone !== '' ? customerPhone : null,
+      birthDate: birthDate && birthDate !== '' ? birthDate : null,
       serialNumber,
       authToken,
     }).returning()
@@ -93,6 +129,34 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
     const base = getWebServiceBaseUrl()
     return reply.code(201).send({
       cardId: card.id,
+      appleUrl: isAppleConfigured() ? `${base}/api/public/loyalty/card/${card.id}/apple.pkpass` : null,
+      googleUrl: isGoogleConfigured() ? `${base}/api/public/loyalty/card/${card.id}/google` : null,
+    })
+  })
+
+  // Consume a recovery token: validate (unused, not expired, right tenant) and
+  // return the EXISTING card's wallet links. Marks the token used.
+  app.get('/api/public/loyalty/recover/:token', async (request, reply) => {
+    const { token } = request.params as { token: string }
+    const row = await db.query.loyaltyRecoveryTokens.findFirst({
+      where: (t, { eq, and }) => and(eq(t.token, token), eq(t.tenantId, request.tenant.id)),
+    })
+    if (!row) return reply.code(404).send({ error: 'Enlace inválido' })
+    if (row.usedAt) return reply.code(410).send({ error: 'Este enlace ya fue usado' })
+    if (row.expiresAt.getTime() < Date.now()) return reply.code(410).send({ error: 'Este enlace expiró' })
+
+    const card = await db.query.loyaltyCards.findFirst({
+      where: (c, { eq }) => eq(c.id, row.cardId),
+    })
+    if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
+
+    // Single use: mark consumed.
+    await db.update(loyaltyRecoveryTokens).set({ usedAt: new Date() }).where(eq(loyaltyRecoveryTokens.id, row.id))
+
+    const base = getWebServiceBaseUrl()
+    return reply.send({
+      customerName: card.customerName,
+      points: card.points,
       appleUrl: isAppleConfigured() ? `${base}/api/public/loyalty/card/${card.id}/apple.pkpass` : null,
       googleUrl: isGoogleConfigured() ? `${base}/api/public/loyalty/card/${card.id}/google` : null,
     })
