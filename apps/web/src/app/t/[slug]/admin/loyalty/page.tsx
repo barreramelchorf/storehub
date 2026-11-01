@@ -244,9 +244,10 @@ function ProgramTab({ token }: { token: string }) {
   const [form, setForm] = useState<any>(null)
   const current = form ?? (program ? {
     name: program.name, active: program.active, pointsPerVisit: program.pointsPerVisit,
+    welcomePoints: program.welcomePoints ?? 1,
     rewardThreshold: program.rewardThreshold ?? '', rewardDescription: program.rewardDescription ?? '',
     branding: program.branding ?? {},
-  } : { name: '', active: true, pointsPerVisit: 1, rewardThreshold: '', rewardDescription: '', branding: {} })
+  } : { name: '', active: true, pointsPerVisit: 1, welcomePoints: 1, rewardThreshold: '', rewardDescription: '', branding: {} })
 
   const save = useMutation({
     mutationFn: () => api('/api/admin/loyalty/program', {
@@ -255,6 +256,7 @@ function ProgramTab({ token }: { token: string }) {
         name: current.name,
         active: current.active,
         pointsPerVisit: Number(current.pointsPerVisit) || 1,
+        welcomePoints: Number(current.welcomePoints) || 0,
         rewardThreshold: current.rewardThreshold === '' ? null : Number(current.rewardThreshold),
         rewardDescription: current.rewardDescription === '' ? null : current.rewardDescription,
         branding: current.branding ?? {},
@@ -278,6 +280,12 @@ function ProgramTab({ token }: { token: string }) {
         <label className="block text-sm font-medium text-gray-700 mb-1">Puntos por visita</label>
         <input type="number" min={1} value={current.pointsPerVisit} onChange={(e) => set({ pointsPerVisit: e.target.value })}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Puntos de bienvenida</label>
+        <input type="number" min={0} value={current.welcomePoints} onChange={(e) => set({ welcomePoints: e.target.value })}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400" />
+        <p className="text-xs text-gray-400 mt-1">Puntos al registrarse. Pon 1 para que la tarjeta empiece con su primera visita, o 0 para empezar vacía.</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -319,6 +327,10 @@ function ProgramTab({ token }: { token: string }) {
 
       <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
         Página de registro para tus clientes: <code className="bg-gray-100 px-1.5 py-0.5 rounded">/t/{useParams().slug}/loyalty</code>
+        <br />
+        <a href={`/t/${useParams().slug}/loyalty-qr`} target="_blank" rel="noopener noreferrer" className="text-gray-600 underline mt-1 inline-block">
+          🖨️ Abrir cartel con QR para imprimir
+        </a>
       </p>
     </div>
   )

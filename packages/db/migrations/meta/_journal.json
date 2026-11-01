@@ -162,6 +162,13 @@
       "when": 1791000600000,
       "tag": "0022_add_loyalty_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791000700000,
+      "tag": "0023_add_welcome_points",
+      "breakpoints": true
     }
   ]
 }

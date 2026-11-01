@@ -156,6 +156,7 @@ export const loyaltyProgramSchema = z.object({
   name: z.string().min(1).max(100),
   active: z.boolean().default(true),
   pointsPerVisit: z.number().int().min(1).max(1000).default(1),
+  welcomePoints: z.number().int().min(0).max(1000).default(1),
   rewardThreshold: z.number().int().min(1).max(100000).nullable().optional(),
   rewardDescription: z.string().max(300).nullable().optional(),
   branding: z.object({

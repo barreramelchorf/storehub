@@ -264,6 +264,9 @@ export const loyaltyPrograms = pgTable('loyalty_programs', {
   name: text('name').notNull(),
   active: boolean('active').notNull().default(true),
   pointsPerVisit: integer('points_per_visit').notNull().default(1),
+  // Points granted once when a customer enrolls (0 = start empty). Configurable
+  // because some businesses want the card to start with a visit, others at zero.
+  welcomePoints: integer('welcome_points').notNull().default(1),
   rewardThreshold: integer('reward_threshold'),
   rewardDescription: text('reward_description'),
   // branding jsonb: { logoUrl, bgColor, fgColor, labelColor }

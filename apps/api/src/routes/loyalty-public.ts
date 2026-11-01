@@ -7,7 +7,7 @@
  */
 import type { FastifyInstance } from 'fastify'
 import crypto from 'node:crypto'
-import { db, loyaltyCards, loyaltyRecoveryTokens } from '@storehub/db'
+import { db, loyaltyCards, loyaltyRecoveryTokens, loyaltyTransactions } from '@storehub/db'
 import { eq } from 'drizzle-orm'
 import { loyaltyEnrollSchema } from '@storehub/schemas'
 import { buildApplePass } from '../lib/loyalty/apple-pass.js'
@@ -114,6 +114,7 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
 
     const serialNumber = crypto.randomUUID()
     const authToken = crypto.randomBytes(24).toString('hex')
+    const welcome = program.welcomePoints ?? 0
 
     const [card] = await db.insert(loyaltyCards).values({
       tenantId: request.tenant.id,
@@ -122,9 +123,23 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
       customerEmail: email,
       customerPhone: customerPhone && customerPhone !== '' ? customerPhone : null,
       birthDate: birthDate && birthDate !== '' ? birthDate : null,
+      points: welcome,
+      totalVisits: welcome > 0 ? 1 : 0,
       serialNumber,
       authToken,
     }).returning()
+
+    // Record welcome points as an auditable 'earn' transaction.
+    if (welcome > 0) {
+      await db.insert(loyaltyTransactions).values({
+        tenantId: request.tenant.id,
+        cardId: card.id,
+        type: 'earn',
+        points: welcome,
+        balanceAfter: welcome,
+        note: 'Puntos de bienvenida (registro)',
+      })
+    }
 
     const base = getWebServiceBaseUrl()
     return reply.code(201).send({
