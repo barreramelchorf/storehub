@@ -350,39 +350,86 @@ Patrón: igual que `JWT_SECRET`/`MINIO_*` — definidos en Pulumi, inyectados co
 ## Fases de entrega
 
 ### Fase 0 — Prerequisitos (fuera de código, el usuario debe hacer)
-- [ ] Cuenta Apple Developer ($99/año) + crear Pass Type ID + descargar cert.
-- [ ] Google Pay & Wallet Console → crear Issuer + service account.
-- [ ] Cargar secrets en Pulumi.
+- [x] Cuenta Apple Developer ($99/año) + Pass Type ID (`pass.top.barreramelchorf.storehub`) +
+      certificado. Team ID `RAP2536SR4`. Secrets cargados en Pulumi staging (cert/key/WWDR PEM
+      + applePassTypeId/appleTeamId/loyaltyWebServiceUrl).
+- [ ] Google Pay & Wallet Console → Issuer + service account. **PENDIENTE** (solo Apple por ahora).
+- [x] Secrets Apple en Pulumi staging. Google pendiente.
 
-### Fase 1 — Núcleo (este spec)
-- [ ] Migración: tablas loyalty_* (incl. `loyalty_campaigns`) + permisos nuevos + `modules.loyalty`.
-- [ ] Generación de pase Apple + Google (estático primero, verificar instalación).
-- [ ] Página pública de enrollment + "Add to Wallet".
-- [ ] Web service de Apple (registrar/desregistrar/serials/pase/log).
-- [ ] Endpoint de scan + UI de escáner QR en panel.
-- [ ] Push Apple + PATCH Google en background dentro del API (actualización dinámica
-      inmediata al escanear) — Opción A, sin worker. Ver sección dedicada.
-- [ ] Campañas de oferta: campo "Oferta" en el pase + `changeMessage` (Apple) + mensaje
-      (Google, respetando 3/24h) + operación masiva con rate limiting + expiración.
-- [ ] Sección admin: config del programa, listado de tarjetas, historial, campañas.
+### Fase 1 — Núcleo (COMPLETADA, en staging oct-2026)
+- [x] Migración: tablas loyalty_* (programs/cards/transactions/campaigns + apple_pass_registrations
+      + loyalty_recovery_tokens) + permisos `loyalty.scan`/`loyalty.manage` + columnas
+      `pass_updated_at`, `current_offer`, `birth_date`. Migraciones 0018–0022.
+- [x] Generación de pase Apple (.pkpass, passkit-generator 3.7.0) + Google (JWT con jose).
+- [x] Página pública de enrollment + "Add to Wallet" (correo obligatorio + fecha nacimiento).
+- [x] Web service de Apple (registrar/desregistrar/serials/pase/log).
+- [x] Endpoint de scan + UI de escáner QR en panel (html5-qrcode).
+- [x] Push Apple + PATCH Google en background dentro del API (Opción A, sin worker).
+- [x] Campañas de oferta con rate limiting + notificaciones (changeMessage + current_offer).
+- [x] Sección admin: config del programa (+ colores), tarjetas, campañas, escáner.
+- [x] Add-on activable desde el panel de plataforma.
+- [x] Branding heredado del tenant con override (Opción C).
+- [x] Recuperación de tarjeta por email (link único 30 min).
+
+### Aprendizajes técnicos clave (notificaciones de Apple Wallet)
+Apple notifica SOLO cuando cambia el VALOR de un campo (front/back) que tiene `changeMessage`
+— no por el push en sí. Dos bugs encontrados y corregidos durante staging:
+1. El `lastUpdated` tag del web service usaba `last_scan_at`; campañas/ajustes no lo tocan →
+   iOS veía el mismo tag y descartaba la actualización. Fix: columna `pass_updated_at` que
+   avanza en CUALQUIER cambio (se bumpea al inicio de `sendCardUpdate`, antes del push).
+2. La oferta de campaña solo vivía en memoria durante el run → el pull del dispositivo
+   regeneraba el pase sin la oferta ("unchanged"). Fix: persistir en `loyalty_cards.current_offer`.
+3. El campo de puntos no tenía `changeMessage` → el escaneo nunca notificaba. Fix: agregado.
+El push de actualización de Apple SOLO funciona en APNs **producción** (staging/prod con HTTPS,
+no en local). La notificación llega "quietly" (sin sonido/vibración).
 
 ### Fase 2 — Futuro (no en este spec)
 - Integración opcional POS: al cobrar, sugerir escanear y sumar puntos ligados a la venta.
-- Múltiples programas por tenant / niveles (tiers).
+- **Múltiples programas por tenant** (ej. "café gratis" + "postre gratis" en paralelo).
+  Requiere quitar el UNIQUE(tenant_id) de loyalty_programs + UX de selección en enrollment
+  + "Programas" (plural) en admin + campañas por programa. Confirmado como caso real deseado.
+- Niveles/tiers (una tarjeta con premios por escalón).
 - Expiración de puntos.
 - Segmentación de campañas (no solo "a todos").
+- Google Wallet: certificados aún NO cargados (solo Apple). El código degrada con gracia
+  (enrollment muestra solo botón Apple si Google no está configurado).
+- Migrar push a worker (BullMQ) si el volumen crece — el código ya está diseñado para el swap
+  (ver "Arquitectura de ejecución").
 
 ---
 
-## Preguntas abiertas (a resolver con el usuario antes de implementar)
-1. **Cooldown antifraude**: ¿1 escaneo por día por tarjeta? ¿cada X horas? ¿sin límite?
-2. **Modelo de puntos v1**: ¿puntos por visita (1 por escaneo) o sellos tipo "compra N
-   lleva 1"? (El spec asume puntos por visita, fácil de extender a sellos.)
-3. **Tenant "solo lealtad"**: ¿cómo se crean sus usuarios/cajeros si no usa el POS?
-   ¿Reusamos el mismo sistema de usuarios/roles? (Recomiendo sí: mismo auth, solo permisos
-   de lealtad.) ¿O el enrollment y scan son lo único que necesita y basta un admin?
-4. **Dominio del web service**: ¿usamos el dominio de la plataforma
-   (`storehub.barreramelchorf.top`) para el `webServiceURL` de Apple, o un subdominio
-   dedicado? (Apple requiere HTTPS en prod — ya lo tienes con Traefik + cert-manager.)
-5. **QR scanner**: ¿cámara web en el navegador del panel (jsQR/html5-qrcode) o lector
-   físico de códigos? (Recomiendo cámara web para empezar, cero hardware extra.)
+## Decisiones resueltas (confirmadas e implementadas)
+1. **Cooldown antifraude**: 1 escaneo contabilizado por día de negocio por tarjeta
+   (BUSINESS_TIMEZONE). Segundo escaneo el mismo día = no suma (responde "ya registrado hoy").
+2. **Modelo de puntos v1**: puntos por visita (`pointsPerVisit`, default 1). Sellos/tiers = fase 2.
+3. **Tenant "solo lealtad"**: reusa el mismo sistema de usuarios/roles; solo cambian permisos
+   (`loyalty.scan`/`loyalty.manage`). Mismo `/admin/login`, navegación filtrada por permiso.
+4. **Dominio del web service**: dominio de plataforma (NO los custom por tenant). Config
+   `loyaltyWebServiceUrl` (staging: `https://storehub-staging.barreramelchorf.top`).
+5. **QR scanner**: cámara del navegador en el panel (`html5-qrcode`), import dinámico client-side.
+
+## Activación del módulo — ADD-ON COMERCIAL (no auto-servicio del tenant)
+La lealtad NO es un toggle en la Configuración del tenant (como `cashSessions`). Es un
+**add-on que StoreHub vende/habilita centralmente**. Se activa desde el **panel de plataforma**
+(`/platform` → editar tenant → "Add-on: Lealtad (Wallet)") vía `PUT /api/platform/tenants/:id`
+con `loyaltyEnabled`, que hace merge en `config.modules.loyalty` (preserva el resto del config).
+Como solo se togglea con `x-platform-key`, el cliente no puede auto-activárselo.
+
+## Branding de la tarjeta (Opción C — herencia con override)
+Resolución en 3 niveles: **color del programa → branding del tenant (tienda) → defaults
+neutros**. Si el programa no define `bgColor`/`labelColor`/`logoUrl`, hereda
+`primaryColor`/`secondaryColor`/logo de la tienda. Override opcional por programa (selectores
+de color en la pestaña Programa, con "limpiar" para volver a heredar). Aplica al pass
+(Apple/Google) y al hero de la página pública de enrollment.
+
+## Recuperación de tarjeta (returning user)
+Edge case: usuario borra su tarjeta y se re-registra con el mismo correo. Para no duplicar
+ni perder puntos:
+- **Correo OBLIGATORIO** en enrollment (canal de recuperación); teléfono opcional.
+- **Una tarjeta por correo por tenant** (detección case-insensitive).
+- Si el correo ya existe → NO crea duplicado: genera token de **un solo uso, 30 min**
+  (`loyalty_recovery_tokens`), envía link al correo registrado (reusa Resend). Solo el dueño
+  del correo puede recuperar (no basta conocerlo → seguro contra A pidiendo la tarjeta de B).
+- Página pública `/t/:slug/loyalty/recover/:token` valida y reofrece la tarjeta existente con
+  sus puntos intactos.
+- Se captura **fecha de nacimiento** (opcional, `birth_date`) para análisis.

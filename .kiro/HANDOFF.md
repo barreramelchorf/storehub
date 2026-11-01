@@ -1,6 +1,8 @@
 # HANDOFF — StoreHub (sesión previa)
 
-Fecha de corte: 2026-10-17. Prod en **v0.36.0**. Rama: `main` (limpia).
+Fecha de corte: 2026-10-31. Prod en **v0.36.0**. Rama: `main`.
+**Última sesión**: módulo de Lealtad (Apple/Google Wallet) implementado y desplegado a
+STAGING (no promovido a prod aún). Ver sección "Lealtad" abajo.
 
 Este documento resume TODO lo avanzado, las reglas aprendidas, y el estado del
 proyecto, para retomar sin perder contexto. Para el arranque rápido ver
@@ -85,6 +87,41 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
   HPA per-servicio (api + web), eliminadas replicas muertas, git-ops de versión en CI,
   health probe del web en `/api/health` (fix deploys lentos).
 - **Tests en CI**: job `test` (vitest api + web) que bloquea build/promote-prod.
+
+## Lealtad (Apple/Google Wallet) — FASE 1 (en STAGING oct-2026, NO en prod aún)
+- Spec completo: `.kiro/specs/loyalty-wallet.md`. Costo real: ~$99 USD/año (Apple Developer);
+  Google gratis. NO confundir con Apple Pay/tokenización (eso es lo caro, no aplica a passes).
+- **Add-on COMERCIAL**: se activa desde `/platform` (editar tenant → "Add-on: Lealtad"),
+  NO es toggle del tenant. `PUT /api/platform/tenants/:id` con `loyaltyEnabled` → merge en
+  `config.modules.loyalty`. El cliente no puede auto-activárselo (solo `x-platform-key`).
+- **Módulo independiente del POS**: no depende de `sales`. Un tenant puede tener solo lealtad.
+- **DB** (migraciones 0018–0022): `loyalty_programs` (1 por tenant, UNIQUE), `loyalty_cards`,
+  `loyalty_transactions`, `apple_pass_registrations`, `loyalty_campaigns`,
+  `loyalty_recovery_tokens`. Permisos `loyalty.scan`/`loyalty.manage` (admin/gerente).
+- **Código API**: `apps/api/src/lib/loyalty/*` (config, apple-pass passkit-generator 3.7.0,
+  google-pass jose, apns http2 nativo, push-dispatcher, pass-builder, scan-logic) +
+  `routes/loyalty-public.ts` (enrollment + recuperación + descargas), `loyalty-apple-ws.ts`
+  (web service Apple, contrato fijo), `loyalty-admin.ts` (program/cards/scan/redeem/adjust/campaigns).
+- **Web**: público `/t/:slug/loyalty` (enrollment) + `/loyalty/recover/:token`; admin
+  `/t/:slug/admin/loyalty` (tabs: Escáner html5-qrcode / Tarjetas / Campañas / Programa).
+  Nav "Lealtad" 🎟️ gateado por `loyalty.manage` + módulo `loyalty`.
+- **Opción A (sin worker)**: push inline en el proceso del API. Escaneo = inmediato;
+  campañas = loop con rate limit (`loyaltyPushRateMax/Ms`) + progreso en DB. Diseñado para
+  migrar a worker sin reescritura (interfaz `PushDispatcher` + función pura `sendCardUpdate`).
+- **Branding Opción C**: hereda del tenant (primary/secondary/logo) con override por programa.
+- **Recuperación**: correo obligatorio; re-registro con mismo correo → link de un solo uso
+  (30 min) al correo, NO duplica. Captura `birth_date` (opcional, analítica).
+- **⚠️ Notificaciones Apple (aprendido a la mala en staging)**: Apple notifica SOLO si cambia
+  el VALOR de un campo con `changeMessage`. El `lastUpdated` tag del web service DEBE avanzar
+  en cualquier cambio → por eso existe `pass_updated_at` (no usar `last_scan_at`). La oferta
+  de campaña se persiste en `current_offer` (si no, el pull del device regenera "unchanged").
+  Push solo funciona en APNs PRODUCCIÓN (HTTPS). Notificación llega "quietly".
+- **Secrets**: Apple cargados en Pulumi staging (applePassCert/Key/appleWwdrCert PEM +
+  applePassTypeId=`pass.top.barreramelchorf.storehub`, appleTeamId=`RAP2536SR4`,
+  loyaltyWebServiceUrl). Inyectados vía `kubernetes/index.ts` (secret + configmap).
+- **Google PENDIENTE**: certs no generados. Código degrada con gracia (solo botón Apple).
+- **Fase 2**: múltiples programas/premios por tenant (quitar UNIQUE), tiers, POS integration,
+  segmentación de campañas, expiración de puntos. Ver spec.
 
 ## Apertura/Cierre de Caja — FASE 1 (en prod v0.36.0, APAGADO por default)
 - Spec completo: `.kiro/specs/cash-sessions.md`.
