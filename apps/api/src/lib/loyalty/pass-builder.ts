@@ -16,8 +16,8 @@ export interface CardRow {
 
 /**
  * Load the program + tenant context and assemble PassData for a card.
- * `offer` is optional and passed by the caller (campaigns set it; scans clear it
- * or leave it untouched depending on flow).
+ * `offer` overrides the card's stored currentOffer when provided (campaign run);
+ * otherwise the persisted currentOffer is used (e.g. the device's pass pull).
  */
 export async function buildPassData(card: CardRow, offer?: string | null): Promise<PassData> {
   const program = await db.query.loyaltyPrograms.findFirst({
@@ -25,6 +25,14 @@ export async function buildPassData(card: CardRow, offer?: string | null): Promi
     with: { } as never,
   })
   if (!program) throw new Error('Programa de lealtad no encontrado')
+
+  // Load the card's persisted offer so any regeneration (incl. device pull)
+  // reflects the active campaign offer, not just the campaign run.
+  const fullCard = await db.query.loyaltyCards.findFirst({
+    where: (c, { eq }) => eq(c.id, card.id),
+    columns: { currentOffer: true },
+  })
+  const resolvedOffer = offer !== undefined ? offer : (fullCard?.currentOffer ?? null)
 
   const tenant = await db.query.tenants.findFirst({
     where: (t, { eq }) => eq(t.id, program.tenantId),
@@ -57,7 +65,7 @@ export async function buildPassData(card: CardRow, offer?: string | null): Promi
     points: card.points,
     rewardThreshold: program.rewardThreshold,
     rewardDescription: program.rewardDescription,
-    offer: offer ?? null,
+    offer: resolvedOffer,
     customerName: card.customerName,
     branding,
   }

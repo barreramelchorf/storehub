@@ -86,11 +86,12 @@ export async function buildApplePass(data: PassData): Promise<Buffer> {
 
   pass.type = 'storeCard'
 
-  // Primary: points balance
+  // Primary: points balance. changeMessage makes a scan (points change) notify.
   pass.primaryFields.push({
     key: 'points',
     label: 'PUNTOS',
     value: data.points,
+    changeMessage: 'Ahora tienes %@ puntos',
   })
 
   // Secondary: reward progress (if configured)

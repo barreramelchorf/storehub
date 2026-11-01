@@ -38,8 +38,10 @@ export async function sendCardUpdate(cardId: string, offer?: string | null): Pro
     // Advance the pass update tag BEFORE pushing, so when the device pulls the
     // "what changed?" serials list, pass_updated_at is already newer than its
     // previous tag. Without this, iOS ignores the update (the bug campaigns hit).
+    // When a campaign passes an offer, persist it too so the device's pass pull
+    // (which has no offer param) renders the same offer the push announced.
     await db.update(loyaltyCards)
-      .set({ passUpdatedAt: new Date() })
+      .set({ passUpdatedAt: new Date(), ...(offer !== undefined ? { currentOffer: offer } : {}) })
       .where(eq(loyaltyCards.id, cardId))
 
     const cardRow: CardRow = {

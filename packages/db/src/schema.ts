@@ -292,6 +292,9 @@ export const loyaltyCards = pgTable('loyalty_cards', {
   // Advances on ANY pass-visible change (scan, redeem, adjust, campaign). Used
   // as the Apple web service `lastUpdated` tag so iOS reliably detects updates.
   passUpdatedAt: timestamp('pass_updated_at').notNull().defaultNow(),
+  // Current offer message shown on the pass (set by campaigns, cleared on expiry).
+  // Persisted so the device's pass pull includes it (not just the campaign run).
+  currentOffer: text('current_offer'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => [
   index('loyalty_cards_tenant_idx').on(t.tenantId),
