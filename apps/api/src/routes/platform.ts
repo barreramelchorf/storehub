@@ -49,22 +49,33 @@ export async function platformRoutes(app: FastifyInstance) {
 
   app.put('/api/platform/tenants/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { name, customDomain, giro, loyaltyEnabled } = request.body as any
+    const { name, customDomain, giro, loyaltyEnabled, multiProgramEnabled } = request.body as any
     const updates: any = {}
     if (name) updates.name = name
     if (customDomain !== undefined) updates.customDomain = customDomain || null
     if (giro) updates.giro = giro
 
-    // Loyalty is a StoreHub-sold add-on toggled centrally from the platform
-    // panel (NOT by the tenant). Merge into config.modules so we don't clobber
-    // branding/contact/other modules the tenant owns.
-    if (loyaltyEnabled !== undefined) {
+    // Loyalty add-ons toggled centrally from the platform panel (NOT by tenant).
+    // Merge into config.modules so we don't clobber branding/other modules.
+    // `loyaltyMultiProgram` depends on `loyalty`: it can only be on if loyalty is
+    // on, and turning loyalty off also turns multi-program off.
+    if (loyaltyEnabled !== undefined || multiProgramEnabled !== undefined) {
       const current = await db.query.tenants.findFirst({ where: (t, { eq }) => eq(t.id, id), columns: { config: true } })
       const config = (current?.config as any) ?? {}
-      updates.config = {
-        ...config,
-        modules: { ...(config.modules ?? {}), loyalty: Boolean(loyaltyEnabled) },
+      const modules = { ...(config.modules ?? {}) }
+
+      if (loyaltyEnabled !== undefined) {
+        modules.loyalty = Boolean(loyaltyEnabled)
       }
+      if (multiProgramEnabled !== undefined) {
+        modules.loyaltyMultiProgram = Boolean(multiProgramEnabled)
+      }
+      // Enforce dependency: multi-program requires loyalty.
+      if (!modules.loyalty) {
+        modules.loyaltyMultiProgram = false
+      }
+
+      updates.config = { ...config, modules }
     }
 
     const [updated] = await db.update(tenants).set(updates).where(eq(tenants.id, id)).returning()

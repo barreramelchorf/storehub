@@ -257,6 +257,11 @@ function ProgramTab({ token }: { token: string }) {
     queryKey: ['loyalty-programs'],
     queryFn: () => api('/api/admin/loyalty/programs', { token }),
   })
+  const { data: info } = useQuery({
+    queryKey: ['tenant-config'],
+    queryFn: () => api('/api/public/info', { token }),
+  })
+  const multiProgram = info?.config?.modules?.loyaltyMultiProgram === true
   // editing: null = list view; 'new' = create form; object = edit that program
   const [editing, setEditing] = useState<any | null>(null)
 
@@ -268,14 +273,30 @@ function ProgramTab({ token }: { token: string }) {
       onCancel={() => setEditing(null)} />
   }
 
+  // Can create a new program if: multi-program add-on is on, OR there are no
+  // programs yet (every loyalty tenant gets at least one).
+  const canCreate = multiProgram || (programs?.length ?? 0) === 0
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">Puedes tener varios programas (ej. "Café gratis" y "Postre gratis"), cada uno con su propio QR.</p>
-        <button onClick={() => setEditing('new')} className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-800 whitespace-nowrap">
-          + Nuevo programa
-        </button>
+        <p className="text-sm text-gray-500">
+          {multiProgram
+            ? 'Puedes tener varios programas (ej. "Café gratis" y "Postre gratis"), cada uno con su propio QR.'
+            : 'Tu plan incluye un programa de lealtad.'}
+        </p>
+        {canCreate && (
+          <button onClick={() => setEditing('new')} className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-800 whitespace-nowrap">
+            + Nuevo programa
+          </button>
+        )}
       </div>
+
+      {!multiProgram && (programs?.length ?? 0) >= 1 && (
+        <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-800">
+          💡 ¿Quieres ofrecer varios programas a la vez? El add-on <strong>Múltiples programas</strong> lo habilita. Contáctanos para activarlo.
+        </div>
+      )}
 
       {programs?.length === 0 && <p className="text-gray-400 text-center py-8">Aún no hay programas. Crea el primero.</p>}
 

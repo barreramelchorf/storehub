@@ -13,7 +13,7 @@ function platformFetch(path: string, opts: RequestInit = {}) {
 export default function PlatformPage() {
   const queryClient = useQueryClient()
   const [modal, setModal] = useState<'create' | { id: string; name: string; customDomain: string; giro: string } | null>(null)
-  const [form, setForm] = useState({ name: '', slug: '', giro: 'other', adminEmail: '', adminPassword: '', customDomain: '', loyaltyEnabled: false })
+  const [form, setForm] = useState({ name: '', slug: '', giro: 'other', adminEmail: '', adminPassword: '', customDomain: '', loyaltyEnabled: false, multiProgramEnabled: false })
 
   const { data: tenants } = useQuery({ queryKey: ['tenants'], queryFn: () => platformFetch('/api/platform/tenants') })
 
@@ -27,8 +27,8 @@ export default function PlatformPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['tenants'] }); setModal(null) },
   })
 
-  const openCreate = () => { setForm({ name: '', slug: '', giro: 'other', adminEmail: '', adminPassword: '', customDomain: '', loyaltyEnabled: false }); setModal('create') }
-  const openEdit = (t: any) => { setForm({ ...form, name: t.name, giro: t.giro, customDomain: t.customDomain ?? '', loyaltyEnabled: t.config?.modules?.loyalty ?? false }); setModal({ id: t.id, name: t.name, customDomain: t.customDomain ?? '', giro: t.giro }) }
+  const openCreate = () => { setForm({ name: '', slug: '', giro: 'other', adminEmail: '', adminPassword: '', customDomain: '', loyaltyEnabled: false, multiProgramEnabled: false }); setModal('create') }
+  const openEdit = (t: any) => { setForm({ ...form, name: t.name, giro: t.giro, customDomain: t.customDomain ?? '', loyaltyEnabled: t.config?.modules?.loyalty ?? false, multiProgramEnabled: t.config?.modules?.loyaltyMultiProgram ?? false }); setModal({ id: t.id, name: t.name, customDomain: t.customDomain ?? '', giro: t.giro }) }
 
   return (
     <div>
@@ -99,7 +99,7 @@ export default function PlatformPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-[var(--color-text-dark)]">Editar tenant</h2>
-            <form onSubmit={e => { e.preventDefault(); updateTenant.mutate({ id: modal.id, name: form.name, giro: form.giro, customDomain: form.customDomain, loyaltyEnabled: form.loyaltyEnabled }) }} className="space-y-3">
+            <form onSubmit={e => { e.preventDefault(); updateTenant.mutate({ id: modal.id, name: form.name, giro: form.giro, customDomain: form.customDomain, loyaltyEnabled: form.loyaltyEnabled, multiProgramEnabled: form.loyaltyEnabled && form.multiProgramEnabled }) }} className="space-y-3">
               <div><label className="label">Nombre</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input" required /></div>
               <div><label className="label">Giro</label>
                 <select value={form.giro} onChange={e => setForm(f => ({ ...f, giro: e.target.value }))} className="input">
@@ -111,12 +111,20 @@ export default function PlatformPage() {
                 <input value={form.customDomain} onChange={e => setForm(f => ({ ...f, customDomain: e.target.value }))} className="input" placeholder="ejemplo.com" />
                 <p className="text-xs text-[var(--color-text)] mt-1">El dominio debe apuntar a 5.189.172.140 (registro A). Luego agregar al YAML de Pulumi para generar el certificado TLS.</p>
               </div>
-              <div className="border-t border-[var(--color-border)] pt-3">
+              <div className="border-t border-[var(--color-border)] pt-3 space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.loyaltyEnabled} onChange={e => setForm(f => ({ ...f, loyaltyEnabled: e.target.checked }))} />
+                  <input type="checkbox" checked={form.loyaltyEnabled}
+                    onChange={e => setForm(f => ({ ...f, loyaltyEnabled: e.target.checked, multiProgramEnabled: e.target.checked ? f.multiProgramEnabled : false }))} />
                   <span className="text-sm font-medium text-[var(--color-text-dark)]">Add-on: Lealtad (Wallet)</span>
                 </label>
-                <p className="text-xs text-[var(--color-text)] mt-1">Habilita el programa de tarjetas en Apple/Google Wallet para este tenant. Add-on comercial de StoreHub.</p>
+                <p className="text-xs text-[var(--color-text)] -mt-1 ml-6">Programa de tarjetas en Apple/Google Wallet.</p>
+
+                <label className={`flex items-center gap-2 ${form.loyaltyEnabled ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
+                  <input type="checkbox" checked={form.multiProgramEnabled} disabled={!form.loyaltyEnabled}
+                    onChange={e => setForm(f => ({ ...f, multiProgramEnabled: e.target.checked }))} />
+                  <span className="text-sm font-medium text-[var(--color-text-dark)]">Add-on: Múltiples programas</span>
+                </label>
+                <p className="text-xs text-[var(--color-text)] -mt-1 ml-6">Permite más de un programa de lealtad. Requiere el add-on de Lealtad.</p>
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={updateTenant.isPending} className="btn-primary flex-1">{updateTenant.isPending ? 'Guardando...' : 'Guardar'}</button>

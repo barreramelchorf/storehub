@@ -35,6 +35,20 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     const parsed = loyaltyProgramSchema.safeParse(request.body)
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
     const data = parsed.data
+
+    // Multi-program is a separate add-on. Without it, a tenant may have at most
+    // one program. Editing the existing one is always allowed (PUT); only
+    // creating additional programs is gated.
+    const modules = (request.tenant.config as any)?.modules ?? {}
+    if (modules.loyaltyMultiProgram !== true) {
+      const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(loyaltyPrograms)
+        .where(eq(loyaltyPrograms.tenantId, request.tenant.id))
+      if ((count ?? 0) >= 1) {
+        return reply.code(409).send({ error: 'Crear más de un programa requiere el add-on de múltiples programas.' })
+      }
+    }
+
     const [created] = await db.insert(loyaltyPrograms).values({
       tenantId: request.tenant.id,
       name: data.name,
