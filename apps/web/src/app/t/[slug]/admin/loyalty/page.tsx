@@ -116,26 +116,47 @@ function ScannerTab({ token }: { token: string }) {
 // ─── Cards tab ───────────────────────────────────────────────────────────────
 function CardsTab({ token }: { token: string }) {
   const [search, setSearch] = useState('')
+  const [programFilter, setProgramFilter] = useState('')
+  const { data: programs } = useQuery({
+    queryKey: ['loyalty-programs'],
+    queryFn: () => api('/api/admin/loyalty/programs', { token }),
+  })
+  const multiple = (programs?.length ?? 0) > 1
   const { data, isLoading } = useQuery({
-    queryKey: ['loyalty-cards', search],
-    queryFn: () => api(`/api/admin/loyalty/cards?search=${encodeURIComponent(search)}`, { token }),
+    queryKey: ['loyalty-cards', search, programFilter],
+    queryFn: () => api(`/api/admin/loyalty/cards?search=${encodeURIComponent(search)}${programFilter ? `&program=${programFilter}` : ''}`, { token }),
   })
 
   return (
     <div>
-      <input
-        type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar por nombre, correo o teléfono…"
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-gray-400"
-      />
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <input
+          type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nombre, correo o teléfono…"
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
+        />
+        {multiple && (
+          <select
+            value={programFilter} onChange={(e) => setProgramFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400 sm:w-56">
+            <option value="">Todos los programas</option>
+            {programs.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        )}
+      </div>
       {isLoading && <p className="text-gray-500">Cargando…</p>}
-      {data?.items?.length === 0 && <p className="text-gray-400 text-center py-8">Aún no hay tarjetas.</p>}
+      {data?.items?.length === 0 && <p className="text-gray-400 text-center py-8">No hay tarjetas{programFilter ? ' en este programa' : ''}.</p>}
       <div className="space-y-2">
         {data?.items?.map((c: any) => (
           <div key={c.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
             <div>
               <p className="font-medium text-gray-800">{c.customerName}</p>
               <p className="text-sm text-gray-400">{c.customerPhone || c.customerEmail || '—'}</p>
+              {multiple && c.program?.name && (
+                <span className="inline-block mt-1 text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
+                  🎟️ {c.program.name}
+                </span>
+              )}
             </div>
             <div className="text-right">
               <p className="font-bold text-gray-900">{c.points} pts</p>

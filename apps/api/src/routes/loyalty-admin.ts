@@ -128,17 +128,23 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
 
   // ─── Cards ───────────────────────────────────────────────────────────────
   app.get('/api/admin/loyalty/cards', { preHandler: requirePermission('loyalty.manage') }, async (request) => {
-    const { page = '1', pageSize = '30', search } = request.query as Record<string, string>
+    const { page = '1', pageSize = '30', search, program } = request.query as Record<string, string>
     const limit = Math.min(Number(pageSize), 100)
     const offset = (Number(page) - 1) * limit
     const items = await db.query.loyaltyCards.findMany({
       where: (c, { eq, and, or, ilike }) => {
-        const base = eq(c.tenantId, request.tenant.id)
+        const conds = [eq(c.tenantId, request.tenant.id)]
+        if (program) conds.push(eq(c.programId, program))
         if (search) {
-          return and(base, or(ilike(c.customerName, `%${search}%`), ilike(c.customerPhone, `%${search}%`), ilike(c.customerEmail, `%${search}%`)))
+          conds.push(or(
+            ilike(c.customerName, `%${search}%`),
+            ilike(c.customerPhone, `%${search}%`),
+            ilike(c.customerEmail, `%${search}%`),
+          )!)
         }
-        return base
+        return and(...conds)
       },
+      with: { program: { columns: { id: true, name: true } } },
       orderBy: (c, { desc }) => [desc(c.createdAt)],
       limit, offset,
     })
