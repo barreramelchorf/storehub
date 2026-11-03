@@ -95,33 +95,52 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
   NO es toggle del tenant. `PUT /api/platform/tenants/:id` con `loyaltyEnabled` → merge en
   `config.modules.loyalty`. El cliente no puede auto-activárselo (solo `x-platform-key`).
 - **Módulo independiente del POS**: no depende de `sales`. Un tenant puede tener solo lealtad.
-- **DB** (migraciones 0018–0022): `loyalty_programs` (1 por tenant, UNIQUE), `loyalty_cards`,
+- **DB** (migraciones 0018–0024): `loyalty_programs` (ahora N por tenant), `loyalty_cards`,
   `loyalty_transactions`, `apple_pass_registrations`, `loyalty_campaigns`,
-  `loyalty_recovery_tokens`. Permisos `loyalty.scan`/`loyalty.manage` (admin/gerente).
+  `loyalty_recovery_tokens`. Columnas extra en cards: `pass_updated_at`, `current_offer`,
+  `birth_date`. En programs: `welcome_points`. Permisos `loyalty.scan`/`loyalty.manage`.
+- **DOS add-ons comerciales** (ambos default OFF, activados en `/platform` → editar tenant):
+  1. `config.modules.loyalty` → módulo base (un programa).
+  2. `config.modules.loyaltyMultiProgram` → permite >1 programa. DEPENDE de `loyalty`
+     (no activable sin él; apagar loyalty lo apaga). Sin este add-on, el backend rechaza
+     crear un 2º programa (409) y la UI oculta "+ Nuevo programa" + muestra banner de upsell.
+  `PUT /api/platform/tenants/:id` maneja `loyaltyEnabled` y `multiProgramEnabled` (merge en
+  config.modules, dependencia forzada en backend). El cliente NO puede auto-activarlos.
 - **Código API**: `apps/api/src/lib/loyalty/*` (config, apple-pass passkit-generator 3.7.0,
   google-pass jose, apns http2 nativo, push-dispatcher, pass-builder, scan-logic) +
-  `routes/loyalty-public.ts` (enrollment + recuperación + descargas), `loyalty-apple-ws.ts`
-  (web service Apple, contrato fijo), `loyalty-admin.ts` (program/cards/scan/redeem/adjust/campaigns).
-- **Web**: público `/t/:slug/loyalty` (enrollment) + `/loyalty/recover/:token`; admin
-  `/t/:slug/admin/loyalty` (tabs: Escáner html5-qrcode / Tarjetas / Campañas / Programa).
-  Nav "Lealtad" 🎟️ gateado por `loyalty.manage` + módulo `loyalty`.
+  `routes/loyalty-public.ts` (enrollment + recuperación + descargas + listado programas),
+  `loyalty-apple-ws.ts` (web service Apple, contrato fijo), `loyalty-admin.ts`
+  (programs CRUD + alias singular compat / cards + filtro ?program / scan/redeem/adjust / campaigns).
+- **Web**: público `/t/:slug/loyalty?program=:id` (enrollment por programa) +
+  `/loyalty/recover/:token` + `/loyalty-qr?program=:id` (cartel QR imprimible, lib qrcode);
+  admin `/t/:slug/admin/loyalty` (tabs: Escáner html5-qrcode / Tarjetas [filtro+badge por
+  programa] / Campañas [selector de programa] / Programas [lista CRUD + link QR por programa]).
+- **Múltiples programas (Opción A)**: un QR/link por programa (`?program=:id`). Un correo por
+  PROGRAMA (no por tenant). Enrollment sin `?program`: usa el único activo si hay 1, si hay
+  varios pide especificar. Campañas y tarjetas son por programa.
+- **Puntos de bienvenida**: `welcomePoints` por programa (default 1), otorgados al registrarse
+  como transacción `earn` auditable. 0 = tarjeta empieza vacía.
 - **Opción A (sin worker)**: push inline en el proceso del API. Escaneo = inmediato;
   campañas = loop con rate limit (`loyaltyPushRateMax/Ms`) + progreso en DB. Diseñado para
   migrar a worker sin reescritura (interfaz `PushDispatcher` + función pura `sendCardUpdate`).
 - **Branding Opción C**: hereda del tenant (primary/secondary/logo) con override por programa.
-- **Recuperación**: correo obligatorio; re-registro con mismo correo → link de un solo uso
-  (30 min) al correo, NO duplica. Captura `birth_date` (opcional, analítica).
+- **Recuperación**: correo obligatorio; re-registro con mismo correo (mismo programa) → link
+  de un solo uso (30 min) al correo, NO duplica. Captura `birth_date` (opcional, analítica).
 - **⚠️ Notificaciones Apple (aprendido a la mala en staging)**: Apple notifica SOLO si cambia
   el VALOR de un campo con `changeMessage`. El `lastUpdated` tag del web service DEBE avanzar
   en cualquier cambio → por eso existe `pass_updated_at` (no usar `last_scan_at`). La oferta
   de campaña se persiste en `current_offer` (si no, el pull del device regenera "unchanged").
-  Push solo funciona en APNs PRODUCCIÓN (HTTPS). Notificación llega "quietly".
+  Push solo funciona en APNs PRODUCCIÓN (HTTPS). Notificación llega "quietly" (sin sonido).
+- **Verificado en staging por el usuario**: instalación del pass en iPhone, escaneo con
+  actualización instantánea, notificaciones (escaneo y campaña).
 - **Secrets**: Apple cargados en Pulumi staging (applePassCert/Key/appleWwdrCert PEM +
   applePassTypeId=`pass.top.barreramelchorf.storehub`, appleTeamId=`RAP2536SR4`,
-  loyaltyWebServiceUrl). Inyectados vía `kubernetes/index.ts` (secret + configmap).
+  loyaltyWebServiceUrl=`https://storehub-staging.barreramelchorf.top`). Inyectados vía
+  `kubernetes/index.ts` (secret + configmap). Llave NO cifrada (PKCS#8).
 - **Google PENDIENTE**: certs no generados. Código degrada con gracia (solo botón Apple).
-- **Fase 2**: múltiples programas/premios por tenant (quitar UNIQUE), tiers, POS integration,
-  segmentación de campañas, expiración de puntos. Ver spec.
+- **Fase 2 restante**: tiers (premios por escalón en un programa), integración POS (sumar
+  al cobrar), segmentación de campañas, expiración de puntos. Date picker de birth_date
+  (ver TECH_DEBT). Ver spec para detalles.
 
 ## Apertura/Cierre de Caja — FASE 1 (en prod v0.36.0, APAGADO por default)
 - Spec completo: `.kiro/specs/cash-sessions.md`.
