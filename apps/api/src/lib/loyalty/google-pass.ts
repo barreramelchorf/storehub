@@ -93,7 +93,7 @@ export function buildObjectPayload(
     balance: { int: data.points },
   }
   const messages = !opts.omitMessages && data.offer && data.offer.length > 0
-    ? [{ id: 'offer', header: 'Oferta', body: data.offer }]
+    ? [{ id: 'offer', body: data.offer }]
     : []
   const textModulesData: Array<{ id: string; header: string; body: string }> = []
   if (data.rewardThreshold && data.rewardDescription) {
@@ -221,7 +221,7 @@ async function addOfferMessage(objectIdFull: string, offer: string, token: strin
   const id = `offer_${Date.now()}`
   for (const messageType of ['TEXT_AND_NOTIFY', 'TEXT'] as const) {
     const res = await apiRequest('POST', `/loyaltyObject/${objectIdFull}/addMessage`, token, {
-      message: { id, header: 'Oferta', body: offer, messageType },
+      message: { id, body: offer, messageType },
     })
     if (res.ok) return
     const text = (await res.text().catch(() => '')).slice(0, 300)

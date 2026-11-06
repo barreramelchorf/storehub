@@ -121,7 +121,7 @@ export async function buildApplePass(data: PassData): Promise<Buffer> {
     key: 'offer',
     label: 'Oferta',
     value: data.offer && data.offer.length > 0 ? data.offer : '—',
-    changeMessage: 'Oferta: %@',
+    changeMessage: '%@',
   })
   pass.backFields.push({
     key: 'program',
