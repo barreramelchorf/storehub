@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { api } from '@/lib/api'
+import { WalletButtons } from '@/components/WalletButtons'
 
 interface EnrollResult {
   cardId: string
@@ -64,29 +65,7 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
         <h2 className="text-xl font-bold text-gray-800">¡Listo, {customerName.split(' ')[0]}!</h2>
         <p className="text-gray-500 mt-1 mb-6">Agrega tu tarjeta a tu teléfono para no perderla.</p>
 
-        <div className="space-y-3">
-          {result.appleUrl && (
-            <a
-              href={result.appleUrl}
-              className="flex items-center justify-center gap-2 w-full bg-black text-white rounded-xl py-3 font-medium hover:opacity-90 transition-opacity"
-            >
-               Agregar a Apple Wallet
-            </a>
-          )}
-          {result.googleUrl && (
-            <a
-              href={result.googleUrl}
-              className="flex items-center justify-center gap-2 w-full bg-[#4285F4] text-white rounded-xl py-3 font-medium hover:opacity-90 transition-opacity"
-            >
-              Agregar a Google Wallet
-            </a>
-          )}
-          {!result.appleUrl && !result.googleUrl && (
-            <p className="text-sm text-gray-500">
-              Tu tarjeta fue creada. Los botones de Wallet aún no están disponibles — contacta al negocio.
-            </p>
-          )}
-        </div>
+        <WalletButtons appleUrl={result.appleUrl} googleUrl={result.googleUrl} />
 
         <p className="text-xs text-gray-400 mt-6">
           En iPhone usa Safari; en Android usa Chrome para agregar la tarjeta.

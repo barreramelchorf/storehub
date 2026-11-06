@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { WalletButtons } from '@/components/WalletButtons'
 
 interface RecoverResult {
   customerName: string
@@ -59,18 +60,7 @@ export function LoyaltyRecoverClient({ slug, token }: { slug: string; token: str
       <p className="text-gray-500 mt-1 mb-1">Recuperamos tu tarjeta con tus puntos intactos.</p>
       <p className="text-2xl font-bold text-gray-900 mb-6">{result!.points} pts</p>
 
-      <div className="space-y-3">
-        {result!.appleUrl && (
-          <a href={result!.appleUrl} className="flex items-center justify-center gap-2 w-full bg-black text-white rounded-xl py-3 font-medium hover:opacity-90 transition-opacity">
-             Agregar a Apple Wallet
-          </a>
-        )}
-        {result!.googleUrl && (
-          <a href={result!.googleUrl} className="flex items-center justify-center gap-2 w-full bg-[#4285F4] text-white rounded-xl py-3 font-medium hover:opacity-90 transition-opacity">
-            Agregar a Google Wallet
-          </a>
-        )}
-      </div>
+      <WalletButtons appleUrl={result!.appleUrl} googleUrl={result!.googleUrl} />
 
       <p className="text-xs text-gray-400 mt-6">
         En iPhone usa Safari; en Android usa Chrome para agregar la tarjeta.
