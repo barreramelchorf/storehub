@@ -13,7 +13,7 @@
  * dependency), so no extra Google SDK is required.
  */
 import { SignJWT, importPKCS8 } from 'jose'
-import { getGoogleConfig } from './config.js'
+import { getGoogleConfig, getWebServiceBaseUrl } from './config.js'
 import { type PassData, DEFAULT_BRANDING } from './pass-data.js'
 
 const WALLET_API = 'https://walletobjects.googleapis.com/walletobjects/v1'
@@ -62,20 +62,27 @@ async function getAccessToken(): Promise<string | null> {
   return json.access_token ?? null
 }
 
-function buildClassPayload(data: PassData, issuerId: string, programId: string) {
+/** Google must fetch images from a public absolute URL; resolve relative paths. */
+export function absoluteImageUrl(url: string | undefined | null): string {
+  const base = getWebServiceBaseUrl()
+  if (!url) return `${base}/api/public/loyalty/default-logo.png`
+  if (/^https?:\/\//i.test(url)) return url
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`
+}
+
+export function buildClassPayload(data: PassData, issuerId: string, programId: string) {
   return {
     id: classId(issuerId, programId),
     issuerName: data.businessName,
     programName: data.programName,
     reviewStatus: 'UNDER_REVIEW',
     hexBackgroundColor: data.branding.bgColor ?? DEFAULT_BRANDING.bgColor,
-    ...(data.branding.logoUrl
-      ? { programLogo: { sourceUri: { uri: data.branding.logoUrl } } }
-      : {}),
+    // programLogo is REQUIRED by Google; fall back to a default logo.
+    programLogo: { sourceUri: { uri: absoluteImageUrl(data.branding.logoUrl) } },
   }
 }
 
-function buildObjectPayload(data: PassData, issuerId: string, programId: string) {
+export function buildObjectPayload(data: PassData, issuerId: string, programId: string) {
   const loyaltyPoints = {
     label: 'Puntos',
     balance: { int: data.points },
@@ -83,6 +90,14 @@ function buildObjectPayload(data: PassData, issuerId: string, programId: string)
   const messages = data.offer && data.offer.length > 0
     ? [{ header: 'Oferta', body: data.offer }]
     : []
+  const textModulesData: Array<{ id: string; header: string; body: string }> = []
+  if (data.rewardThreshold && data.rewardDescription) {
+    textModulesData.push({
+      id: 'reward',
+      header: 'Recompensa',
+      body: `${data.rewardDescription} (${data.rewardThreshold} puntos)`,
+    })
+  }
   return {
     id: objectId(issuerId, data.cardId),
     classId: classId(issuerId, programId),
@@ -91,6 +106,7 @@ function buildObjectPayload(data: PassData, issuerId: string, programId: string)
     accountId: data.cardId,
     loyaltyPoints,
     barcode: { type: 'QR_CODE', value: data.cardId, alternateText: data.serialNumber },
+    ...(textModulesData.length > 0 ? { textModulesData } : {}),
     ...(messages.length > 0 ? { messages } : {}),
   }
 }
@@ -106,31 +122,43 @@ async function apiRequest(method: string, path: string, token: string, body?: un
   })
 }
 
-/** Ensure the LoyaltyClass exists (idempotent create-or-get). */
+async function failIfNotOk(res: Response, what: string) {
+  if (res.ok) return
+  const text = await res.text().catch(() => '')
+  throw new Error(`Google Wallet: ${what} falló (${res.status}) ${text.slice(0, 300)}`)
+}
+
+/** Ensure the LoyaltyClass exists and is up to date (create or PATCH). */
 async function ensureClass(data: PassData, issuerId: string, programId: string, token: string) {
   const payload = buildClassPayload(data, issuerId, programId)
   const getRes = await apiRequest('GET', `/loyaltyClass/${payload.id}`, token)
   if (getRes.status === 404) {
-    await apiRequest('POST', '/loyaltyClass', token, payload)
+    await failIfNotOk(await apiRequest('POST', '/loyaltyClass', token, payload), 'crear clase')
+  } else {
+    await failIfNotOk(getRes, 'consultar clase')
+    // Keep branding in sync (reviewStatus is left untouched on update).
+    const { reviewStatus: _omit, ...patch } = payload
+    await failIfNotOk(await apiRequest('PATCH', `/loyaltyClass/${payload.id}`, token, patch), 'actualizar clase')
   }
 }
 
 /**
  * Create the object (if needed) and return the "Add to Google Wallet" JWT link.
- * Throws if Google is not configured — callers should check isGoogleConfigured().
+ * Throws if Google is not configured or the Google API rejects a request.
  */
 export async function buildGoogleSaveUrl(data: PassData, programId: string): Promise<string> {
   const cfg = getGoogleConfig()
   if (!cfg) throw new Error('Google Wallet no está configurado (falta service account)')
 
   const token = await getAccessToken()
-  if (token) {
-    await ensureClass(data, cfg.issuerId, programId, token)
-    const obj = buildObjectPayload(data, cfg.issuerId, programId)
-    const getRes = await apiRequest('GET', `/loyaltyObject/${obj.id}`, token)
-    if (getRes.status === 404) {
-      await apiRequest('POST', '/loyaltyObject', token, obj)
-    }
+  if (!token) throw new Error('Google Wallet: no se pudo obtener access token (revisar service account)')
+  await ensureClass(data, cfg.issuerId, programId, token)
+  const obj = buildObjectPayload(data, cfg.issuerId, programId)
+  const getRes = await apiRequest('GET', `/loyaltyObject/${obj.id}`, token)
+  if (getRes.status === 404) {
+    await failIfNotOk(await apiRequest('POST', '/loyaltyObject', token, obj), 'crear objeto')
+  } else {
+    await failIfNotOk(getRes, 'consultar objeto')
   }
 
   // The save JWT embeds the object by reference (id); class/object already exist
@@ -160,5 +188,9 @@ export async function updateGoogleObject(data: PassData, programId: string): Pro
   if (!token) return false
   const obj = buildObjectPayload(data, cfg.issuerId, programId)
   const res = await apiRequest('PATCH', `/loyaltyObject/${obj.id}`, token, obj)
+  // 404 = the customer never saved the pass to Google Wallet; not an error.
+  if (!res.ok && res.status !== 404) {
+    console.warn(`[google-wallet] PATCH objeto falló (${res.status})`, (await res.text().catch(() => '')).slice(0, 300))
+  }
   return res.ok
 }

@@ -72,3 +72,27 @@ describe('Loyalty — hexToRgb (Apple/Google color format)', () => {
     expect(hexToRgb('not-a-color')).toBe('rgb(31, 41, 55)')
   })
 })
+
+describe('Loyalty — Google Wallet payloads', () => {
+  const data = {
+    cardId: 'c1', serialNumber: 's1', authToken: 't', programName: 'Puntos', businessName: 'Cafe',
+    points: 3, rewardThreshold: 10, rewardDescription: 'Café gratis', offer: null,
+    customerName: 'Ana', branding: { logoUrl: '/api/public/storage/logo.png', bgColor: '#112233' },
+  }
+  it('class: logo relativo se vuelve absoluto y siempre hay programLogo', async () => {
+    const { buildClassPayload } = await import('../lib/loyalty/google-pass.js')
+    const c = buildClassPayload(data as any, 'ISS', 'p1')
+    expect(c.id).toBe('ISS.program_p1')
+    expect(c.programLogo.sourceUri.uri).toMatch(/^https?:\/\/.+\/api\/public\/storage\/logo\.png$/)
+    const noLogo = buildClassPayload({ ...data, branding: {} } as any, 'ISS', 'p1')
+    expect(noLogo.programLogo.sourceUri.uri).toMatch(/default-logo\.png$/)
+  })
+  it('object: puntos, recompensa y oferta', async () => {
+    const { buildObjectPayload } = await import('../lib/loyalty/google-pass.js')
+    const o = buildObjectPayload({ ...data, offer: '2x1' } as any, 'ISS', 'p1') as any
+    expect(o.id).toBe('ISS.card_c1')
+    expect(o.loyaltyPoints.balance.int).toBe(3)
+    expect(o.textModulesData[0].body).toContain('10 puntos')
+    expect(o.messages[0].body).toBe('2x1')
+  })
+})

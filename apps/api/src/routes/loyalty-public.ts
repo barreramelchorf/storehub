@@ -11,6 +11,7 @@ import { db, loyaltyCards, loyaltyRecoveryTokens, loyaltyTransactions } from '@s
 import { eq } from 'drizzle-orm'
 import { loyaltyEnrollSchema } from '@storehub/schemas'
 import { buildApplePass } from '../lib/loyalty/apple-pass.js'
+import { PLACEHOLDER_PNG } from '../lib/loyalty/apple-pass.js'
 import { buildGoogleSaveUrl } from '../lib/loyalty/google-pass.js'
 import { buildPassData, type CardRow } from '../lib/loyalty/pass-builder.js'
 import { isAppleConfigured, isGoogleConfigured, getWebServiceBaseUrl } from '../lib/loyalty/config.js'
@@ -230,6 +231,11 @@ export async function loyaltyPassRoutes(app: FastifyInstance) {
       .header('Content-Type', 'application/vnd.apple.pkpass')
       .header('Content-Disposition', `attachment; filename="${cardRow.serialNumber}.pkpass"`)
     return reply.send(buffer)
+  })
+
+  // Default logo for Google classes of programs without a logo (Google requires one)
+  app.get('/api/public/loyalty/default-logo.png', async (_request, reply) => {
+    return reply.header('Content-Type', 'image/png').header('Cache-Control', 'public, max-age=86400').send(PLACEHOLDER_PNG)
   })
 
   // Google save redirect

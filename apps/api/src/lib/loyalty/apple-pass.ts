@@ -21,7 +21,7 @@ import { type PassData, DEFAULT_BRANDING, hexToRgb } from './pass-data.js'
  * A 1x1 transparent PNG used as a placeholder icon/logo when the program has
  * no logo configured. Apple requires icon.png to exist in the bundle.
  */
-const PLACEHOLDER_PNG = Buffer.from(
+export const PLACEHOLDER_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64',
 )
