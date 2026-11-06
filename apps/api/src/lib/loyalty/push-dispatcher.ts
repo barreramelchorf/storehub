@@ -55,7 +55,8 @@ export async function sendCardUpdate(cardId: string, offer?: string | null): Pro
     const data = await buildPassData(cardRow, offer)
 
     // Google: PATCH the object (safe no-op if unconfigured).
-    await updateGoogleObject(data, card.programId).catch(() => false)
+    // A non-empty offer comes from a campaign run -> notify Android via AddMessage.
+    await updateGoogleObject(data, card.programId, { notify: typeof offer === 'string' && offer.length > 0 }).catch(() => false)
 
     // Apple: push to every registered device for this card.
     const regs = await db.query.applePassRegistrations.findMany({

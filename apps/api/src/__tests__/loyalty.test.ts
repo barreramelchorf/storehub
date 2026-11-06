@@ -94,5 +94,7 @@ describe('Loyalty — Google Wallet payloads', () => {
     expect(o.loyaltyPoints.balance.int).toBe(3)
     expect(o.textModulesData[0].body).toContain('10 puntos')
     expect(o.messages[0].body).toBe('2x1')
+    const silent = buildObjectPayload({ ...data, offer: '2x1' } as any, 'ISS', 'p1', { omitMessages: true }) as any
+    expect(silent.messages).toBeUndefined()
   })
 })

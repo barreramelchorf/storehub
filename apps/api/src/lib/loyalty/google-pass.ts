@@ -82,13 +82,18 @@ export function buildClassPayload(data: PassData, issuerId: string, programId: s
   }
 }
 
-export function buildObjectPayload(data: PassData, issuerId: string, programId: string) {
+export function buildObjectPayload(
+  data: PassData,
+  issuerId: string,
+  programId: string,
+  opts: { omitMessages?: boolean } = {},
+) {
   const loyaltyPoints = {
     label: 'Puntos',
     balance: { int: data.points },
   }
-  const messages = data.offer && data.offer.length > 0
-    ? [{ header: 'Oferta', body: data.offer }]
+  const messages = !opts.omitMessages && data.offer && data.offer.length > 0
+    ? [{ id: 'offer', header: 'Oferta', body: data.offer }]
     : []
   const textModulesData: Array<{ id: string; header: string; body: string }> = []
   if (data.rewardThreshold && data.rewardDescription) {
@@ -180,17 +185,48 @@ export async function buildGoogleSaveUrl(data: PassData, programId: string): Pro
   return `https://pay.google.com/gp/v/save/${jwt}`
 }
 
-/** PATCH the loyalty object to reflect new points / offer. Safe no-op if unconfigured. */
-export async function updateGoogleObject(data: PassData, programId: string): Promise<boolean> {
+/**
+ * PATCH the loyalty object to reflect new points / offer. Safe no-op if unconfigured.
+ *
+ * When `notify` is true and there is an offer, the offer is delivered with the
+ * AddMessage API as TEXT_AND_NOTIFY (the only way to get a push on Android for
+ * free text). Google caps this at 3 notifying messages per pass per 24h; if the
+ * quota is exceeded we fall back to a plain TEXT message (updates, no push).
+ */
+export async function updateGoogleObject(
+  data: PassData,
+  programId: string,
+  opts: { notify?: boolean } = {},
+): Promise<boolean> {
   const cfg = getGoogleConfig()
   if (!cfg) return false
   const token = await getAccessToken()
   if (!token) return false
-  const obj = buildObjectPayload(data, cfg.issuerId, programId)
+  const notify = !!opts.notify && !!data.offer && data.offer.length > 0
+  const obj = buildObjectPayload(data, cfg.issuerId, programId, { omitMessages: notify })
   const res = await apiRequest('PATCH', `/loyaltyObject/${obj.id}`, token, obj)
   // 404 = the customer never saved the pass to Google Wallet; not an error.
-  if (!res.ok && res.status !== 404) {
-    console.warn(`[google-wallet] PATCH objeto falló (${res.status})`, (await res.text().catch(() => '')).slice(0, 300))
+  if (!res.ok) {
+    if (res.status !== 404) {
+      console.warn(`[google-wallet] PATCH objeto falló (${res.status})`, (await res.text().catch(() => '')).slice(0, 300))
+    }
+    return false
   }
-  return res.ok
+  if (notify) await addOfferMessage(obj.id, data.offer as string, token)
+  return true
+}
+
+/** AddMessage with notification; degrades to TEXT when the 24h quota is hit. */
+async function addOfferMessage(objectIdFull: string, offer: string, token: string) {
+  const id = `offer_${Date.now()}`
+  for (const messageType of ['TEXT_AND_NOTIFY', 'TEXT'] as const) {
+    const res = await apiRequest('POST', `/loyaltyObject/${objectIdFull}/addMessage`, token, {
+      message: { id, header: 'Oferta', body: offer, messageType },
+    })
+    if (res.ok) return
+    const text = (await res.text().catch(() => '')).slice(0, 300)
+    console.warn(`[google-wallet] addMessage ${messageType} falló (${res.status})`, text)
+    // Only retry as plain TEXT when the failure is the notification quota.
+    if (!(messageType === 'TEXT_AND_NOTIFY' && /quota/i.test(text))) return
+  }
 }
