@@ -1,10 +1,11 @@
 # HANDOFF — StoreHub (sesión previa)
 
-Fecha de corte: 2026-11-07. Prod en **v0.37.0**. Rama: `main`.
-**Últimas sesiones**: módulo de Lealtad (Apple + Google Wallet) completo y verificado en
-STAGING — Apple y Google funcionando, múltiples programas, detector de dispositivo,
-recuperación por email, campañas con notificaciones en ambas plataformas. NO promovido a
-prod aún (ver "PARA PROMOVER A PROD" en la sección Lealtad). Ver sección "Lealtad" abajo.
+Fecha de corte: 2026-11-08. Prod en **v0.38.0**. Rama: `main`.
+**Últimas sesiones**: módulo de Lealtad (Apple + Google Wallet) completo, verificado en
+staging y **PROMOVIDO A PROD en v0.38.0** (migración 0018–0024 aplicada, secretos Apple+
+Google cargados en el stack prod). Apple y Google funcionando, múltiples programas, detector
+de dispositivo, recuperación por email, campañas con notificaciones en ambas plataformas.
+Los add-ons arrancan OFF: ningún tenant de prod tiene lealtad hasta activarla en `/platform`.
 
 Este documento resume TODO lo avanzado, las reglas aprendidas, y el estado del
 proyecto, para retomar sin perder contexto. Para el arranque rápido ver
@@ -90,7 +91,7 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
   health probe del web en `/api/health` (fix deploys lentos).
 - **Tests en CI**: job `test` (vitest api + web) que bloquea build/promote-prod.
 
-## Lealtad (Apple/Google Wallet) — FASE 1 (en STAGING nov-2026, Apple+Google OK, NO en prod aún)
+## Lealtad (Apple/Google Wallet) — EN PROD (v0.38.0, nov-2026), add-ons OFF por default
 - Spec completo: `.kiro/specs/loyalty-wallet.md`. Costo real: ~$99 USD/año (Apple Developer);
   Google gratis. NO confundir con Apple Pay/tokenización (eso es lo caro, no aplica a passes).
 - **Add-on COMERCIAL**: se activa desde `/platform` (editar tenant → "Add-on: Lealtad"),
@@ -141,15 +142,15 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
   googleWalletIssuerId=`3388000000023220447`, googleWalletSaJson,
   loyaltyWebServiceUrl=`https://storehub-staging.barreramelchorf.top`). Inyectados vía
   `kubernetes/index.ts` (secret + configmap). Llave Apple NO cifrada (PKCS#8).
-- **⚠️ PARA PROMOVER A PROD (pendiente, no bloqueante de código)**:
-  1. Cargar los MISMOS secretos (Apple + Google) en el stack `prod` de Pulumi, con
-     `loyaltyWebServiceUrl` = dominio de PROD (no el de staging). ← ÚNICO pendiente real.
-  2. Issuer de Google: CONFIRMADO en producción. Clase visible en pay.google.com/business/console
-     con Estado=APPROVED (Google la promovió desde UNDER_REVIEW). Pass instalado en Android sin
-     testers. Sin pendientes por el lado de Google.
-  3. Add-ons arrancan OFF por default → ningún tenant de prod tendrá lealtad hasta activarlo
-     en `/platform`.
-  4. Prod actual: v0.37.0 (lealtad NO está en prod todavía).
+- **✅ PROMOVIDO A PROD (v0.38.0, 2026-11-08)**:
+  1. Secretos Apple + Google cargados en el stack `prod` (copiados de staging vía pipe
+     `pulumi config get --secret | set --secret`, verificados idénticos). `loyaltyWebServiceUrl`
+     prod = `https://storehub.barreramelchorf.top` (agnóstico al tenant, whitelabel).
+  2. Issuer de Google CONFIRMADO en producción (clase APPROVED en la consola).
+  3. Migración 0018–0024 aplicada en DB prod. Pods prod corriendo. Sitios prod responden 200.
+  4. Add-ons arrancan OFF → activar lealtad por tenant desde `/platform` (editar tenant).
+  - ⚠️ Pendientes documentados en TECH_DEBT: migrar a dominio dedicado (storehub.top) e
+    Issuer/cert separados para staging (hoy staging comparte los de prod).
 - **Notificaciones Google**: AddMessage `TEXT_AND_NOTIFY` (PATCH normal NO notifica), máx
   3/24h → degrada a `TEXT`. Logo obligatorio en la clase (fallback a default-logo.png absoluto).
 - **Fase 2 restante**: tiers (premios por escalón en un programa), integración POS (sumar

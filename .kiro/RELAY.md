@@ -15,12 +15,13 @@ directorio de trabajo, ahí viven el monorepo, `.kiro/`, infra, etc.).
 - `.kiro/specs/loyalty-wallet.md` — spec del módulo de lealtad (Apple/Google Wallet), en staging
 
 **Estado actual:**
-- Prod en `v0.36.0`. Rama `main`. Hay una rama en pausa `feature/split-payments`.
-- Último feature en prod: apertura/cierre de caja fase 1 (apagado por default via toggle).
-- **Lealtad (Apple/Google Wallet) en STAGING, NO en prod**: módulo completo con 2 add-ons
+- Prod en `v0.38.0`. Rama `main`. Hay una rama en pausa `feature/split-payments`.
+- Último feature en prod: módulo de Lealtad (Apple/Google Wallet), v0.38.0.
+- **Lealtad (Apple/Google Wallet) EN PROD (v0.38.0)**: módulo completo con 2 add-ons
   (`loyalty`, `loyaltyMultiProgram`) activables desde `/platform`. Múltiples programas,
-  puntos de bienvenida, QR por programa, recuperación por email, campañas. Apple y Google
-  configurados y verificados en staging. Falta cargar secretos en prod para promover.
+  puntos de bienvenida, QR por programa, recuperación por email, campañas, detector de
+  dispositivo. Apple y Google funcionando. Add-ons OFF por default (activar por tenant en
+  `/platform`). Pendientes menores en TECH_DEBT (dominio dedicado, Issuer staging separado).
   Ver `.kiro/HANDOFF.md` sección "Lealtad".
 
 **⚠️ ARCHIVOS LOCALES NO VERSIONADOS (verificar al arrancar en un equipo nuevo):**
