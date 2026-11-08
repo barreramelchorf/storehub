@@ -10,12 +10,12 @@
  *  - GET      /api/admin/loyalty/campaigns/:id      loyalty.manage
  */
 import type { FastifyInstance } from 'fastify'
-import { db, loyaltyPrograms, loyaltyCards, loyaltyTransactions, loyaltyCampaigns } from '@storehub/db'
+import { db, loyaltyPrograms, loyaltyCards, loyaltyTransactions, loyaltyCampaigns, applePassRegistrations, loyaltyRecoveryTokens } from '@storehub/db'
 import { eq, and, sql } from 'drizzle-orm'
 import { loyaltyProgramSchema, loyaltyScanSchema, loyaltyAdjustSchema, loyaltyCampaignSchema } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
-import { canEarnToday, hasReachedReward, pointsToReward } from '../lib/loyalty/scan-logic.js'
+import { canEarnToday, hasReachedReward, pointsToReward, businessDate } from '../lib/loyalty/scan-logic.js'
 import { pushDispatcher } from '../lib/loyalty/push-dispatcher.js'
 
 export async function loyaltyAdminRoutes(app: FastifyInstance) {
@@ -55,6 +55,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
       active: data.active,
       pointsPerVisit: data.pointsPerVisit,
       welcomePoints: data.welcomePoints,
+      maxScansPerDay: data.maxScansPerDay,
       rewardThreshold: data.rewardThreshold ?? null,
       rewardDescription: data.rewardDescription ?? null,
       branding: data.branding,
@@ -73,6 +74,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
       active: data.active,
       pointsPerVisit: data.pointsPerVisit,
       welcomePoints: data.welcomePoints,
+      maxScansPerDay: data.maxScansPerDay,
       rewardThreshold: data.rewardThreshold ?? null,
       rewardDescription: data.rewardDescription ?? null,
       branding: data.branding,
@@ -107,6 +109,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
         active: data.active,
         pointsPerVisit: data.pointsPerVisit,
         welcomePoints: data.welcomePoints,
+        maxScansPerDay: data.maxScansPerDay,
         rewardThreshold: data.rewardThreshold ?? null,
         rewardDescription: data.rewardDescription ?? null,
         branding: data.branding,
@@ -119,6 +122,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
       active: data.active,
       pointsPerVisit: data.pointsPerVisit,
       welcomePoints: data.welcomePoints,
+      maxScansPerDay: data.maxScansPerDay,
       rewardThreshold: data.rewardThreshold ?? null,
       rewardDescription: data.rewardDescription ?? null,
       branding: data.branding,
@@ -165,6 +169,22 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     return { ...card, transactions }
   })
 
+  // Delete a card (physical). admin/gerente via loyalty.manage. Removes related
+  // rows first (registrations, recovery tokens, transactions) then the card.
+  app.delete('/api/admin/loyalty/cards/:id', { preHandler: requirePermission('loyalty.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const card = await db.query.loyaltyCards.findFirst({
+      where: (c, { eq, and }) => and(eq(c.id, id), eq(c.tenantId, request.tenant.id)),
+    })
+    if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
+
+    await db.delete(applePassRegistrations).where(eq(applePassRegistrations.cardId, id))
+    await db.delete(loyaltyRecoveryTokens).where(eq(loyaltyRecoveryTokens.cardId, id))
+    await db.delete(loyaltyTransactions).where(eq(loyaltyTransactions.cardId, id))
+    await db.delete(loyaltyCards).where(and(eq(loyaltyCards.id, id), eq(loyaltyCards.tenantId, request.tenant.id)))
+    return reply.code(204).send()
+  })
+
   // ─── Scan (check-in): +pointsPerVisit, once per business day ───────────────
   app.post('/api/admin/loyalty/scan', { preHandler: requirePermission('loyalty.scan') }, async (request, reply) => {
     const parsed = loyaltyScanSchema.safeParse(request.body)
@@ -181,14 +201,30 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     if (!program || !program.active) return reply.code(409).send({ error: 'Programa inactivo' })
 
     const now = new Date()
-    if (!canEarnToday(card.lastScanAt, now)) {
+    // Count earn-scans already registered TODAY (business day) for this card.
+    // Only scans (performedBy not null) count toward the cap; welcome points and
+    // manual adjustments are excluded.
+    const todayStart = new Date(`${businessDate(now)}T00:00:00`)
+    const [{ count: scansToday }] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(loyaltyTransactions)
+      .where(and(
+        eq(loyaltyTransactions.cardId, card.id),
+        eq(loyaltyTransactions.type, 'earn'),
+        sql`${loyaltyTransactions.performedBy} is not null`,
+        sql`${loyaltyTransactions.createdAt} >= ${todayStart}`,
+      ))
+
+    if (!canEarnToday(scansToday ?? 0, program.maxScansPerDay)) {
+      const limitMsg = program.maxScansPerDay === 1
+        ? 'Ya se registró una visita hoy'
+        : `Ya se registró el máximo de ${program.maxScansPerDay} visitas hoy`
       return reply.send({
         card,
         earned: 0,
         alreadyScannedToday: true,
         reachedReward: hasReachedReward(card.points, program.rewardThreshold),
         pointsToReward: pointsToReward(card.points, program.rewardThreshold),
-        message: 'Ya se registró una visita hoy',
+        message: limitMsg,
       })
     }
 

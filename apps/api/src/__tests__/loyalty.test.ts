@@ -10,21 +10,24 @@ import { hexToRgb } from '../lib/loyalty/pass-data.js'
 // Pure-function tests mirroring the project style (no DB/HTTP). These guard the
 // loyalty earning rules (1 scan/day), reward math, and color conversion.
 
-describe('Loyalty — canEarnToday (1 scan per business day)', () => {
-  it('allows earning when the card has never been scanned', () => {
-    expect(canEarnToday(null)).toBe(true)
+describe('Loyalty — canEarnToday (maxScansPerDay configurable)', () => {
+  it('allows the first scan of the day (default cap 1)', () => {
+    expect(canEarnToday(0, 1)).toBe(true)
   })
 
-  it('blocks a second scan on the same business day', () => {
-    const now = new Date('2026-10-31T18:00:00Z')
-    const earlierSameDay = new Date('2026-10-31T15:00:00Z')
-    expect(canEarnToday(earlierSameDay, now)).toBe(false)
+  it('blocks a second scan the same day with cap 1', () => {
+    expect(canEarnToday(1, 1)).toBe(false)
   })
 
-  it('allows earning again on a different business day', () => {
-    const now = new Date('2026-11-01T18:00:00Z')
-    const yesterday = new Date('2026-10-31T15:00:00Z')
-    expect(canEarnToday(yesterday, now)).toBe(true)
+  it('allows up to N scans/day when cap is N', () => {
+    expect(canEarnToday(0, 3)).toBe(true)
+    expect(canEarnToday(2, 3)).toBe(true)
+    expect(canEarnToday(3, 3)).toBe(false)
+  })
+
+  it('cap 0 = unlimited (always allows)', () => {
+    expect(canEarnToday(0, 0)).toBe(true)
+    expect(canEarnToday(99, 0)).toBe(true)
   })
 })
 

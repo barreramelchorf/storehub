@@ -62,9 +62,19 @@ export function LoyaltyRecoverClient({ slug, token }: { slug: string; token: str
 
       <WalletButtons appleUrl={result!.appleUrl} googleUrl={result!.googleUrl} />
 
-      <p className="text-xs text-gray-400 mt-6">
-        En iPhone usa Safari; en Android usa Chrome para agregar la tarjeta.
-      </p>
+      <div className="mt-6 text-left bg-gray-50 rounded-xl p-4">
+        <p className="text-sm font-semibold text-gray-700 mb-2">¿Cómo guardarla?</p>
+        <ol className="text-sm text-gray-600 space-y-1.5 list-decimal list-inside">
+          <li>Toca el botón <strong>"Agregar a tu Wallet"</strong> de arriba.</li>
+          <li>Confirma tocando <strong>"Agregar"</strong> en la pantalla de tu teléfono.</li>
+          <li>Abre tu app de <strong>billetera</strong> (Apple Wallet o Google Wallet) para ver tu tarjeta.</li>
+          <li>Muéstrala en el negocio para acumular puntos en cada visita.</li>
+        </ol>
+        <p className="text-xs text-gray-400 mt-3">
+          En iPhone usa Safari; en Android usa Chrome. Si no aparece el botón, revisa que estés
+          en el navegador correcto.
+        </p>
+      </div>
     </div>
   )
 }

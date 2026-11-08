@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAuthStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { QrScanner } from './QrScanner'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 type Tab = 'program' | 'cards' | 'scanner' | 'campaigns'
 
@@ -115,8 +116,10 @@ function ScannerTab({ token }: { token: string }) {
 
 // ─── Cards tab ───────────────────────────────────────────────────────────────
 function CardsTab({ token }: { token: string }) {
+  const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [programFilter, setProgramFilter] = useState('')
+  const [toDelete, setToDelete] = useState<any | null>(null)
   const { data: programs } = useQuery({
     queryKey: ['loyalty-programs'],
     queryFn: () => api('/api/admin/loyalty/programs', { token }),
@@ -125,6 +128,11 @@ function CardsTab({ token }: { token: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['loyalty-cards', search, programFilter],
     queryFn: () => api(`/api/admin/loyalty/cards?search=${encodeURIComponent(search)}${programFilter ? `&program=${programFilter}` : ''}`, { token }),
+  })
+
+  const del = useMutation({
+    mutationFn: (id: string) => api(`/api/admin/loyalty/cards/${id}`, { method: 'DELETE', token }),
+    onSuccess: () => { setToDelete(null); qc.invalidateQueries({ queryKey: ['loyalty-cards'] }) },
   })
 
   return (
@@ -158,13 +166,31 @@ function CardsTab({ token }: { token: string }) {
                 </span>
               )}
             </div>
-            <div className="text-right">
-              <p className="font-bold text-gray-900">{c.points} pts</p>
-              <p className="text-xs text-gray-400">{c.totalVisits} visitas</p>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="font-bold text-gray-900">{c.points} pts</p>
+                <p className="text-xs text-gray-400">{c.totalVisits} visitas</p>
+              </div>
+              <button
+                onClick={() => setToDelete(c)}
+                title="Borrar tarjeta"
+                className="text-gray-300 hover:text-red-500 transition-colors text-lg">
+                🗑️
+              </button>
             </div>
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={!!toDelete}
+        title="Borrar tarjeta"
+        message={`¿Borrar la tarjeta de ${toDelete?.customerName}? Se eliminará permanentemente junto con su historial de puntos. Esta acción no se puede deshacer.`}
+        confirmLabel="Borrar"
+        loading={del.isPending}
+        onConfirm={() => toDelete && del.mutate(toDelete.id)}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   )
 }
@@ -352,9 +378,10 @@ function ProgramForm({ token, program, onDone, onCancel }: { token: string; prog
   const [current, setCurrent] = useState<any>(program ? {
     name: program.name, active: program.active, pointsPerVisit: program.pointsPerVisit,
     welcomePoints: program.welcomePoints ?? 1,
+    maxScansPerDay: program.maxScansPerDay ?? 1,
     rewardThreshold: program.rewardThreshold ?? '', rewardDescription: program.rewardDescription ?? '',
     branding: program.branding ?? {},
-  } : { name: '', active: true, pointsPerVisit: 1, welcomePoints: 1, rewardThreshold: '', rewardDescription: '', branding: {} })
+  } : { name: '', active: true, pointsPerVisit: 1, welcomePoints: 1, maxScansPerDay: 1, rewardThreshold: '', rewardDescription: '', branding: {} })
   const set = (patch: any) => setCurrent({ ...current, ...patch })
 
   const save = useMutation({
@@ -367,6 +394,7 @@ function ProgramForm({ token, program, onDone, onCancel }: { token: string; prog
           active: current.active,
           pointsPerVisit: Number(current.pointsPerVisit) || 1,
           welcomePoints: Number(current.welcomePoints) || 0,
+          maxScansPerDay: Number(current.maxScansPerDay) || 0,
           rewardThreshold: current.rewardThreshold === '' ? null : Number(current.rewardThreshold),
           rewardDescription: current.rewardDescription === '' ? null : current.rewardDescription,
           branding: current.branding ?? {},
@@ -398,6 +426,12 @@ function ProgramForm({ token, program, onDone, onCancel }: { token: string; prog
         <input type="number" min={0} value={current.welcomePoints} onChange={(e) => set({ welcomePoints: e.target.value })}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400" />
         <p className="text-xs text-gray-400 mt-1">Puntos al registrarse. Pon 1 para que la tarjeta empiece con su primera visita, o 0 para empezar vacía.</p>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Máx. escaneos por día</label>
+        <input type="number" min={0} value={current.maxScansPerDay} onChange={(e) => set({ maxScansPerDay: e.target.value })}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400" />
+        <p className="text-xs text-gray-400 mt-1">Cuántas visitas cuentan por día para la misma tarjeta. 1 = una vez al día (evita abuso), 0 = sin límite (cada escaneo suma).</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

@@ -11,13 +11,14 @@ export function businessDate(d: Date = new Date()): string {
 }
 
 /**
- * Whether a scan should count toward points, given the card's last scan time.
- * Rule (confirmed): 1 scan counted per business day. A second scan the same day
- * does not add points.
+ * Whether a scan should count toward points.
+ * @param scansToday  earn-scans already counted for this card in the current business day
+ * @param maxPerDay   program.maxScansPerDay — 0 = unlimited, N = at most N counted/day
+ * Rule: a scan counts if under the daily cap (or the cap is unlimited).
  */
-export function canEarnToday(lastScanAt: Date | null, now: Date = new Date()): boolean {
-  if (!lastScanAt) return true
-  return businessDate(lastScanAt) !== businessDate(now)
+export function canEarnToday(scansToday: number, maxPerDay: number): boolean {
+  if (maxPerDay <= 0) return true // 0 = unlimited
+  return scansToday < maxPerDay
 }
 
 /** Whether the card has reached the reward threshold. */

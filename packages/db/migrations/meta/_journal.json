@@ -176,6 +176,13 @@
       "when": 1791000800000,
       "tag": "0024_multiple_loyalty_programs",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791000900000,
+      "tag": "0025_add_max_scans_per_day",
+      "breakpoints": true
     }
   ]
 }

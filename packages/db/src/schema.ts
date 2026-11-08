@@ -267,6 +267,9 @@ export const loyaltyPrograms = pgTable('loyalty_programs', {
   // Points granted once when a customer enrolls (0 = start empty). Configurable
   // because some businesses want the card to start with a visit, others at zero.
   welcomePoints: integer('welcome_points').notNull().default(1),
+  // Max scans that COUNT per business day (anti-fraude). 1 = once/day (default),
+  // 0 = unlimited (every scan earns). >1 = allow N counted visits/day.
+  maxScansPerDay: integer('max_scans_per_day').notNull().default(1),
   rewardThreshold: integer('reward_threshold'),
   rewardDescription: text('reward_description'),
   // branding jsonb: { logoUrl, bgColor, fgColor, labelColor }
