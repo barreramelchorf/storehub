@@ -144,10 +144,9 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
 - **⚠️ PARA PROMOVER A PROD (pendiente, no bloqueante de código)**:
   1. Cargar los MISMOS secretos (Apple + Google) en el stack `prod` de Pulumi, con
      `loyaltyWebServiceUrl` = dominio de PROD (no el de staging). ← ÚNICO pendiente real.
-  2. Issuer de Google: CONFIRMADO en producción (publishing access aprobado por Google;
-     pass se instaló en Android sin testers registrados). reviewStatus de clase `UNDER_REVIEW`
-     es operativo, no bloquea emisión. Recomendable (no obligatorio): una prueba final con
-     Android de cuenta Google ajena para 100% de certeza.
+  2. Issuer de Google: CONFIRMADO en producción. Clase visible en pay.google.com/business/console
+     con Estado=APPROVED (Google la promovió desde UNDER_REVIEW). Pass instalado en Android sin
+     testers. Sin pendientes por el lado de Google.
   3. Add-ons arrancan OFF por default → ningún tenant de prod tendrá lealtad hasta activarlo
      en `/platform`.
   4. Prod actual: v0.37.0 (lealtad NO está en prod todavía).
