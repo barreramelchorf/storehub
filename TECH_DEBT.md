@@ -167,6 +167,29 @@ Pendientes a resolver en siguientes iteraciones.
 - Para: resize de imágenes batch, emails, notificaciones futuras
 - Stack: BullMQ + Redis (Redis ya existe)
 
+### Lealtad — dominio dedicado para el web service de passes
+- Hoy `loyaltyWebServiceUrl` = `https://storehub.barreramelchorf.top` (prod) y
+  `https://storehub-staging.barreramelchorf.top` (staging). Es el host de plataforma.
+- Pendiente: comprar un dominio propio (ej. `storehub.top`) y migrar a él para verse más
+  profesional (es whitelabel; el host del web service es transparente al tenant).
+- **Impacto de la migración** (parametrizado para ser poco intrusivo):
+  - Cambiar un solo valor: `pulumi config set loyaltyWebServiceUrl https://<nuevo-dominio>`
+    en cada stack + redeploy. Todo el código lo lee de ahí (`getWebServiceBaseUrl()`).
+  - ⚠️ OJO con passes YA emitidos: el `webServiceURL` (Apple) y las URLs de imagen (Google)
+    quedan embebidos en el pase AL MOMENTO de emitirlo. Los passes viejos seguirán apuntando
+    al dominio anterior hasta que se regeneren (un escaneo/campaña los regenera). Por eso el
+    dominio viejo debe seguir respondiendo un tiempo tras la migración (mantener el Ingress).
+  - El QR de enrollment usa `window.location.origin` (cliente) → migra solo, sin cambio.
+
+### Lealtad — Issuer/cert separados para staging
+- Hoy staging y prod comparten el MISMO Pass Type ID de Apple y el MISMO Issuer de Google
+  (los "de storehub", que son de producción). Pragmático pero mezcla passes de prueba con
+  reales bajo el mismo emisor.
+- Pendiente: crear un Pass Type ID de Apple (`pass.top.barreramelchorf.storehub-staging` o
+  similar) y un Issuer de Google separados para staging, y cargar esos secretos solo en el
+  stack staging. Prod se queda con los actuales ("storehub"). No rompe nada hoy porque
+  classId/serialNumber son únicos por tenant/tarjeta.
+
 ### Date picker en campo de fecha de nacimiento (enrollment de lealtad)
 - El campo `birth_date` en la página pública de registro usa `<input type="date">` nativo.
   Da buena experiencia en móvil (selector nativo del teléfono con rueda de año), pero
