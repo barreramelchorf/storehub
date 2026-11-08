@@ -253,7 +253,7 @@ export const campaignCategories = pgTable('campaign_categories', {
 // No depende de la tabla `sales`. Gateado por config.modules.loyalty (default false).
 
 export const loyaltyPlatformEnum = pgEnum('loyalty_platform', ['apple', 'google', 'unknown'])
-export const loyaltyCardStatusEnum = pgEnum('loyalty_card_status', ['active', 'blocked'])
+export const loyaltyCardStatusEnum = pgEnum('loyalty_card_status', ['active', 'blocked', 'voided'])
 export const loyaltyTxTypeEnum = pgEnum('loyalty_tx_type', ['earn', 'redeem', 'adjust'])
 export const loyaltyCampaignStatusEnum = pgEnum('loyalty_campaign_status', ['pending', 'sending', 'sent', 'failed'])
 

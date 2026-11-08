@@ -106,7 +106,7 @@ export function buildObjectPayload(
   return {
     id: objectId(issuerId, data.cardId),
     classId: classId(issuerId, programId),
-    state: 'ACTIVE',
+    state: data.voided ? 'EXPIRED' : 'ACTIVE',
     accountName: data.customerName,
     accountId: data.cardId,
     loyaltyPoints,

@@ -183,6 +183,13 @@
       "when": 1791000900000,
       "tag": "0025_add_max_scans_per_day",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791001000000,
+      "tag": "0026_add_voided_card_status",
+      "breakpoints": true
     }
   ]
 }

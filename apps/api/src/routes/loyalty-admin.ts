@@ -169,8 +169,33 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     return { ...card, transactions }
   })
 
-  // Delete a card (physical). admin/gerente via loyalty.manage. Removes related
-  // rows first (registrations, recovery tokens, transactions) then the card.
+  // Void a card (soft-delete / revoke). admin/gerente via loyalty.manage.
+  // Marks the card 'voided', invalidates the pass on the customer's device
+  // (Apple voided:true via pull + push, Google state EXPIRED), and blocks scans.
+  // The row is kept for traceability; a future purge cronjob removes old voided
+  // cards. This is the standard industry pattern (soft-delete then deferred purge).
+  app.post('/api/admin/loyalty/cards/:id/void', { preHandler: requirePermission('loyalty.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const card = await db.query.loyaltyCards.findFirst({
+      where: (c, { eq, and }) => and(eq(c.id, id), eq(c.tenantId, request.tenant.id)),
+    })
+    if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
+    if (card.status === 'voided') return reply.code(409).send({ error: 'La tarjeta ya está anulada' })
+
+    const [updated] = await db.update(loyaltyCards)
+      .set({ status: 'voided' })
+      .where(and(eq(loyaltyCards.id, id), eq(loyaltyCards.tenantId, request.tenant.id)))
+      .returning()
+
+    // Invalidate on the device: push so Apple pulls the voided pass; Google PATCH
+    // to EXPIRED. pushDispatcher reads the (now voided) card state via buildPassData.
+    pushDispatcher.updateCard(id)
+
+    return reply.send({ card: updated })
+  })
+
+  // Physical delete — kept for purge/cleanup (e.g. future cronjob). Not used by
+  // the admin UI (which uses void). admin/gerente via loyalty.manage.
   app.delete('/api/admin/loyalty/cards/:id', { preHandler: requirePermission('loyalty.manage') }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const card = await db.query.loyaltyCards.findFirst({
@@ -195,6 +220,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
       where: (c, { eq, and }) => and(eq(c.id, parsed.data.cardId), eq(c.tenantId, tenantId)),
     })
     if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
+    if (card.status === 'voided') return reply.code(409).send({ error: 'Tarjeta anulada. Pide al cliente que se registre de nuevo.' })
     if (card.status !== 'active') return reply.code(409).send({ error: 'Tarjeta bloqueada' })
 
     const program = await db.query.loyaltyPrograms.findFirst({ where: (p, { eq }) => eq(p.id, card.programId) })

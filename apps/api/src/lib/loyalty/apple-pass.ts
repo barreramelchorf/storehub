@@ -81,6 +81,8 @@ export async function buildApplePass(data: PassData): Promise<Buffer> {
       foregroundColor: fg,
       labelColor: label,
       logoText: data.businessName,
+      // Voided pass (card revoked) → Wallet marks it invalid.
+      ...(data.voided ? { voided: true } : {}),
     },
   )
 

@@ -27,10 +27,11 @@ export async function buildPassData(card: CardRow, offer?: string | null): Promi
   if (!program) throw new Error('Programa de lealtad no encontrado')
 
   // Load the card's persisted offer so any regeneration (incl. device pull)
-  // reflects the active campaign offer, not just the campaign run.
+  // reflects the active campaign offer, not just the campaign run. Also the
+  // status, to mark the pass as voided when the card was revoked.
   const fullCard = await db.query.loyaltyCards.findFirst({
     where: (c, { eq }) => eq(c.id, card.id),
-    columns: { currentOffer: true },
+    columns: { currentOffer: true, status: true },
   })
   const resolvedOffer = offer !== undefined ? offer : (fullCard?.currentOffer ?? null)
 
@@ -67,6 +68,7 @@ export async function buildPassData(card: CardRow, offer?: string | null): Promi
     rewardDescription: program.rewardDescription,
     offer: resolvedOffer,
     customerName: card.customerName,
+    voided: fullCard?.status === 'voided',
     branding,
   }
 }

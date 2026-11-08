@@ -35,6 +35,8 @@ export interface PassData {
   offer?: string | null
   /** Customer display name. */
   customerName: string
+  /** When true, the pass is voided/revoked (Apple voided:true, Google EXPIRED). */
+  voided?: boolean
   branding: PassBranding
 }
 

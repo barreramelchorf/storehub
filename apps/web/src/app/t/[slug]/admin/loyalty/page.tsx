@@ -119,7 +119,7 @@ function CardsTab({ token }: { token: string }) {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [programFilter, setProgramFilter] = useState('')
-  const [toDelete, setToDelete] = useState<any | null>(null)
+  const [toVoid, setToVoid] = useState<any | null>(null)
   const { data: programs } = useQuery({
     queryKey: ['loyalty-programs'],
     queryFn: () => api('/api/admin/loyalty/programs', { token }),
@@ -130,9 +130,9 @@ function CardsTab({ token }: { token: string }) {
     queryFn: () => api(`/api/admin/loyalty/cards?search=${encodeURIComponent(search)}${programFilter ? `&program=${programFilter}` : ''}`, { token }),
   })
 
-  const del = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/loyalty/cards/${id}`, { method: 'DELETE', token }),
-    onSuccess: () => { setToDelete(null); qc.invalidateQueries({ queryKey: ['loyalty-cards'] }) },
+  const voidCard = useMutation({
+    mutationFn: (id: string) => api(`/api/admin/loyalty/cards/${id}/void`, { method: 'POST', token }),
+    onSuccess: () => { setToVoid(null); qc.invalidateQueries({ queryKey: ['loyalty-cards'] }) },
   })
 
   return (
@@ -155,10 +155,15 @@ function CardsTab({ token }: { token: string }) {
       {isLoading && <p className="text-gray-500">Cargando…</p>}
       {data?.items?.length === 0 && <p className="text-gray-400 text-center py-8">No hay tarjetas{programFilter ? ' en este programa' : ''}.</p>}
       <div className="space-y-2">
-        {data?.items?.map((c: any) => (
-          <div key={c.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
+        {data?.items?.map((c: any) => {
+          const voided = c.status === 'voided'
+          return (
+          <div key={c.id} className={`rounded-xl border p-4 flex items-center justify-between ${voided ? 'bg-gray-50 border-gray-200 opacity-70' : 'bg-white border-gray-100'}`}>
             <div>
-              <p className="font-medium text-gray-800">{c.customerName}</p>
+              <p className="font-medium text-gray-800">
+                {c.customerName}
+                {voided && <span className="ml-2 text-xs bg-red-50 text-red-600 rounded-full px-2 py-0.5 align-middle">anulada</span>}
+              </p>
               <p className="text-sm text-gray-400">{c.customerPhone || c.customerEmail || '—'}</p>
               {multiple && c.program?.name && (
                 <span className="inline-block mt-1 text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
@@ -171,25 +176,28 @@ function CardsTab({ token }: { token: string }) {
                 <p className="font-bold text-gray-900">{c.points} pts</p>
                 <p className="text-xs text-gray-400">{c.totalVisits} visitas</p>
               </div>
-              <button
-                onClick={() => setToDelete(c)}
-                title="Borrar tarjeta"
-                className="text-gray-300 hover:text-red-500 transition-colors text-lg">
-                🗑️
-              </button>
+              {!voided && (
+                <button
+                  onClick={() => setToVoid(c)}
+                  title="Anular tarjeta"
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors border border-gray-200 rounded-lg px-2.5 py-1">
+                  Anular
+                </button>
+              )}
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       <ConfirmDialog
-        open={!!toDelete}
-        title="Borrar tarjeta"
-        message={`¿Borrar la tarjeta de ${toDelete?.customerName}? Se eliminará permanentemente junto con su historial de puntos. Esta acción no se puede deshacer.`}
-        confirmLabel="Borrar"
-        loading={del.isPending}
-        onConfirm={() => toDelete && del.mutate(toDelete.id)}
-        onCancel={() => setToDelete(null)}
+        open={!!toVoid}
+        title="Anular tarjeta"
+        message={`¿Anular la tarjeta de ${toVoid?.customerName}? Su pase quedará invalidado en su teléfono (Apple/Google Wallet) y no podrá acumular más puntos. La tarjeta se conserva en el historial. Esta acción no se puede deshacer desde aquí.`}
+        confirmLabel="Anular"
+        loading={voidCard.isPending}
+        onConfirm={() => toVoid && voidCard.mutate(toVoid.id)}
+        onCancel={() => setToVoid(null)}
       />
     </div>
   )
