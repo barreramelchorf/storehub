@@ -1,8 +1,10 @@
 # HANDOFF — StoreHub (sesión previa)
 
-Fecha de corte: 2026-10-31. Prod en **v0.36.0**. Rama: `main`.
-**Última sesión**: módulo de Lealtad (Apple/Google Wallet) implementado y desplegado a
-STAGING (no promovido a prod aún). Ver sección "Lealtad" abajo.
+Fecha de corte: 2026-11-07. Prod en **v0.37.0**. Rama: `main`.
+**Últimas sesiones**: módulo de Lealtad (Apple + Google Wallet) completo y verificado en
+STAGING — Apple y Google funcionando, múltiples programas, detector de dispositivo,
+recuperación por email, campañas con notificaciones en ambas plataformas. NO promovido a
+prod aún (ver "PARA PROMOVER A PROD" en la sección Lealtad). Ver sección "Lealtad" abajo.
 
 Este documento resume TODO lo avanzado, las reglas aprendidas, y el estado del
 proyecto, para retomar sin perder contexto. Para el arranque rápido ver
@@ -88,7 +90,7 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
   health probe del web en `/api/health` (fix deploys lentos).
 - **Tests en CI**: job `test` (vitest api + web) que bloquea build/promote-prod.
 
-## Lealtad (Apple/Google Wallet) — FASE 1 (en STAGING oct-2026, NO en prod aún)
+## Lealtad (Apple/Google Wallet) — FASE 1 (en STAGING nov-2026, Apple+Google OK, NO en prod aún)
 - Spec completo: `.kiro/specs/loyalty-wallet.md`. Costo real: ~$99 USD/año (Apple Developer);
   Google gratis. NO confundir con Apple Pay/tokenización (eso es lo caro, no aplica a passes).
 - **Add-on COMERCIAL**: se activa desde `/platform` (editar tenant → "Add-on: Lealtad"),
@@ -131,13 +133,23 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
   en cualquier cambio → por eso existe `pass_updated_at` (no usar `last_scan_at`). La oferta
   de campaña se persiste en `current_offer` (si no, el pull del device regenera "unchanged").
   Push solo funciona en APNs PRODUCCIÓN (HTTPS). Notificación llega "quietly" (sin sonido).
-- **Verificado en staging por el usuario**: instalación del pass en iPhone, escaneo con
-  actualización instantánea, notificaciones (escaneo y campaña).
-- **Secrets**: Apple cargados en Pulumi staging (applePassCert/Key/appleWwdrCert PEM +
-  applePassTypeId=`pass.top.barreramelchorf.storehub`, appleTeamId=`RAP2536SR4`,
+- **Verificado en staging por el usuario**: instalación del pass en iPhone (Apple) y Android
+  (Google), escaneo con actualización instantánea, notificaciones (escaneo y campaña) en
+  ambas plataformas. Detector de dispositivo muestra solo el botón que aplica.
+- **Secrets**: Apple Y Google cargados en Pulumi **staging** (applePassCert/Key/appleWwdrCert
+  PEM + applePassTypeId=`pass.top.barreramelchorf.storehub`, appleTeamId=`RAP2536SR4`,
+  googleWalletIssuerId=`3388000000023220447`, googleWalletSaJson,
   loyaltyWebServiceUrl=`https://storehub-staging.barreramelchorf.top`). Inyectados vía
-  `kubernetes/index.ts` (secret + configmap). Llave NO cifrada (PKCS#8).
-- **Google PENDIENTE**: certs no generados. Código degrada con gracia (solo botón Apple).
+  `kubernetes/index.ts` (secret + configmap). Llave Apple NO cifrada (PKCS#8).
+- **⚠️ PARA PROMOVER A PROD (pendiente, no bloqueante de código)**:
+  1. Cargar los MISMOS secretos (Apple + Google) en el stack `prod` de Pulumi, con
+     `loyaltyWebServiceUrl` = dominio de PROD (no el de staging).
+  2. Confirmar que el Issuer de Google esté aprobado para producción (no estado demo).
+  3. Add-ons arrancan OFF por default → ningún tenant de prod tendrá lealtad hasta activarlo
+     en `/platform`.
+  4. Prod actual: v0.37.0 (lealtad NO está en prod todavía).
+- **Notificaciones Google**: AddMessage `TEXT_AND_NOTIFY` (PATCH normal NO notifica), máx
+  3/24h → degrada a `TEXT`. Logo obligatorio en la clase (fallback a default-logo.png absoluto).
 - **Fase 2 restante**: tiers (premios por escalón en un programa), integración POS (sumar
   al cobrar), segmentación de campañas, expiración de puntos. Date picker de birth_date
   (ver TECH_DEBT). Ver spec para detalles.

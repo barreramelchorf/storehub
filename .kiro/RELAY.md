@@ -19,8 +19,9 @@ directorio de trabajo, ahí viven el monorepo, `.kiro/`, infra, etc.).
 - Último feature en prod: apertura/cierre de caja fase 1 (apagado por default via toggle).
 - **Lealtad (Apple/Google Wallet) en STAGING, NO en prod**: módulo completo con 2 add-ons
   (`loyalty`, `loyaltyMultiProgram`) activables desde `/platform`. Múltiples programas,
-  puntos de bienvenida, QR por programa, recuperación por email, campañas. Solo Apple
-  configurado (Google pendiente de certs). Ver `.kiro/HANDOFF.md` sección "Lealtad".
+  puntos de bienvenida, QR por programa, recuperación por email, campañas. Apple y Google
+  configurados y verificados en staging. Falta cargar secretos en prod para promover.
+  Ver `.kiro/HANDOFF.md` sección "Lealtad".
 
 **⚠️ ARCHIVOS LOCALES NO VERSIONADOS (verificar al arrancar en un equipo nuevo):**
 Hay archivos que NO están en git (certs Apple, kubeconfig). Están empaquetados cifrados en

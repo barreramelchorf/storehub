@@ -353,21 +353,34 @@ Patrón: igual que `JWT_SECRET`/`MINIO_*` — definidos en Pulumi, inyectados co
 - [x] Cuenta Apple Developer ($99/año) + Pass Type ID (`pass.top.barreramelchorf.storehub`) +
       certificado. Team ID `RAP2536SR4`. Secrets cargados en Pulumi staging (cert/key/WWDR PEM
       + applePassTypeId/appleTeamId/loyaltyWebServiceUrl).
-- [ ] Google Pay & Wallet Console → Issuer + service account. **PENDIENTE** (solo Apple por ahora).
-- [x] Secrets Apple en Pulumi staging. Google pendiente.
+- [x] Google Pay & Wallet Console → Issuer (`3388000000023220447`) + service account.
+      Secrets cargados en Pulumi staging (googleWalletIssuerId + googleWalletSaJson).
+- [x] Secrets Apple y Google en Pulumi **staging**. ⚠️ **PENDIENTE para prod**: cargar los
+      mismos secretos en el stack `prod` (con `loyaltyWebServiceUrl` del dominio de prod) y
+      confirmar que el Issuer de Google esté aprobado para producción (no demo).
 
-### Fase 1 — Núcleo (COMPLETADA, en staging oct-2026)
+### Fase 1 — Núcleo (COMPLETADA, en staging; Apple y Google verificados)
 - [x] Migración: tablas loyalty_* (programs/cards/transactions/campaigns + apple_pass_registrations
       + loyalty_recovery_tokens) + permisos `loyalty.scan`/`loyalty.manage` + columnas
-      `pass_updated_at`, `current_offer`, `birth_date`. Migraciones 0018–0022.
+      `pass_updated_at`, `current_offer`, `birth_date`, `welcome_points`. Migraciones 0018–0024.
 - [x] Generación de pase Apple (.pkpass, passkit-generator 3.7.0) + Google (JWT con jose).
+- [x] Google Wallet completo: clase/objeto con manejo de errores explícito, sync de clase,
+      logo absoluto (requisito de Google), recompensa en textModulesData, notificaciones vía
+      addMessage TEXT_AND_NOTIFY con degradación a TEXT al agotar la cuota de 3/24h.
 - [x] Página pública de enrollment + "Add to Wallet" (correo obligatorio + fecha nacimiento).
+- [x] Detector de dispositivo (`wallet-platform.ts`): muestra solo el botón de Wallet que
+      corresponde (iPhone→Apple, Android→Google, desktop→ambos; cubre iPadOS).
 - [x] Web service de Apple (registrar/desregistrar/serials/pase/log).
 - [x] Endpoint de scan + UI de escáner QR en panel (html5-qrcode).
 - [x] Push Apple + PATCH Google en background dentro del API (Opción A, sin worker).
-- [x] Campañas de oferta con rate limiting + notificaciones (changeMessage + current_offer).
-- [x] Sección admin: config del programa (+ colores), tarjetas, campañas, escáner.
-- [x] Add-on activable desde el panel de plataforma.
+- [x] Campañas de oferta con rate limiting + notificaciones (Apple changeMessage / Google
+      addMessage). El mensaje de oferta se envía tal cual, sin prefijo.
+- [x] Sección admin: programas (CRUD, lista), tarjetas (filtro + badge por programa),
+      campañas (selector de programa), escáner.
+- [x] Dos add-ons activables desde plataforma: `loyalty` y `loyaltyMultiProgram` (dependiente).
+- [x] Múltiples programas por tenant (Opción A: un QR/link por programa, `?program=:id`).
+- [x] Puntos de bienvenida configurables por programa (`welcome_points`, default 1).
+- [x] QR imprimible por programa (`/t/:slug/loyalty-qr?program=:id`, lib qrcode).
 - [x] Branding heredado del tenant con override (Opción C).
 - [x] Recuperación de tarjeta por email (link único 30 min).
 
@@ -383,16 +396,20 @@ Apple notifica SOLO cuando cambia el VALOR de un campo (front/back) que tiene `c
 El push de actualización de Apple SOLO funciona en APNs **producción** (staging/prod con HTTPS,
 no en local). La notificación llega "quietly" (sin sonido/vibración).
 
+### Aprendizajes técnicos clave (notificaciones de Google Wallet)
+Google notifica en Android vía la **AddMessage API** con `messageType: TEXT_AND_NOTIFY`
+(un PATCH normal al objeto actualiza el pase pero NO notifica). Límite: **3 mensajes con
+notificación por pase por 24h**; al agotarse, se degrada a `TEXT` (actualiza sin push).
+Un `PATCH`/addMessage que devuelve 404 = el cliente nunca guardó el pase → no es error.
+El logo del programa es OBLIGATORIO en la clase de Google; si el programa no tiene, se usa
+`/api/public/loyalty/default-logo.png` (URL absoluta; Google requiere URL pública).
+
 ### Fase 2 — Futuro (no en este spec)
 - Integración opcional POS: al cobrar, sugerir escanear y sumar puntos ligados a la venta.
-- **Múltiples programas por tenant** (ej. "café gratis" + "postre gratis" en paralelo).
-  Requiere quitar el UNIQUE(tenant_id) de loyalty_programs + UX de selección en enrollment
-  + "Programas" (plural) en admin + campañas por programa. Confirmado como caso real deseado.
 - Niveles/tiers (una tarjeta con premios por escalón).
 - Expiración de puntos.
 - Segmentación de campañas (no solo "a todos").
-- Google Wallet: certificados aún NO cargados (solo Apple). El código degrada con gracia
-  (enrollment muestra solo botón Apple si Google no está configurado).
+- Date picker de fecha de nacimiento (ver TECH_DEBT — decisión A/B/C pendiente).
 - Migrar push a worker (BullMQ) si el volumen crece — el código ya está diseñado para el swap
   (ver "Arquitectura de ejecución").
 
