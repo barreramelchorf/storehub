@@ -11,11 +11,11 @@
  */
 import type { FastifyInstance } from 'fastify'
 import { db, loyaltyPrograms, loyaltyCards, loyaltyTransactions, loyaltyCampaigns, applePassRegistrations, loyaltyRecoveryTokens } from '@storehub/db'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, gte, isNotNull } from 'drizzle-orm'
 import { loyaltyProgramSchema, loyaltyScanSchema, loyaltyAdjustSchema, loyaltyCampaignSchema, normalizeMxPhone } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
-import { canEarnToday, hasReachedReward, pointsToReward, businessDate } from '../lib/loyalty/scan-logic.js'
+import { canEarnToday, hasReachedReward, pointsToReward, countScansOnBusinessDay } from '../lib/loyalty/scan-logic.js'
 import { pushDispatcher } from '../lib/loyalty/push-dispatcher.js'
 
 export async function loyaltyAdminRoutes(app: FastifyInstance) {
@@ -297,17 +297,21 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     // Count earn-scans already registered TODAY (business day) for this card.
     // Only scans (performedBy not null) count toward the cap; welcome points and
     // manual adjustments are excluded.
-    const todayStart = new Date(`${businessDate(now)}T00:00:00`)
-    const [{ count: scansToday }] = await db.select({ count: sql<number>`count(*)::int` })
+    // Read the last 48h with typed Drizzle operators (a raw Date inside sql`` isn't
+    // serializable by the driver) and bucket them by BUSINESS day in code, so the
+    // day boundary is midnight in BUSINESS_TIMEZONE, not midnight UTC.
+    const since = new Date(now.getTime() - 48 * 60 * 60 * 1000)
+    const recentScans = await db.select({ createdAt: loyaltyTransactions.createdAt })
       .from(loyaltyTransactions)
       .where(and(
         eq(loyaltyTransactions.cardId, card.id),
         eq(loyaltyTransactions.type, 'earn'),
-        sql`${loyaltyTransactions.performedBy} is not null`,
-        sql`${loyaltyTransactions.createdAt} >= ${todayStart}`,
+        isNotNull(loyaltyTransactions.performedBy),
+        gte(loyaltyTransactions.createdAt, since),
       ))
+    const scansToday = countScansOnBusinessDay(recentScans.map((r) => r.createdAt), now)
 
-    if (!canEarnToday(scansToday ?? 0, program.maxScansPerDay)) {
+    if (!canEarnToday(scansToday, program.maxScansPerDay)) {
       const limitMsg = program.maxScansPerDay === 1
         ? 'Ya se registró una visita hoy'
         : `Ya se registró el máximo de ${program.maxScansPerDay} visitas hoy`

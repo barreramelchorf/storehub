@@ -21,6 +21,15 @@ export function canEarnToday(scansToday: number, maxPerDay: number): boolean {
   return scansToday < maxPerDay
 }
 
+/**
+ * How many of the given scan timestamps fall on the CURRENT business day (the day in
+ * BUSINESS_TIMEZONE, not UTC). Used for the daily cap (maxScansPerDay).
+ */
+export function countScansOnBusinessDay(timestamps: Date[], now: Date = new Date()): number {
+  const today = businessDate(now)
+  return timestamps.filter((t) => businessDate(t) === today).length
+}
+
 /** Whether the card has reached the reward threshold. */
 export function hasReachedReward(points: number, threshold: number | null | undefined): boolean {
   if (!threshold || threshold <= 0) return false

@@ -4,6 +4,7 @@ import {
   canEarnToday,
   hasReachedReward,
   pointsToReward,
+  countScansOnBusinessDay,
 } from '../lib/loyalty/scan-logic.js'
 import { hexToRgb } from '../lib/loyalty/pass-data.js'
 import { normalizeMxPhone, loyaltyEnrollSchema, loyaltyScanSchema, loyaltyRecoverRequestSchema } from '@storehub/schemas'
@@ -228,5 +229,32 @@ describe('Loyalty — loyaltyRecoverRequestSchema (correo o celular)', () => {
     const r = loyaltyRecoverRequestSchema.safeParse({ phone: '123' })
     expect(r.success).toBe(false)
     if (!r.success) expect(r.error.errors[0].message).toMatch(/10 dígitos/)
+  })
+})
+
+describe('Loyalty — countScansOnBusinessDay (día de negocio = hora de México, no UTC)', () => {
+  // México no tiene horario de verano desde 2022: UTC-6 todo el año.
+  it('cuenta las visitas del mismo día de negocio', () => {
+    const now = new Date('2026-11-14T20:00:00Z') // 14:00 del 14-nov en México
+    const scans = [new Date('2026-11-14T15:00:00Z'), new Date('2026-11-14T18:30:00Z')]
+    expect(countScansOnBusinessDay(scans, now)).toBe(2)
+  })
+  it('una visita de las 19:00 de México (ya es el día siguiente en UTC) cuenta como del mismo día', () => {
+    const now = new Date('2026-11-15T05:30:00Z') // 23:30 del 14-nov en México
+    const scans = [new Date('2026-11-15T01:00:00Z')] // 19:00 del 14-nov en México
+    expect(countScansOnBusinessDay(scans, now)).toBe(1)
+  })
+  it('una visita de las 23:30 de México NO cuenta a la 01:00 del día siguiente', () => {
+    const now = new Date('2026-11-15T07:00:00Z') // 01:00 del 15-nov en México
+    const scans = [new Date('2026-11-15T05:30:00Z')] // 23:30 del 14-nov en México
+    expect(countScansOnBusinessDay(scans, now)).toBe(0)
+  })
+  it('no cuenta visitas de días anteriores', () => {
+    const now = new Date('2026-11-14T20:00:00Z')
+    const scans = [new Date('2026-11-13T20:00:00Z'), new Date('2026-11-12T20:00:00Z')]
+    expect(countScansOnBusinessDay(scans, now)).toBe(0)
+  })
+  it('sin visitas -> 0', () => {
+    expect(countScansOnBusinessDay([], new Date())).toBe(0)
   })
 })
