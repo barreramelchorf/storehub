@@ -166,7 +166,7 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
     durante un deploy.
   - Bug corregido en este lote (solo staging): el escaneo daba 500 por un `Date` en SQL crudo;
     ver "Lección" en TECH_DEBT. Prod (v0.38.0) nunca lo tuvo.
-  - Pendientes abiertos: B4 webcam, B5 logo/favicon, B7 trustProxy en el API (la infra ya conserva la IP real del cliente desde 2026-11-15; ver TECH_DEBT B7), date
+  - Pendientes abiertos: B4 webcam, B5 logo/favicon, B7 cerrado en staging (IP real + límites por IP; ver TECH_DEBT B7), date
     picker de nacimiento, campañas programadas (cumpleaños) con CronJobs + purga de anuladas.
 - **Notificaciones Google**: AddMessage `TEXT_AND_NOTIFY` (PATCH normal NO notifica), máx
   3/24h → degrada a `TEXT`. Logo obligatorio en la clase (fallback a default-logo.png absoluto).

@@ -330,11 +330,21 @@ Pendientes a resolver en siguientes iteraciones.
   (kubectl habla con :6443, no depende de Traefik). Traefik sigue sobrescribiendo
   X-Forwarded-For/X-Real-IP falsificados. Aviso: ahora los logs/auditoría pueden contener IPs reales
   de clientes (dato personal); tratar según corresponda.
-- ⏳ FALTA (código, aparte): el API aún toma `request.ip` = IP del pod de Traefik (10.42.0.224) y
-  recibe la real en `x-forwarded-for`. Configurar `trustProxy` limitado a la red de pods
-  (`10.42.0.0/16`, NO `true`) para que `request.ip` sea la IP real, y entonces añadir límite por IP
-  (p. ej. login por IP además de por cuenta, registro/recuperación por IP). Probar en staging y
-  verificar que un X-Forwarded-For falso no cambie `request.ip`.
+- ✅ CÓDIGO HECHO en staging (2026-11-15, commit 4020b92; NO está en prod hasta promover):
+  `trustProxy` = `10.42.0.0/16` (env `TRUST_PROXY` para cambiarlo; nunca `true`), así `request.ip` es
+  la IP real y un X-Forwarded-For de un cliente externo se ignora. Límites por IP nuevos: login
+  30/15 min por IP (además de 10/15 min por cuenta), registro público 60/h, solicitud de
+  recuperación 30/h. Probado en staging con servidor Fastify real (tests) y en vivo: cortan
+  exactamente en el intento #31 / #31 / #61; otra IP no se afecta; `request.ip` en los logs es la IP
+  real y un X-Forwarded-For falso desde fuera no la cambia. Las pruebas de agotamiento se hicieron
+  desde un pod interno con IPs de documentación (203.0.113.x) para no bloquear a nadie real.
+- Límites de diseño a recordar: (1) los contadores son en memoria por réplica (prod 2 a 6 réplicas:
+  el tope efectivo es hasta N veces mayor; Redis lo resolvería). (2) Los clientes en la misma WiFi
+  (p. ej. clientes de una cafetería) comparten IP pública: por eso registro/recuperación son
+  holgados. (3) Las llamadas SSR del web al API llegan con la IP del pod web (sin X-Forwarded-For),
+  así que comparten el límite general de 600/min por pod web; si el tráfico de la tienda pública
+  crece, hacer que el web reenvíe la IP del visitante en X-Forwarded-For. (4) Un pod DENTRO del
+  cluster puede fijar su IP con X-Forwarded-For (es la confianza que se le da a la red de pods).
 - Problema original: todos los clientes externos llegaban con la IP de Traefik, así que los
   límites por IP eran un solo contador compartido (general 100/min y login 5/15 min EN TOTAL entre
   todos los usuarios; en prod, además, un contador por réplica en memoria).
