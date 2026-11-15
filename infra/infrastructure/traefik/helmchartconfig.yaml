@@ -1,0 +1,22 @@
+# Traefik (k3s bundled) — preserve the real client IP.
+#
+# By default the Traefik Service has externalTrafficPolicy=Cluster, which makes
+# kube-proxy SNAT every external connection: the app only ever saw 10.42.0.1 as the
+# client IP (breaking per-IP rate limits and audit logs). `Local` keeps the source IP.
+# Safe here because the cluster is single-node and Traefik runs on that node.
+#
+# Applied with:  kubectl apply -f infra/infrastructure/traefik/helmchartconfig.yaml
+# Rollback:      kubectl delete helmchartconfig traefik -n kube-system
+#                kubectl patch svc traefik -n kube-system --type merge \
+#                  -p '{"spec":{"externalTrafficPolicy":"Cluster"}}'
+# Verified 2026-11-15 (isolated whoami test + live): Cluster -> 10.42.0.1, Local -> real IP.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        externalTrafficPolicy: Local

@@ -318,8 +318,24 @@ Pendientes a resolver en siguientes iteraciones.
   por correo/celular y rechaza el re-registro con un mensaje neutro), y no repetir los puntos de
   bienvenida si ya existió una tarjeta anulada con el mismo correo/celular en el programa.
 
-### B7 — Límites de peticiones detrás del proxy  ✅ MITIGADO (staging, 2026-11-15) / IP real pendiente de infra
-- Problema: todos los clientes externos llegan al API con la IP del pod de Traefik, así que los
+### B7 — Límites de peticiones detrás del proxy  ✅ MITIGADO (staging, 2026-11-15) / ✅ IP real recuperada en el cluster (2026-11-15)
+- ✅ INFRA HECHA (2026-11-15, 01:25 hora de México, afecta prod+staging, tráfico bajo): el Service de
+  Traefik pasó de `externalTrafficPolicy=Cluster` a `Local` (kube-proxy dejó de hacer SNAT). Antes
+  de tocar Traefik se verificó con una prueba aislada (whoami en puertos 18080/18081, ya borrada):
+  Cluster -> 10.42.0.1, Local -> IP real. En vivo: 0 fallos en 36 comprobaciones de los 3 sitios;
+  el pod `svclb` se recreó (sin interrupción visible) y Traefik no se reinició. Persistido con un
+  `HelmChartConfig` (`infra/infrastructure/traefik/helmchartconfig.yaml`, aplicado con kubectl).
+  Rollback: `kubectl delete helmchartconfig traefik -n kube-system` y
+  `kubectl patch svc traefik -n kube-system --type merge -p '{"spec":{"externalTrafficPolicy":"Cluster"}}'`
+  (kubectl habla con :6443, no depende de Traefik). Traefik sigue sobrescribiendo
+  X-Forwarded-For/X-Real-IP falsificados. Aviso: ahora los logs/auditoría pueden contener IPs reales
+  de clientes (dato personal); tratar según corresponda.
+- ⏳ FALTA (código, aparte): el API aún toma `request.ip` = IP del pod de Traefik (10.42.0.224) y
+  recibe la real en `x-forwarded-for`. Configurar `trustProxy` limitado a la red de pods
+  (`10.42.0.0/16`, NO `true`) para que `request.ip` sea la IP real, y entonces añadir límite por IP
+  (p. ej. login por IP además de por cuenta, registro/recuperación por IP). Probar en staging y
+  verificar que un X-Forwarded-For falso no cambie `request.ip`.
+- Problema original: todos los clientes externos llegaban con la IP de Traefik, así que los
   límites por IP eran un solo contador compartido (general 100/min y login 5/15 min EN TOTAL entre
   todos los usuarios; en prod, además, un contador por réplica en memoria).
 - Hecho (`lib/rate-limits.ts`): login 10 intentos/15 min POR CUENTA (tenant + usuario/correo, clave
@@ -327,16 +343,8 @@ Pendientes a resolver en siguientes iteraciones.
   Apple 2000/min; mensaje 429 en español con el tiempo restante real. Probado en staging: contadores
   independientes por cuenta, 401×10 y 429 al 11º, y el admin real entra mientras otra cuenta está
   bloqueada.
-- Investigación de IP real (verificada con la IP pública de mi laptop, 189.203.27.249): el API
-  recibe `x-forwarded-for=10.42.0.1` (IP interna del nodo) en TODAS las peticiones; la IP real se
-  pierde ANTES de Traefik. Traefik sí sobrescribe un `X-Forwarded-For`/`X-Real-IP` falsificado
-  (no hay riesgo de suplantación). Por eso `trustProxy` en Fastify NO ayuda: no hay IP real que
-  confiar.
-- Para recuperar la IP real hay que cambiar infraestructura, no código: el Service de Traefik
-  (kube-system) tiene `externalTrafficPolicy=Cluster` y ServiceLB hace SNAT. Opción: `Local` vía
-  un `HelmChartConfig` de k3s para Traefik. Afecta TODO el tráfico de prod; requiere ventana de
-  mantenimiento y prueba en staging primero (comparten el mismo Traefik). Beneficios: límite por
-  IP real y la IP real en auditoría/logs. Hasta entonces, claves por cuenta + límites generosos.
+- Investigación previa (IP pública de mi laptop 189.203.27.249): antes del cambio el API recibía
+  `x-forwarded-for=10.42.0.1` en TODAS las peticiones; la IP real se perdía por el SNAT de kube-proxy.
 - Pendiente menor: los contadores viven en memoria de cada réplica (prod: 2 a 6); con Redis serían
   compartidos.
 - Texto original del hallazgo:
