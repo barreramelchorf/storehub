@@ -8,7 +8,7 @@ import {
 } from '../lib/loyalty/scan-logic.js'
 import { hexToRgb } from '../lib/loyalty/pass-data.js'
 import { normalizeMxPhone, loyaltyEnrollSchema, loyaltyScanSchema, loyaltyRecoverRequestSchema } from '@storehub/schemas'
-import { loginRateLimitKey, GENERAL_LIMIT, LOGIN_LIMIT } from '../lib/rate-limits.js'
+import { loginRateLimitKey, formatWait, GENERAL_LIMIT, LOGIN_LIMIT } from '../lib/rate-limits.js'
 import {
   duplicateAction,
   welcomePointsFor,
@@ -282,5 +282,21 @@ describe('Rate limits — loginRateLimitKey (por cuenta, nunca por IP)', () => {
   it('la política: general alto, login por cuenta moderado', () => {
     expect(GENERAL_LIMIT.max).toBeGreaterThanOrEqual(600)
     expect(LOGIN_LIMIT.max).toBeGreaterThan(5)
+  })
+})
+
+describe('Rate limits — formatWait (espera en español)', () => {
+  it('segundos', () => {
+    expect(formatWait(1000)).toBe('1 segundo')
+    expect(formatWait(45000)).toBe('45 segundos')
+  })
+  it('minutos, redondeando hacia arriba', () => {
+    expect(formatWait(60000)).toBe('1 minuto')
+    expect(formatWait(61000)).toBe('2 minutos')
+    expect(formatWait(15 * 60 * 1000)).toBe('15 minutos')
+  })
+  it('nunca devuelve 0', () => {
+    expect(formatWait(0)).toBe('1 segundo')
+    expect(formatWait(200)).toBe('1 segundo')
   })
 })

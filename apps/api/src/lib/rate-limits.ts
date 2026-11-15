@@ -22,6 +22,17 @@ export const APPLE_WS_LIMIT = { max: 2000, timeWindow: '1 minute' } as const
 export const LOGIN_LIMIT = { max: 10, timeWindow: '15 minutes' } as const
 
 /**
+ * Human wait time in Spanish from the milliseconds left in the window
+ * (e.g. 45000 -> "45 segundos", 125000 -> "3 minutos", 61000 -> "2 minutos").
+ */
+export function formatWait(ms: number): string {
+  const seconds = Math.max(1, Math.ceil(ms / 1000))
+  if (seconds < 60) return `${seconds} ${seconds === 1 ? 'segundo' : 'segundos'}`
+  const minutes = Math.ceil(seconds / 60)
+  return `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`
+}
+
+/**
  * Rate-limit key for the login route. Uses the account being logged into, never the
  * IP. It runs at the `preHandler` hook (the body isn't parsed earlier).
  */

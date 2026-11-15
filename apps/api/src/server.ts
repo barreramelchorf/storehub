@@ -30,7 +30,7 @@ import { loyaltyPublicRoutes, loyaltyPassRoutes } from './routes/loyalty-public.
 import { loyaltyAdminRoutes } from './routes/loyalty-admin.js'
 import { loyaltyAppleWsRoutes } from './routes/loyalty-apple-ws.js'
 import { resolveTenant } from './middleware/tenant.js'
-import { GENERAL_LIMIT } from './lib/rate-limits.js'
+import { GENERAL_LIMIT, formatWait } from './lib/rate-limits.js'
 
 const app = Fastify({
   logger: {
@@ -71,7 +71,7 @@ await app.register(rateLimit, {
   errorResponseBuilder: (_request, context) => ({
     statusCode: 429,
     error: 'Too Many Requests',
-    message: `Demasiadas solicitudes. Intenta de nuevo en ${context.after}.`,
+    message: `Demasiadas solicitudes. Intenta de nuevo en ${formatWait(context.ttl)}.`,
   }),
 })
 

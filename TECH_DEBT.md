@@ -318,7 +318,28 @@ Pendientes a resolver en siguientes iteraciones.
   por correo/celular y rechaza el re-registro con un mensaje neutro), y no repetir los puntos de
   bienvenida si ya existió una tarjeta anulada con el mismo correo/celular en el programa.
 
-### B7 — Límite de peticiones global probablemente compartido entre todos los clientes
+### B7 — Límites de peticiones detrás del proxy  ✅ MITIGADO (staging, 2026-11-15) / IP real pendiente de infra
+- Problema: todos los clientes externos llegan al API con la IP del pod de Traefik, así que los
+  límites por IP eran un solo contador compartido (general 100/min y login 5/15 min EN TOTAL entre
+  todos los usuarios; en prod, además, un contador por réplica en memoria).
+- Hecho (`lib/rate-limits.ts`): login 10 intentos/15 min POR CUENTA (tenant + usuario/correo, clave
+  en `preHandler`); general 600/min; `/health` exento; imágenes públicas 3000/min; web service de
+  Apple 2000/min; mensaje 429 en español con el tiempo restante real. Probado en staging: contadores
+  independientes por cuenta, 401×10 y 429 al 11º, y el admin real entra mientras otra cuenta está
+  bloqueada.
+- Investigación de IP real (verificada con la IP pública de mi laptop, 189.203.27.249): el API
+  recibe `x-forwarded-for=10.42.0.1` (IP interna del nodo) en TODAS las peticiones; la IP real se
+  pierde ANTES de Traefik. Traefik sí sobrescribe un `X-Forwarded-For`/`X-Real-IP` falsificado
+  (no hay riesgo de suplantación). Por eso `trustProxy` en Fastify NO ayuda: no hay IP real que
+  confiar.
+- Para recuperar la IP real hay que cambiar infraestructura, no código: el Service de Traefik
+  (kube-system) tiene `externalTrafficPolicy=Cluster` y ServiceLB hace SNAT. Opción: `Local` vía
+  un `HelmChartConfig` de k3s para Traefik. Afecta TODO el tráfico de prod; requiere ventana de
+  mantenimiento y prueba en staging primero (comparten el mismo Traefik). Beneficios: límite por
+  IP real y la IP real en auditoría/logs. Hasta entonces, claves por cuenta + límites generosos.
+- Pendiente menor: los contadores viven en memoria de cada réplica (prod: 2 a 6); con Redis serían
+  compartidos.
+- Texto original del hallazgo:
 - `@fastify/rate-limit` (100/min, `server.ts`) usa `request.ip`, y el API no tiene `trustProxy`:
   todas las peticiones externas llegan con la IP del proxy (`10.42.0.224` en staging, la misma
   para tus dispositivos y para mi laptop), así que el límite se cuenta entre TODOS los usuarios
