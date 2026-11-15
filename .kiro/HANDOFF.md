@@ -1,6 +1,10 @@
 # HANDOFF — StoreHub (sesión previa)
 
-Fecha de corte: 2026-11-08. Prod en **v0.38.0**. Rama: `main`.
+Fecha de corte: 2026-11-15. Prod en **v0.39.0** (promovido el 2026-11-15; migraciones 0025–0027,
+verificadas en la BD de prod). Rama: `main`. Lo que trae v0.39.0 sobre v0.38.0 está en la sección
+"CAMBIOS EN STAGING POSTERIORES A v0.38.0" (ya en prod). Pendiente de probar en prod con un iPhone real:
+"Desbloquear" (que el pass instalado vuelva a ser válido). Prod: 5 tarjetas, 1 programa, 1 tarjeta
+de xalli con teléfono de 9 dígitos (la migración 0027 la dejó intacta).
 **Últimas sesiones**: módulo de Lealtad (Apple + Google Wallet) completo, verificado en
 staging y **PROMOVIDO A PROD en v0.38.0** (migración 0018–0024 aplicada, secretos Apple+
 Google cargados en el stack prod). Apple y Google funcionando, múltiples programas, detector
