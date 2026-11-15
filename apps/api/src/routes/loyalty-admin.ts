@@ -202,6 +202,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     })
     if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
     if (card.status === 'voided') return reply.code(409).send({ error: 'La tarjeta ya está anulada' })
+    if (card.status === 'blocked') return reply.code(409).send({ error: 'La tarjeta está bloqueada. Desbloquéala primero si quieres anularla.' })
 
     const [updated] = await db.update(loyaltyCards)
       .set({ status: 'voided' })
@@ -212,6 +213,51 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     // to EXPIRED. pushDispatcher reads the (now voided) card state via buildPassData.
     pushDispatcher.updateCard(id)
 
+    return reply.send({ card: updated })
+  })
+
+  // Block a customer (ban). Like void, the pass is invalidated on the device, but a
+  // BLOCKED card still counts as a duplicate: the same email/phone can't register
+  // again in this program (see duplicateAction). Reversible with /unblock.
+  app.post('/api/admin/loyalty/cards/:id/block', { preHandler: requirePermission('loyalty.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const card = await db.query.loyaltyCards.findFirst({
+      where: (c, { eq, and }) => and(eq(c.id, id), eq(c.tenantId, request.tenant.id)),
+    })
+    if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
+    if (card.status === 'blocked') return reply.code(409).send({ error: 'El cliente ya está bloqueado' })
+    if (card.status === 'voided') return reply.code(409).send({ error: 'La tarjeta está anulada; no se puede bloquear' })
+
+    const [updated] = await db.update(loyaltyCards)
+      .set({ status: 'blocked' })
+      .where(and(eq(loyaltyCards.id, id), eq(loyaltyCards.tenantId, request.tenant.id)))
+      .returning()
+    await db.insert(loyaltyTransactions).values({
+      tenantId: request.tenant.id, cardId: id, type: 'adjust', points: 0, balanceAfter: card.points,
+      performedBy: request.user.id, note: 'Cliente bloqueado',
+    })
+    pushDispatcher.updateCard(id)
+    return reply.send({ card: updated })
+  })
+
+  // Lift a block. The card becomes active again and the pass is re-published.
+  app.post('/api/admin/loyalty/cards/:id/unblock', { preHandler: requirePermission('loyalty.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const card = await db.query.loyaltyCards.findFirst({
+      where: (c, { eq, and }) => and(eq(c.id, id), eq(c.tenantId, request.tenant.id)),
+    })
+    if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
+    if (card.status !== 'blocked') return reply.code(409).send({ error: 'El cliente no está bloqueado' })
+
+    const [updated] = await db.update(loyaltyCards)
+      .set({ status: 'active' })
+      .where(and(eq(loyaltyCards.id, id), eq(loyaltyCards.tenantId, request.tenant.id)))
+      .returning()
+    await db.insert(loyaltyTransactions).values({
+      tenantId: request.tenant.id, cardId: id, type: 'adjust', points: 0, balanceAfter: card.points,
+      performedBy: request.user.id, note: 'Cliente desbloqueado',
+    })
+    pushDispatcher.updateCard(id)
     return reply.send({ card: updated })
   })
 
@@ -311,6 +357,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
       where: (c, { eq, and }) => and(eq(c.id, id), eq(c.tenantId, tenantId)),
     })
     if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
+    if (card.status !== 'active') return reply.code(409).send({ error: 'La tarjeta no está activa; no se puede canjear' })
 
     const program = await db.query.loyaltyPrograms.findFirst({ where: (p, { eq }) => eq(p.id, card.programId) })
     if (!program?.rewardThreshold) return reply.code(409).send({ error: 'El programa no tiene recompensa configurada' })

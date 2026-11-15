@@ -180,6 +180,8 @@ function CardsTab({ token }: { token: string }) {
   const [search, setSearch] = useState('')
   const [programFilter, setProgramFilter] = useState('')
   const [toVoid, setToVoid] = useState<any | null>(null)
+  const [toBlock, setToBlock] = useState<any | null>(null)
+  const [toUnblock, setToUnblock] = useState<any | null>(null)
   const { data: programs } = useQuery({
     queryKey: ['loyalty-programs'],
     queryFn: () => api('/api/admin/loyalty/programs', { token }),
@@ -193,6 +195,16 @@ function CardsTab({ token }: { token: string }) {
   const voidCard = useMutation({
     mutationFn: (id: string) => api(`/api/admin/loyalty/cards/${id}/void`, { method: 'POST', token }),
     onSuccess: () => { setToVoid(null); qc.invalidateQueries({ queryKey: ['loyalty-cards'] }) },
+  })
+
+  const blockCard = useMutation({
+    mutationFn: (id: string) => api(`/api/admin/loyalty/cards/${id}/block`, { method: 'POST', token }),
+    onSuccess: () => { setToBlock(null); qc.invalidateQueries({ queryKey: ['loyalty-cards'] }) },
+  })
+
+  const unblockCard = useMutation({
+    mutationFn: (id: string) => api(`/api/admin/loyalty/cards/${id}/unblock`, { method: 'POST', token }),
+    onSuccess: () => { setToUnblock(null); qc.invalidateQueries({ queryKey: ['loyalty-cards'] }) },
   })
 
   return (
@@ -217,12 +229,14 @@ function CardsTab({ token }: { token: string }) {
       <div className="space-y-2">
         {data?.items?.map((c: any) => {
           const voided = c.status === 'voided'
+          const blocked = c.status === 'blocked'
           return (
-          <div key={c.id} className={`rounded-xl border p-4 flex items-center justify-between ${voided ? 'bg-gray-50 border-gray-200 opacity-70' : 'bg-white border-gray-100'}`}>
+          <div key={c.id} className={`rounded-xl border p-4 flex items-center justify-between ${voided || blocked ? 'bg-gray-50 border-gray-200 opacity-70' : 'bg-white border-gray-100'}`}>
             <div>
               <p className="font-medium text-gray-800">
                 {c.customerName}
                 {voided && <span className="ml-2 text-xs bg-red-50 text-red-600 rounded-full px-2 py-0.5 align-middle">anulada</span>}
+                {blocked && <span className="ml-2 text-xs bg-amber-50 text-amber-700 rounded-full px-2 py-0.5 align-middle">bloqueado</span>}
               </p>
               <p className="text-sm text-gray-400">{c.customerPhone || c.customerEmail || '—'}</p>
               {multiple && c.program?.name && (
@@ -231,19 +245,36 @@ function CardsTab({ token }: { token: string }) {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="font-bold text-gray-900">{c.points} pts</p>
                 <p className="text-xs text-gray-400">{c.totalVisits} visitas</p>
               </div>
-              {!voided && (
-                <button
-                  onClick={() => setToVoid(c)}
-                  title="Anular tarjeta"
-                  className="text-xs text-gray-400 hover:text-red-500 transition-colors border border-gray-200 rounded-lg px-2.5 py-1">
-                  Anular
-                </button>
-              )}
+              <div className="flex flex-col gap-1">
+                {!voided && !blocked && (
+                  <>
+                    <button
+                      onClick={() => setToVoid(c)}
+                      title="Anular tarjeta: invalida el pase; el cliente puede registrarse de nuevo"
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors border border-gray-200 rounded-lg px-2.5 py-1">
+                      Anular
+                    </button>
+                    <button
+                      onClick={() => setToBlock(c)}
+                      title="Bloquear cliente: invalida el pase y no podrá volver a registrarse"
+                      className="text-xs text-gray-400 hover:text-amber-600 transition-colors border border-gray-200 rounded-lg px-2.5 py-1">
+                      Bloquear
+                    </button>
+                  </>
+                )}
+                {blocked && (
+                  <button
+                    onClick={() => setToUnblock(c)}
+                    className="text-xs text-gray-500 hover:text-green-700 transition-colors border border-gray-200 rounded-lg px-2.5 py-1">
+                    Desbloquear
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           )
@@ -253,11 +284,36 @@ function CardsTab({ token }: { token: string }) {
       <ConfirmDialog
         open={!!toVoid}
         title="Anular tarjeta"
-        message={`¿Anular la tarjeta de ${toVoid?.customerName}? Su pase quedará invalidado en su teléfono (Apple/Google Wallet) y no podrá acumular más puntos. La tarjeta se conserva en el historial. Esta acción no se puede deshacer desde aquí.`}
+        message={`¿Anular la tarjeta de ${toVoid?.customerName}? Su pase quedará invalidado en su teléfono (Apple/Google Wallet) y no podrá acumular más puntos. La tarjeta se conserva en el historial. El cliente podrá registrarse de nuevo (sin recibir otra vez los puntos de bienvenida).`}
         confirmLabel="Anular"
         loading={voidCard.isPending}
         onConfirm={() => toVoid && voidCard.mutate(toVoid.id)}
         onCancel={() => setToVoid(null)}
+      />
+
+      <ConfirmDialog
+        open={!!toBlock}
+        title="Bloquear cliente"
+        message={blockCard.isError
+          ? (blockCard.error as Error).message
+          : `¿Bloquear a ${toBlock?.customerName}? Su pase quedará invalidado y NO podrá volver a registrarse en este programa con el mismo correo o celular. Podrás desbloquearlo después.`}
+        confirmLabel="Bloquear"
+        loading={blockCard.isPending}
+        onConfirm={() => toBlock && blockCard.mutate(toBlock.id)}
+        onCancel={() => { setToBlock(null); blockCard.reset() }}
+      />
+
+      <ConfirmDialog
+        open={!!toUnblock}
+        title="Desbloquear cliente"
+        message={unblockCard.isError
+          ? (unblockCard.error as Error).message
+          : `¿Desbloquear a ${toUnblock?.customerName}? Su tarjeta volverá a estar activa y podrá acumular puntos otra vez.`}
+        confirmLabel="Desbloquear"
+        danger={false}
+        loading={unblockCard.isPending}
+        onConfirm={() => toUnblock && unblockCard.mutate(toUnblock.id)}
+        onCancel={() => { setToUnblock(null); unblockCard.reset() }}
       />
     </div>
   )

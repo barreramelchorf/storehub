@@ -68,7 +68,7 @@ export async function buildPassData(card: CardRow, offer?: string | null): Promi
     rewardDescription: program.rewardDescription,
     offer: resolvedOffer,
     customerName: card.customerName,
-    voided: fullCard?.status === 'voided',
+    voided: fullCard?.status === 'voided' || fullCard?.status === 'blocked',
     branding,
   }
 }

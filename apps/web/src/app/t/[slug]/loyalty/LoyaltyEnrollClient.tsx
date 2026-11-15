@@ -20,6 +20,41 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
   const [result, setResult] = useState<EnrollResult | null>(null)
   const [recoverySent, setRecoverySent] = useState<'email' | 'phone' | null>(null)
 
+  // Quick recovery ("¿O quieres recuperar tu tarjeta?"): only the email OR the phone.
+  const [mode, setMode] = useState<'enroll' | 'recover'>('enroll')
+  const [recoverBy, setRecoverBy] = useState<'email' | 'phone'>('email')
+  const [recoverValue, setRecoverValue] = useState('')
+  const [recoverBusy, setRecoverBusy] = useState(false)
+  const [recoverDone, setRecoverDone] = useState(false)
+  const [recoverError, setRecoverError] = useState<string | null>(null)
+
+  const recoverValid = recoverBy === 'email'
+    ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoverValue.trim())
+    : !!normalizeMxPhone(recoverValue)
+
+  async function handleRecover(e: React.FormEvent) {
+    e.preventDefault()
+    if (!recoverValid) return
+    setRecoverBusy(true)
+    setRecoverError(null)
+    try {
+      await api('/api/public/loyalty/recover', {
+        method: 'POST',
+        headers: { 'x-tenant-slug': slug },
+        body: JSON.stringify(
+          recoverBy === 'email'
+            ? { email: recoverValue.trim(), programId }
+            : { phone: recoverValue, programId },
+        ),
+      })
+      setRecoverDone(true)
+    } catch (err: any) {
+      setRecoverError(err.message ?? 'No se pudo enviar el enlace')
+    } finally {
+      setRecoverBusy(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -88,6 +123,80 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
     )
   }
 
+  // Quick recovery: ask only for the email OR the phone.
+  if (mode === 'recover') {
+    if (recoverDone) {
+      return (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
+          <div className="text-4xl mb-3">📧</div>
+          <h2 className="text-xl font-bold text-gray-800">Revisa tu correo</h2>
+          <p className="text-gray-500 mt-2">
+            Si hay una tarjeta registrada con ese dato, te enviamos un enlace al correo con el que
+            se registró. Revisa tu bandeja (y spam): el enlace expira en 30 minutos.
+          </p>
+          <button
+            onClick={() => { setMode('enroll'); setRecoverDone(false); setRecoverValue('') }}
+            className="mt-5 text-sm text-gray-600 underline"
+          >
+            Volver al registro
+          </button>
+        </div>
+      )
+    }
+    return (
+      <form onSubmit={handleRecover} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <h2 className="text-lg font-bold text-gray-800">Recupera tu tarjeta</h2>
+        <p className="text-sm text-gray-500 -mt-2">
+          Escribe el correo o el celular con el que te registraste y te enviamos un enlace.
+        </p>
+
+        <div className="inline-flex w-full rounded-lg border border-gray-200 overflow-hidden text-sm">
+          {(['email', 'phone'] as const).map((k) => (
+            <button
+              key={k} type="button"
+              onClick={() => { setRecoverBy(k); setRecoverValue(''); setRecoverError(null) }}
+              className={`flex-1 py-2 ${recoverBy === k ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+            >
+              {k === 'email' ? 'Con mi correo' : 'Con mi celular'}
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {recoverBy === 'email' ? 'Correo' : 'Celular (10 dígitos)'}
+          </label>
+          <input
+            type={recoverBy === 'email' ? 'email' : 'tel'}
+            inputMode={recoverBy === 'email' ? 'email' : 'numeric'}
+            value={recoverValue} onChange={(e) => setRecoverValue(e.target.value)}
+            placeholder={recoverBy === 'email' ? 'tucorreo@ejemplo.com' : '55 1234 5678'}
+            autoComplete={recoverBy === 'email' ? 'email' : 'tel'}
+            maxLength={recoverBy === 'email' ? 120 : 16} required
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
+          />
+          {recoverValue.trim() && !recoverValid && (
+            <p className="text-xs text-red-600 mt-1">
+              {recoverBy === 'email' ? 'Escribe un correo válido.' : 'El celular debe tener 10 dígitos.'}
+            </p>
+          )}
+        </div>
+
+        {recoverError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{recoverError}</p>}
+
+        <button
+          type="submit" disabled={recoverBusy || !recoverValid}
+          className="w-full bg-gray-900 text-white rounded-xl py-3 font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {recoverBusy ? 'Enviando…' : 'Enviarme el enlace'}
+        </button>
+        <p className="text-center text-sm text-gray-500">
+          <button type="button" onClick={() => setMode('enroll')} className="underline">← Volver al registro</button>
+        </p>
+      </form>
+    )
+  }
+
   // Enrollment form
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())
   const phoneOk = !!normalizeMxPhone(customerPhone)
@@ -150,6 +259,14 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
       >
         {submitting ? 'Creando tu tarjeta…' : 'Crear mi tarjeta'}
       </button>
+
+      <p className="text-center text-sm text-gray-500">
+        ¿O quieres{' '}
+        <button type="button" onClick={() => { setMode('recover'); setError(null) }} className="underline text-gray-700">
+          recuperar tu tarjeta
+        </button>
+        ?
+      </p>
     </form>
   )
 }

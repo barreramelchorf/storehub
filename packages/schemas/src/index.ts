@@ -170,6 +170,23 @@ export const loyaltyEnrollSchema = z.object({
   programId: z.string().uuid().optional(),
 })
 
+// Quick recovery request: the customer gives EITHER the email OR the cell phone they
+// registered with (no need to re-enter all enrollment data). The phone is normalized
+// to 10 digits like in enrollment.
+export const loyaltyRecoverRequestSchema = z.object({
+  email: z.string().email('Correo inválido').optional(),
+  phone: z.string().optional().transform((v, ctx) => {
+    if (v === undefined || v.trim() === '') return undefined
+    const n = normalizeMxPhone(v)
+    if (!n) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El celular debe tener 10 dígitos' })
+      return z.NEVER
+    }
+    return n
+  }),
+  programId: z.string().uuid().optional(),
+}).refine((d) => !!d.email || !!d.phone, { message: 'Escribe tu correo o tu celular' })
+
 // Program config (admin)
 export const loyaltyProgramSchema = z.object({
   name: z.string().min(1).max(100),

@@ -6,7 +6,14 @@ import {
   pointsToReward,
 } from '../lib/loyalty/scan-logic.js'
 import { hexToRgb } from '../lib/loyalty/pass-data.js'
-import { normalizeMxPhone, loyaltyEnrollSchema, loyaltyScanSchema } from '@storehub/schemas'
+import { normalizeMxPhone, loyaltyEnrollSchema, loyaltyScanSchema, loyaltyRecoverRequestSchema } from '@storehub/schemas'
+import {
+  duplicateAction,
+  welcomePointsFor,
+  shouldSendRecovery,
+  RECOVERY_COOLDOWN_MS,
+  RECOVERY_MAX_PER_HOUR,
+} from '../lib/loyalty/enroll-logic.js'
 
 // Pure-function tests mirroring the project style (no DB/HTTP). These guard the
 // loyalty earning rules (1 scan/day), reward math, and color conversion.
@@ -152,5 +159,74 @@ describe('Loyalty — loyaltyScanSchema (via)', () => {
   it("acepta via = 'phone' y rechaza otros valores", () => {
     expect(loyaltyScanSchema.parse({ cardId: id, via: 'phone' }).via).toBe('phone')
     expect(loyaltyScanSchema.safeParse({ cardId: id, via: 'otro' }).success).toBe(false)
+  })
+})
+
+describe('Loyalty — duplicateAction (qué hacer si ya existe una tarjeta)', () => {
+  it('sin tarjeta previa -> crear', () => {
+    expect(duplicateAction(null)).toBe('create')
+    expect(duplicateAction(undefined)).toBe('create')
+  })
+  it('tarjeta activa -> recuperar', () => {
+    expect(duplicateAction('active')).toBe('recover')
+  })
+  it('tarjeta anulada -> puede registrarse de nuevo', () => {
+    expect(duplicateAction('voided')).toBe('create')
+  })
+  it('tarjeta bloqueada -> rechazar (sin recuperación)', () => {
+    expect(duplicateAction('blocked')).toBe('reject')
+  })
+})
+
+describe('Loyalty — welcomePointsFor (no repetir bienvenida)', () => {
+  it('da los puntos del programa a un cliente nuevo', () => {
+    expect(welcomePointsFor(1, false)).toBe(1)
+    expect(welcomePointsFor(5, false)).toBe(5)
+  })
+  it('no los repite si ya hubo una tarjeta anulada', () => {
+    expect(welcomePointsFor(1, true)).toBe(0)
+  })
+  it('nunca devuelve negativos', () => {
+    expect(welcomePointsFor(-3, false)).toBe(0)
+  })
+})
+
+describe('Loyalty — shouldSendRecovery (cooldown y tope por tarjeta)', () => {
+  const now = new Date('2026-11-15T12:00:00Z')
+  it('permite el primer envío', () => {
+    expect(shouldSendRecovery(null, 0, now)).toBe(true)
+  })
+  it('bloquea un segundo envío dentro del cooldown', () => {
+    const last = new Date(now.getTime() - (RECOVERY_COOLDOWN_MS - 1000))
+    expect(shouldSendRecovery(last, 1, now)).toBe(false)
+  })
+  it('permite otro envío pasado el cooldown', () => {
+    const last = new Date(now.getTime() - (RECOVERY_COOLDOWN_MS + 1000))
+    expect(shouldSendRecovery(last, 1, now)).toBe(true)
+  })
+  it('bloquea al llegar al tope por hora aunque haya pasado el cooldown', () => {
+    const last = new Date(now.getTime() - (RECOVERY_COOLDOWN_MS + 1000))
+    expect(shouldSendRecovery(last, RECOVERY_MAX_PER_HOUR, now)).toBe(false)
+    expect(shouldSendRecovery(last, RECOVERY_MAX_PER_HOUR - 1, now)).toBe(true)
+  })
+})
+
+describe('Loyalty — loyaltyRecoverRequestSchema (correo o celular)', () => {
+  it('acepta solo correo', () => {
+    expect(loyaltyRecoverRequestSchema.safeParse({ email: 'ana@ejemplo.com' }).success).toBe(true)
+  })
+  it('acepta solo celular y lo normaliza', () => {
+    const r = loyaltyRecoverRequestSchema.safeParse({ phone: '55 4578 3005' })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.phone).toBe('5545783005')
+  })
+  it('rechaza si no hay ni correo ni celular', () => {
+    expect(loyaltyRecoverRequestSchema.safeParse({}).success).toBe(false)
+    expect(loyaltyRecoverRequestSchema.safeParse({ phone: '' }).success).toBe(false)
+  })
+  it('rechaza un celular que no es de 10 dígitos', () => {
+    const r = loyaltyRecoverRequestSchema.safeParse({ phone: '123' })
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.error.errors[0].message).toMatch(/10 dígitos/)
   })
 })
