@@ -273,7 +273,27 @@ Pendientes a resolver en siguientes iteraciones.
   chico más ícono cuadrado obligatorio; Google: logo cuadrado que se recorta en círculo).
   Conviene validar o generar variantes al subir (el API ya usa `sharp`).
 
-### B6 — Recuperación de tarjeta: incidente 2026-11-14 y endurecimiento (por decidir)
+### B6 — Recuperación de tarjeta: endurecimiento  ✅ HECHO (staging, 2026-11-15)
+- Implementado (todas las opciones propuestas): (a) el enlace del correo ya no se gasta al abrirlo:
+  GET solo valida y el POST (claim atómico) lo gasta al presionar "Recuperar mi tarjeta";
+  (b) cooldown de 5 min y tope de 3/hora por tarjeta (`enroll-logic.ts`); (d) `error.tsx` amable
+  en las rutas públicas de lealtad; y recuperación rápida desde el registro ("¿O quieres
+  recuperar tu tarjeta?", solo correo o celular, `POST /api/public/loyalty/recover`, respuesta
+  genérica idéntica exista o no la cuenta, solo tarjetas activas, envío en segundo plano).
+- Bloqueo de clientes: `POST /cards/:id/block` y `/unblock` (loyalty.manage). La tarjeta
+  bloqueada invalida el pase (Apple `voided`, Google EXPIRED), cuenta como duplicado (403 neutro
+  al registrarse; no recupera) y no canjea. Anular sigue permitiendo re-registro. Si ya hubo
+  una tarjeta anulada del mismo correo/celular en el programa, no se repiten los puntos de
+  bienvenida.
+- ⚠️ No verificado en dispositivo: si iOS/Google Wallet "des-anulan" un pase ya instalado tras
+  Desbloquear (el pase se regenera sin `voided`; el API lo hace, pero falta probarlo en un iPhone).
+- Incidente original (2026-11-14, "Application error" al abrir el enlace): sin reproducir; la
+  página funciona con el código actual y el intento coincidió con el reemplazo de pods en
+  staging (probable desfase de versión durante el deploy). Tip: evitar probar mientras corre un
+  deploy.
+- Pendiente: el envío del correo de recuperación solo tiene límite por tarjeta; no hay límite por
+  IP útil (ver B7).
+- Contexto original de la investigación:
 - Incidente: el usuario abrió el enlace de recuperación y vio "Application error: a client-side
   exception". El token quedó consumido (el API sí respondió). Reproducido con Chrome headless
   (UA iPhone) sobre el despliegue actual: la página se dibuja bien. El intento coincidió con el
@@ -297,6 +317,24 @@ Pendientes a resolver en siguientes iteraciones.
   registrarse) de "Bloquear cliente" (usa el estado `blocked` existente, cuenta como duplicado
   por correo/celular y rechaza el re-registro con un mensaje neutro), y no repetir los puntos de
   bienvenida si ya existió una tarjeta anulada con el mismo correo/celular en el programa.
+
+### B7 — Límite de peticiones global probablemente compartido entre todos los clientes
+- `@fastify/rate-limit` (100/min, `server.ts`) usa `request.ip`, y el API no tiene `trustProxy`:
+  todas las peticiones externas llegan con la IP del proxy (`10.42.0.224` en staging, la misma
+  para tus dispositivos y para mi laptop), así que el límite se cuenta entre TODOS los usuarios
+  juntos. Hoy el volumen es bajo; con más tráfico habría 429 para clientes legítimos.
+- Antes de arreglarlo, verificar cómo reenvía Traefik `X-Forwarded-For` (si lo sobrescribe o
+  confía en el del cliente) y configurar `trustProxy` en consecuencia. Mientras tanto no se
+  deben agregar límites por IP en rutas nuevas.
+
+### Lección: pruebas de endpoints reales y fechas en SQL crudo
+- Un `Date` dentro de ``sql`...` `` de Drizzle (postgres.js) no se serializa y rompe con HTTP 500.
+  Pasó en el conteo de escaneos del día (lote `maxScansPerDay`, en staging desde 2026-11-08; no
+  llegó a prod: v0.38.0 es anterior). Se corrigió usando operadores tipados (`gte`, `isNotNull`)
+  y contando por día de negocio en código (`countScansOnBusinessDay`).
+- Las funciones puras pasaban sus pruebas, pero nadie llamó al endpoint real. Regla: tras tocar
+  una ruta, probar la llamada real en staging (ver el patrón de pruebas con tarjetas
+  `@loyalty-test.invalid` y limpieza posterior).
 
 ### Lealtad — dominio dedicado para el web service de passes
 - Hoy `loyaltyWebServiceUrl` = `https://storehub.barreramelchorf.top` (prod) y

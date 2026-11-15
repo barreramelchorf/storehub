@@ -151,6 +151,23 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
   4. Add-ons arrancan OFF → activar lealtad por tenant desde `/platform` (editar tenant).
   - ⚠️ Pendientes documentados en TECH_DEBT: migrar a dominio dedicado (storehub.top) e
     Issuer/cert separados para staging (hoy staging comparte los de prod).
+- **📦 CAMBIOS EN STAGING POSTERIORES A v0.38.0 (NO están en prod; se promueven juntos con el
+  siguiente tag)**. Migraciones nuevas: 0025 (max_scans_per_day), 0026 (voided), 0027 (normaliza
+  teléfonos). Funcionalidad: borrar → "Anular" (soft-delete) y "Bloquear/Desbloquear" cliente;
+  `maxScansPerDay` configurable; puntos por teléfono (celular obligatorio, 10 dígitos MX,
+  `GET /cards/by-phone`, `via:'phone'` auditado); duplicado por teléfono; reactivar usuarios +
+  protección de auto-desactivación (solo `users.manage`/admin); preview Apple+Google en el form
+  de programa; recuperación rápida desde el registro, enlace que se gasta con POST/botón,
+  cooldown 5 min / 3 por hora, `error.tsx`; validación del formulario (required + botón
+  deshabilitado). Detalle y decisiones en `TECH_DEBT.md` (B1–B7).
+  - Antes de promover: (1) en prod hay 5 tarjetas (xalli); 1 tiene solo 9 dígitos, la migración
+    0027 la deja intacta (hay que corregirla a mano si se quiere que sea buscable); (2) probar en
+    un iPhone que Desbloquear reactive el pase (no verificado en dispositivo); (3) no probar
+    durante un deploy.
+  - Bug corregido en este lote (solo staging): el escaneo daba 500 por un `Date` en SQL crudo;
+    ver "Lección" en TECH_DEBT. Prod (v0.38.0) nunca lo tuvo.
+  - Pendientes abiertos: B4 webcam, B5 logo/favicon, B7 límite de peticiones (trustProxy), date
+    picker de nacimiento, campañas programadas (cumpleaños) con CronJobs + purga de anuladas.
 - **Notificaciones Google**: AddMessage `TEXT_AND_NOTIFY` (PATCH normal NO notifica), máx
   3/24h → degrada a `TEXT`. Logo obligatorio en la clase (fallback a default-logo.png absoluto).
 - **Fase 2 restante**: tiers (premios por escalón en un programa), integración POS (sumar
