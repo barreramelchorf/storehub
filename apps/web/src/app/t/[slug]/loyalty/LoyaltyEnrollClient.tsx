@@ -18,7 +18,7 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<EnrollResult | null>(null)
-  const [recoverySent, setRecoverySent] = useState(false)
+  const [recoverySent, setRecoverySent] = useState<'email' | 'phone' | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -34,7 +34,7 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
         body: JSON.stringify({ customerName, customerEmail, customerPhone, birthDate, programId }),
       })
       if ((res as any).recovery) {
-        setRecoverySent(true)
+        setRecoverySent((res as any).matchedBy === 'phone' ? 'phone' : 'email')
       } else {
         setResult(res)
       }
@@ -52,8 +52,10 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
         <div className="text-4xl mb-3">📧</div>
         <h2 className="text-xl font-bold text-gray-800">Ya tienes una tarjeta</h2>
         <p className="text-gray-500 mt-2">
-          Ese correo ya está registrado. Te enviamos un enlace para recuperar tu tarjeta
-          (con tus puntos intactos). Revisa tu bandeja de entrada — el enlace expira en 30 minutos.
+          {recoverySent === 'phone'
+            ? 'Ese celular ya tiene una tarjeta. Te enviamos un enlace al correo con el que se registró para recuperarla'
+            : 'Ese correo ya está registrado. Te enviamos un enlace para recuperar tu tarjeta'}
+          {' '}(con tus puntos intactos). Revisa tu bandeja de entrada — el enlace expira en 30 minutos.
         </p>
       </div>
     )

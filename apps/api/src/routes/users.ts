@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { db, users, roles } from '@storehub/db'
+import { db, users, roles, auditLog } from '@storehub/db'
 import { eq, and } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { passwordSchema } from '@storehub/schemas'
@@ -107,8 +107,36 @@ export async function userRoutes(app: FastifyInstance) {
 
   app.delete('/api/admin/users/:id', { preHandler: requirePermission('users.manage') }, async (request, reply) => {
     const { id } = request.params as { id: string }
+    // A user can't deactivate their own account. Since the caller must be an active
+    // user with users.manage, this also guarantees the tenant always keeps at least
+    // one active admin (the caller), so nobody can lock the tenant out.
+    if (id === request.user.id) {
+      return reply.code(409).send({ error: 'No puedes desactivar tu propia cuenta. Pide a otro administrador que lo haga.' })
+    }
     const [deleted] = await db.update(users).set({ active: false }).where(and(eq(users.id, id), eq(users.tenantId, request.tenant.id))).returning()
     if (!deleted) return reply.code(404).send({ error: 'User not found' })
+    await db.insert(auditLog).values({
+      tenantId: request.tenant.id, userId: request.user.id, eventType: 'user_deactivated',
+      entityType: 'user', entityId: id, payload: { email: deleted.email, username: deleted.username },
+    })
+    return { ok: true }
+  })
+
+  // Reactivate a deactivated user. Same permission as deactivating (users.manage =
+  // administrador only, by decision).
+  app.post('/api/admin/users/:id/reactivate', { preHandler: requirePermission('users.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const user = await db.query.users.findFirst({
+      where: (u, { eq, and }) => and(eq(u.id, id), eq(u.tenantId, request.tenant.id)),
+      columns: { id: true, active: true, email: true, username: true },
+    })
+    if (!user) return reply.code(404).send({ error: 'User not found' })
+    if (user.active) return reply.code(409).send({ error: 'El usuario ya está activo' })
+    await db.update(users).set({ active: true }).where(and(eq(users.id, id), eq(users.tenantId, request.tenant.id)))
+    await db.insert(auditLog).values({
+      tenantId: request.tenant.id, userId: request.user.id, eventType: 'user_reactivated',
+      entityType: 'user', entityId: id, payload: { email: user.email, username: user.username },
+    })
     return { ok: true }
   })
 }

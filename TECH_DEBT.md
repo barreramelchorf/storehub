@@ -169,7 +169,16 @@ Pendientes a resolver en siguientes iteraciones.
 
 ## 📌 BACKLOG PRIORITARIO (pedido 2026-11-14, antes del motor de campañas programadas)
 
-### B1 — Reactivar usuarios desactivados
+### B1 — Reactivar usuarios desactivados  ✅ HECHO (staging, 2026-11-14)
+- Decisión: solo el administrador (`users.manage`) desactiva y reactiva; el gerente no.
+- Implementado: `POST /api/admin/users/:id/reactivate` + botón "Reactivar" (reemplaza el
+  "Inactivo" deshabilitado) con ConfirmDialog. Desactivar y reactivar quedan en el audit log
+  (`user_deactivated` / `user_reactivated`).
+- Protección: un usuario no puede desactivar su propia cuenta (409). Como quien llama debe
+  ser un admin activo, esto basta para que el tenant siempre conserve al menos un admin
+  activo; un admin sí puede desactivar a OTRO admin. Caso límite no cubierto: dos admins
+  desactivándose mutuamente al mismo tiempo (carrera), improbable.
+- Contexto original:
 - Verificado en DB (2026-11-14): hoy SOLO el rol `administrador` tiene `users.manage` en
   todos los tenants (demo-cafe en staging; xalli y chickenstore en prod). Por lo tanto solo
   el administrador puede desactivar usuarios. El gerente no ve ni la página Usuarios.
@@ -213,10 +222,21 @@ Pendientes a resolver en siguientes iteraciones.
 - La búsqueda compara los últimos 10 dígitos del teléfono guardado, así que números viejos
   con formato libre ("55 4578 3005") también coinciden sin migración.
 - ⚠️ Tarjetas existentes sin teléfono (era opcional) no se pueden encontrar por este camino.
-- Edge case abierto: dos tarjetas del mismo programa con el mismo teléfono y distinto correo
-  (posible doble acumulación). Hoy el cajero ve ambas y elige. Si se vuelve un problema:
-  detectar teléfono duplicado por programa al registrarse.
-- Pendiente: reportes/auditoría de visitas "por teléfono" (hoy solo queda la nota).
+- Teléfono duplicado (resuelto 2026-11-14): el registro detecta un celular ya existente en el
+  mismo programa y, igual que con el correo, NO crea tarjeta nueva: manda el enlace de
+  recuperación al correo con el que se registró la tarjeta existente (el mensaje al cliente no
+  revela ese correo). Si la tarjeta vieja no tiene correo, responde 409 y pide ayuda al
+  negocio. Las tarjetas anuladas NO cuentan como duplicado.
+- Migración 0027 normaliza los teléfonos existentes a 10 dígitos (idempotente; no toca los
+  que no se pueden normalizar). Antes de promover a prod, en prod hay 1 tarjeta (xalli) con
+  solo 9 dígitos: la migración la deja intacta y no será encontrable por teléfono hasta
+  corregirla a mano.
+- ⚠️ Política de tarjetas anuladas: hoy una tarjeta anulada NO bloquea el re-registro (el
+  mensaje al cajero dice "pide que se registre de nuevo"), así que un cliente anulado por mal
+  uso puede registrarse otra vez con los mismos datos. Si se quiere un veto real, hay que
+  usar el estado `blocked` (existe en el enum, sin UI) y que cuente como duplicado.
+- Pendiente (abuso): un tercero que conozca el correo o celular de alguien puede provocar
+  envíos repetidos del correo de recuperación; solo existe el límite global de 100 req/min.
 - Texto original del pedido:
 - Caso: el cliente olvidó su teléfono/tarjeta. El cajero captura el número celular y el
   sistema devuelve la tarjeta para sumar la visita.

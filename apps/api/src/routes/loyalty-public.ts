@@ -115,17 +115,34 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
 
     const email = customerEmail.trim().toLowerCase()
 
-    // Duplicate detection: one card per email PER PROGRAM. If a card already
-    // exists for this email in this program, DO NOT create a new one — send a
-    // single-use recovery link so only the owner can retrieve it.
-    const existing = await db.query.loyaltyCards.findFirst({
-      where: (c, { eq, and, sql }) => and(
+    // Duplicate detection: one card per email PER PROGRAM and one per phone PER
+    // PROGRAM. Voided cards don't count (a revoked card can register again, as the
+    // cashier message says). On a match we DO NOT create a new card: we send a
+    // single-use recovery link to the email registered on the existing card, so
+    // only its owner can retrieve it.
+    const byEmail = await db.query.loyaltyCards.findFirst({
+      where: (c, { eq, ne, and, sql }) => and(
         eq(c.programId, program.id),
+        ne(c.status, 'voided'),
         sql`lower(${c.customerEmail}) = ${email}`,
       ),
     })
+    // customerPhone is already normalized to 10 digits; compare against the last
+    // 10 digits of the stored value so legacy free-format numbers also match.
+    const byPhone = byEmail ? undefined : await db.query.loyaltyCards.findFirst({
+      where: (c, { eq, ne, and, sql }) => and(
+        eq(c.programId, program.id),
+        ne(c.status, 'voided'),
+        sql`right(regexp_replace(coalesce(${c.customerPhone}, ''), '[^0-9]', '', 'g'), 10) = ${customerPhone}`,
+      ),
+    })
+    const existing = byEmail ?? byPhone
 
     if (existing) {
+      // Legacy cards may lack an email; without it there's nowhere to send recovery.
+      if (!existing.customerEmail) {
+        return reply.code(409).send({ error: 'Ese celular ya tiene una tarjeta. Pide ayuda en el negocio para recuperarla.' })
+      }
       const token = crypto.randomBytes(24).toString('hex')
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000) // 30 min
       await db.insert(loyaltyRecoveryTokens).values({
@@ -137,12 +154,12 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
       const base = getWebServiceBaseUrl()
       const recoveryUrl = `${base}/t/${request.tenant.slug}/loyalty/recover/${token}`
       await sendLoyaltyRecoveryEmail({
-        to: existing.customerEmail!,
+        to: existing.customerEmail,
         customerName: existing.customerName,
         tenantName: request.tenant.name,
         recoveryUrl,
       }).catch(() => {})
-      return reply.code(200).send({ recovery: true })
+      return reply.code(200).send({ recovery: true, matchedBy: byEmail ? 'email' : 'phone' })
     }
 
     const serialNumber = crypto.randomUUID()
@@ -197,6 +214,7 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
       where: (c, { eq }) => eq(c.id, row.cardId),
     })
     if (!card) return reply.code(404).send({ error: 'Tarjeta no encontrada' })
+    if (card.status === 'voided') return reply.code(410).send({ error: 'Esta tarjeta fue anulada. Regístrate de nuevo.' })
 
     // Single use: mark consumed.
     await db.update(loyaltyRecoveryTokens).set({ usedAt: new Date() }).where(eq(loyaltyRecoveryTokens.id, row.id))

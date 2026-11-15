@@ -12,6 +12,7 @@ export default function UsersPage() {
   const queryClient = useQueryClient()
   const [modal, setModal] = useState<{ id: string | null } | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<any>(null)
+  const [reactivateTarget, setReactivateTarget] = useState<any>(null)
   const [form, setForm] = useState({ email: '', username: '', password: '', roleId: '', mustChangePassword: true })
   const [showPassword, setShowPassword] = useState(false)
 
@@ -28,6 +29,11 @@ export default function UsersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api(`/api/admin/users/${id}`, { method: 'DELETE', token }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+  })
+
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => api(`/api/admin/users/${id}/reactivate`, { method: 'POST', token }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   })
 
@@ -55,7 +61,7 @@ export default function UsersPage() {
                 <td className="p-3 text-center">
                   <div className="flex justify-center gap-1">
                     <button onClick={() => openEdit(u)} className="btn-secondary text-xs px-2 py-1">Editar</button>
-                    <button onClick={() => { if (u.active) setDeactivateTarget(u) }} className="btn-danger">{u.active ? 'Desactivar' : 'Inactivo'}</button>
+                    <button onClick={() => (u.active ? setDeactivateTarget(u) : setReactivateTarget(u))} className={u.active ? 'btn-danger' : 'btn-secondary text-xs px-2 py-1'}>{u.active ? 'Desactivar' : 'Reactivar'}</button>
                   </div>
                 </td>
               </tr>
@@ -82,7 +88,7 @@ export default function UsersPage() {
             </div>
             <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--color-border)]">
               <button onClick={() => openEdit(u)} className="flex-1 text-xs py-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-dark)] font-medium hover:bg-gray-100 transition-colors">Editar</button>
-              <button onClick={() => { if (u.active) setDeactivateTarget(u) }} className="text-xs py-2 px-3 rounded-lg bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors">{u.active ? 'Desactivar' : 'Inactivo'}</button>
+              <button onClick={() => (u.active ? setDeactivateTarget(u) : setReactivateTarget(u))} className={`text-xs py-2 px-3 rounded-lg font-medium transition-colors ${u.active ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>{u.active ? 'Desactivar' : 'Reactivar'}</button>
             </div>
           </div>
         ))}
@@ -156,11 +162,26 @@ export default function UsersPage() {
       <ConfirmDialog
         open={!!deactivateTarget}
         title="Desactivar usuario"
-        message={`${deactivateTarget?.username || deactivateTarget?.email || 'Este usuario'} no podrá iniciar sesión. ¿Continuar?`}
+        message={deleteMutation.isError
+          ? (deleteMutation.error as Error).message
+          : `${deactivateTarget?.username || deactivateTarget?.email || 'Este usuario'} no podrá iniciar sesión. ¿Continuar?`}
         confirmLabel="Desactivar"
         loading={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate(deactivateTarget.id, { onSuccess: () => setDeactivateTarget(null) })}
-        onCancel={() => setDeactivateTarget(null)}
+        onConfirm={() => deleteMutation.mutate(deactivateTarget.id, { onSuccess: () => { setDeactivateTarget(null); deleteMutation.reset() } })}
+        onCancel={() => { setDeactivateTarget(null); deleteMutation.reset() }}
+      />
+
+      <ConfirmDialog
+        open={!!reactivateTarget}
+        title="Reactivar usuario"
+        message={reactivateMutation.isError
+          ? (reactivateMutation.error as Error).message
+          : `${reactivateTarget?.username || reactivateTarget?.email || 'Este usuario'} podrá volver a iniciar sesión. ¿Continuar?`}
+        confirmLabel="Reactivar"
+        danger={false}
+        loading={reactivateMutation.isPending}
+        onConfirm={() => reactivateMutation.mutate(reactivateTarget.id, { onSuccess: () => { setReactivateTarget(null); reactivateMutation.reset() } })}
+        onCancel={() => { setReactivateTarget(null); reactivateMutation.reset() }}
       />
     </div>
   )
