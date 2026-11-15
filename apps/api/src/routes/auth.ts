@@ -4,10 +4,13 @@ import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { loginSchema, passwordSchema } from '@storehub/schemas'
 import { signTokens, verifyToken } from '../plugins/jwt.js'
+import { LOGIN_LIMIT, loginRateLimitKey } from '../lib/rate-limits.js'
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', {
-    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
+    // Per ACCOUNT, not per IP: behind the proxy every client shares one IP, so the old
+    // per-IP limit (5 / 15 min) locked out ALL users after 5 logins in total.
+    config: { rateLimit: { ...LOGIN_LIMIT, hook: 'preHandler' as const, keyGenerator: loginRateLimitKey } },
   }, async (request, reply) => {
     const { email, password, username } = request.body as { email?: string; password: string; username?: string }
     if (!password || (!email && !username)) return reply.code(400).send({ error: 'Email/username and password required' })

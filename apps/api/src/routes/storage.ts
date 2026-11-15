@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify'
+import { STORAGE_LIMIT } from '../lib/rate-limits.js'
 
 export async function storageRoutes(app: FastifyInstance) {
   // Serve any file from MinIO storage (images, documents, etc)
   // No tenant resolution needed — path contains the tenant ID already
-  app.get('/api/public/storage/*', async (request, reply) => {
+  app.get('/api/public/storage/*', { config: { rateLimit: { ...STORAGE_LIMIT } } }, async (request, reply) => {
     const filePath = (request.params as any)['*']
     if (!filePath) return reply.code(400).send({ error: 'Path required' })
 

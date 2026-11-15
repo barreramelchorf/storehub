@@ -30,8 +30,28 @@ import { loyaltyPublicRoutes, loyaltyPassRoutes } from './routes/loyalty-public.
 import { loyaltyAdminRoutes } from './routes/loyalty-admin.js'
 import { loyaltyAppleWsRoutes } from './routes/loyalty-apple-ws.js'
 import { resolveTenant } from './middleware/tenant.js'
+import { GENERAL_LIMIT } from './lib/rate-limits.js'
 
-const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
+const app = Fastify({
+  logger: {
+    level: process.env.LOG_LEVEL ?? 'info',
+    serializers: {
+      // Default request fields + the proxy headers, so we can see what Traefik forwards
+      // (needed to decide how to configure trustProxy — TECH_DEBT B7).
+      req(req) {
+        return {
+          method: req.method,
+          url: req.url,
+          hostname: req.hostname,
+          remoteAddress: req.ip,
+          remotePort: req.socket?.remotePort,
+          xForwardedFor: req.headers['x-forwarded-for'],
+          xRealIp: req.headers['x-real-ip'],
+        }
+      },
+    },
+  },
+})
 
 await app.register(cors, { origin: true, credentials: true })
 await app.register(helmet)
@@ -46,7 +66,14 @@ await app.register(multipart, {
     fieldName === 'file' || fileName !== undefined,
 })
 await app.register(cookie)
-await app.register(rateLimit, { max: 100, timeWindow: '1 minute' })
+await app.register(rateLimit, {
+  ...GENERAL_LIMIT,
+  errorResponseBuilder: (_request, context) => ({
+    statusCode: 429,
+    error: 'Too Many Requests',
+    message: `Demasiadas solicitudes. Intenta de nuevo en ${context.after}.`,
+  }),
+})
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)

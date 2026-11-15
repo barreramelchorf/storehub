@@ -8,6 +8,7 @@ import {
 } from '../lib/loyalty/scan-logic.js'
 import { hexToRgb } from '../lib/loyalty/pass-data.js'
 import { normalizeMxPhone, loyaltyEnrollSchema, loyaltyScanSchema, loyaltyRecoverRequestSchema } from '@storehub/schemas'
+import { loginRateLimitKey, GENERAL_LIMIT, LOGIN_LIMIT } from '../lib/rate-limits.js'
 import {
   duplicateAction,
   welcomePointsFor,
@@ -256,5 +257,30 @@ describe('Loyalty — countScansOnBusinessDay (día de negocio = hora de México
   })
   it('sin visitas -> 0', () => {
     expect(countScansOnBusinessDay([], new Date())).toBe(0)
+  })
+})
+
+describe('Rate limits — loginRateLimitKey (por cuenta, nunca por IP)', () => {
+  const req = (body: unknown, tenant = 'demo-cafe') =>
+    ({ body, headers: { 'x-tenant-slug': tenant }, hostname: 'storehub-staging.barreramelchorf.top' }) as any
+  it('la misma cuenta produce la misma clave', () => {
+    expect(loginRateLimitKey(req({ username: 'admin' }))).toBe(loginRateLimitKey(req({ username: 'admin' })))
+  })
+  it('cuentas distintas producen claves distintas (no se bloquean entre sí)', () => {
+    expect(loginRateLimitKey(req({ username: 'ana' }))).not.toBe(loginRateLimitKey(req({ username: 'luis' })))
+  })
+  it('ignora mayúsculas y espacios', () => {
+    expect(loginRateLimitKey(req({ username: '  Admin ' }))).toBe(loginRateLimitKey(req({ username: 'admin' })))
+  })
+  it('el mismo usuario en negocios distintos tiene claves distintas', () => {
+    expect(loginRateLimitKey(req({ username: 'admin' }, 'xalli'))).not.toBe(loginRateLimitKey(req({ username: 'admin' }, 'demo-cafe')))
+  })
+  it('acepta correo en lugar de usuario y no revienta sin cuerpo', () => {
+    expect(loginRateLimitKey(req({ email: 'A@B.com' }))).toContain('a@b.com')
+    expect(loginRateLimitKey(req(undefined))).toContain(':anon')
+  })
+  it('la política: general alto, login por cuenta moderado', () => {
+    expect(GENERAL_LIMIT.max).toBeGreaterThanOrEqual(600)
+    expect(LOGIN_LIMIT.max).toBeGreaterThan(5)
   })
 })

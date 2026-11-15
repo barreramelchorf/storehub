@@ -14,6 +14,7 @@ import { eq, and } from 'drizzle-orm'
 import { buildApplePass } from '../lib/loyalty/apple-pass.js'
 import { buildPassData, type CardRow } from '../lib/loyalty/pass-builder.js'
 import { isAppleConfigured } from '../lib/loyalty/config.js'
+import { APPLE_WS_LIMIT } from '../lib/rate-limits.js'
 
 const PREFIX = '/api/wallet/apple'
 
@@ -29,7 +30,7 @@ async function findCardBySerial(serial: string) {
 
 export async function loyaltyAppleWsRoutes(app: FastifyInstance) {
   // Register a device to receive push updates for a pass.
-  app.post(`${PREFIX}/v1/devices/:deviceLibraryId/registrations/:passTypeId/:serial`, async (request, reply) => {
+  app.post(`${PREFIX}/v1/devices/:deviceLibraryId/registrations/:passTypeId/:serial`, { config: { rateLimit: { ...APPLE_WS_LIMIT } } }, async (request, reply) => {
     const { deviceLibraryId, serial } = request.params as { deviceLibraryId: string; passTypeId: string; serial: string }
     const { pushToken } = (request.body ?? {}) as { pushToken?: string }
 
@@ -47,7 +48,7 @@ export async function loyaltyAppleWsRoutes(app: FastifyInstance) {
   })
 
   // Unregister a device.
-  app.delete(`${PREFIX}/v1/devices/:deviceLibraryId/registrations/:passTypeId/:serial`, async (request, reply) => {
+  app.delete(`${PREFIX}/v1/devices/:deviceLibraryId/registrations/:passTypeId/:serial`, { config: { rateLimit: { ...APPLE_WS_LIMIT } } }, async (request, reply) => {
     const { deviceLibraryId, serial } = request.params as { deviceLibraryId: string; passTypeId: string; serial: string }
     const card = await findCardBySerial(serial)
     if (!card) return reply.code(404).send()
@@ -61,7 +62,7 @@ export async function loyaltyAppleWsRoutes(app: FastifyInstance) {
   })
 
   // List serial numbers of passes updated since `passesUpdatedSince` for a device.
-  app.get(`${PREFIX}/v1/devices/:deviceLibraryId/registrations/:passTypeId`, async (request, reply) => {
+  app.get(`${PREFIX}/v1/devices/:deviceLibraryId/registrations/:passTypeId`, { config: { rateLimit: { ...APPLE_WS_LIMIT } } }, async (request, reply) => {
     const { deviceLibraryId } = request.params as { deviceLibraryId: string; passTypeId: string }
     const { passesUpdatedSince } = request.query as { passesUpdatedSince?: string }
 
@@ -94,7 +95,7 @@ export async function loyaltyAppleWsRoutes(app: FastifyInstance) {
   })
 
   // Return the latest version of a pass.
-  app.get(`${PREFIX}/v1/passes/:passTypeId/:serial`, async (request, reply) => {
+  app.get(`${PREFIX}/v1/passes/:passTypeId/:serial`, { config: { rateLimit: { ...APPLE_WS_LIMIT } } }, async (request, reply) => {
     if (!isAppleConfigured()) return reply.code(503).send()
     const { serial } = request.params as { passTypeId: string; serial: string }
     const card = await findCardBySerial(serial)
@@ -118,7 +119,7 @@ export async function loyaltyAppleWsRoutes(app: FastifyInstance) {
   })
 
   // Device logs (Apple posts diagnostics here). Accept and discard.
-  app.post(`${PREFIX}/v1/log`, async (request, reply) => {
+  app.post(`${PREFIX}/v1/log`, { config: { rateLimit: { ...APPLE_WS_LIMIT } } }, async (request, reply) => {
     request.log.info({ applePassLog: request.body }, 'Apple Wallet device log')
     return reply.code(200).send()
   })
