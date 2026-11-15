@@ -10,6 +10,7 @@ import crypto from 'node:crypto'
 import { db, loyaltyCards, loyaltyRecoveryTokens, loyaltyTransactions } from '@storehub/db'
 import { eq, and, gt, desc, isNull } from 'drizzle-orm'
 import { loyaltyEnrollSchema, loyaltyRecoverRequestSchema } from '@storehub/schemas'
+import { ENROLL_IP_LIMIT, RECOVER_IP_LIMIT } from '../lib/rate-limits.js'
 import { duplicateAction, welcomePointsFor, shouldSendRecovery } from '../lib/loyalty/enroll-logic.js'
 import { buildApplePass } from '../lib/loyalty/apple-pass.js'
 import { PLACEHOLDER_PNG } from '../lib/loyalty/apple-pass.js'
@@ -136,7 +137,7 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
   })
 
   // Self-enrollment: create a card, return wallet links
-  app.post('/api/public/loyalty/enroll', async (request, reply) => {
+  app.post('/api/public/loyalty/enroll', { config: { rateLimit: ENROLL_IP_LIMIT } }, async (request, reply) => {
     if (!loyaltyEnabled(request.tenant.config)) {
       return reply.code(404).send({ error: 'Programa de lealtad no disponible' })
     }
@@ -249,7 +250,7 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
   // one (OWASP: don't reveal whether an account exists) and the email is sent in the
   // background so response time doesn't leak it either. Only ACTIVE cards are
   // recoverable; blocked/voided ones silently get nothing.
-  app.post('/api/public/loyalty/recover', async (request, reply) => {
+  app.post('/api/public/loyalty/recover', { config: { rateLimit: RECOVER_IP_LIMIT } }, async (request, reply) => {
     if (!loyaltyEnabled(request.tenant.config)) {
       return reply.code(404).send({ error: 'Programa de lealtad no disponible' })
     }

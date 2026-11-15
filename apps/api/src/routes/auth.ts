@@ -4,12 +4,17 @@ import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { loginSchema, passwordSchema } from '@storehub/schemas'
 import { signTokens, verifyToken } from '../plugins/jwt.js'
-import { LOGIN_LIMIT, loginRateLimitKey } from '../lib/rate-limits.js'
+import {
+  LOGIN_LIMIT, LOGIN_IP_LIMIT, loginRateLimitKey, createWindowLimiter, ipLimitHook,
+} from '../lib/rate-limits.js'
+
+const loginIpLimiter = createWindowLimiter(LOGIN_IP_LIMIT)
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', {
-    // Per ACCOUNT, not per IP: behind the proxy every client shares one IP, so the old
-    // per-IP limit (5 / 15 min) locked out ALL users after 5 logins in total.
+    // Two limits: per ACCOUNT (guessing one password) and per client IP across all
+    // accounts (credential spraying). The IP one runs first, at onRequest.
+    onRequest: ipLimitHook(loginIpLimiter),
     config: { rateLimit: { ...LOGIN_LIMIT, hook: 'preHandler' as const, keyGenerator: loginRateLimitKey } },
   }, async (request, reply) => {
     const { email, password, username } = request.body as { email?: string; password: string; username?: string }

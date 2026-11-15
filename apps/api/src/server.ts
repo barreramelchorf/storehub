@@ -30,14 +30,16 @@ import { loyaltyPublicRoutes, loyaltyPassRoutes } from './routes/loyalty-public.
 import { loyaltyAdminRoutes } from './routes/loyalty-admin.js'
 import { loyaltyAppleWsRoutes } from './routes/loyalty-apple-ws.js'
 import { resolveTenant } from './middleware/tenant.js'
-import { GENERAL_LIMIT, formatWait } from './lib/rate-limits.js'
+import { GENERAL_LIMIT, TRUST_PROXY, formatWait } from './lib/rate-limits.js'
 
 const app = Fastify({
+  // Real client IP from X-Forwarded-For, trusted ONLY from the pod network (Traefik).
+  trustProxy: TRUST_PROXY,
   logger: {
     level: process.env.LOG_LEVEL ?? 'info',
     serializers: {
-      // Default request fields + the proxy headers, so we can see what Traefik forwards
-      // (needed to decide how to configure trustProxy — TECH_DEBT B7).
+      // Default request fields + the raw proxy headers (remoteAddress is the resolved
+      // client IP, i.e. request.ip after trustProxy).
       req(req) {
         return {
           method: req.method,
