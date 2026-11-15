@@ -167,6 +167,51 @@ Pendientes a resolver en siguientes iteraciones.
 - Para: resize de imágenes batch, emails, notificaciones futuras
 - Stack: BullMQ + Redis (Redis ya existe)
 
+## 📌 BACKLOG PRIORITARIO (pedido 2026-11-14, antes del motor de campañas programadas)
+
+### B1 — Reactivar usuarios desactivados
+- Hoy desactivar = `DELETE /api/admin/users/:id` (active=false) y no hay forma de revertirlo;
+  la UI muestra el botón "Inactivo" deshabilitado (`admin/users/page.tsx`).
+- Falta: endpoint de reactivación (o aceptar `active` en el PUT) + botón "Reactivar" con
+  ConfirmDialog + audit log.
+- ⚠️ DECISIÓN PENDIENTE de permisos: se pidió que lo hagan admin y gerente, pero hoy
+  `users.manage` solo lo tiene `administrador` (el gerente NO gestiona usuarios, ver
+  `.kiro/steering/permissions.md`). Opciones: (a) permiso nuevo `users.reactivate` para
+  admin+gerente (no abre el resto de la gestión de usuarios), (b) dar `users.manage` al
+  gerente (cambia el modelo de roles). Recomendado: (a).
+
+### B2 — Previsualizador de la tarjeta de lealtad
+- Los selectores de color (fondo/texto/etiquetas) no muestran cómo queda el pase.
+- Falta: preview en vivo en el form de programa, tanto al crear como al editar. Debe
+  reflejar la herencia de branding (programa → tenant → defaults), nombre del negocio,
+  logo, puntos, recompensa. Idealmente una vista tipo Apple Wallet y otra tipo Google.
+- Es un render aproximado en HTML/CSS (no el .pkpass real). Aclarar en la UI que es
+  referencial.
+
+### B3 — Segundo camino para acumular puntos: búsqueda por teléfono
+- Caso: el cliente olvidó su teléfono/tarjeta. El cajero captura el número celular y el
+  sistema devuelve la tarjeta para sumar la visita.
+- Requiere: endpoint de búsqueda por teléfono (tenant-scoped, `loyalty.scan`) + UI en la
+  pestaña Escáner (campo "o buscar por teléfono"), reutilizando la misma lógica de scan
+  (cooldown `maxScansPerDay`, transacción `earn`, push).
+- Edge cases a decidir: (1) teléfono es opcional en el enrollment → clientes sin teléfono no
+  son encontrables (¿volverlo obligatorio?); (2) normalizar formato (espacios/guiones/+52);
+  (3) varios resultados (mismo teléfono en distintos programas) → mostrar lista para elegir;
+  (4) coincidencia parcial (últimos 4 dígitos) vs exacta; (5) seguridad/antifraude: el
+  teléfono no es secreto, así que registrar en la transacción que fue manual
+  (`note: 'Visita por teléfono'`) para auditar abuso.
+
+### B4 — Webcam de escritorio no lee el QR (investigar, lote independiente)
+- Síntoma: una webcam comprada no logra leer el QR en el escáner del panel.
+- Hipótesis a descartar (no confirmadas): (a) el escáner pide `facingMode: environment`,
+  pensado para celulares; (b) región de escaneo fija de 240px y 10 fps; (c) webcams de foco
+  fijo que no enfocan a corta distancia; (d) el QR del pase en la pantalla del teléfono es
+  pequeño o con brillo/reflejo; (e) resolución solicitada baja.
+- Opciones a evaluar: selector de cámara (`Html5Qrcode.getCameras()`), pedir mayor
+  resolución, quitar/ajustar `qrbox`, usar la API nativa `BarcodeDetector` donde exista,
+  y siempre dejar el fallback manual (B3) y/o lector USB de códigos (actúa como teclado).
+- Pedir al usuario: modelo de webcam, navegador y si lee un QR impreso en papel.
+
 ### Lealtad — dominio dedicado para el web service de passes
 - Hoy `loyaltyWebServiceUrl` = `https://storehub.barreramelchorf.top` (prod) y
   `https://storehub-staging.barreramelchorf.top` (staging). Es el host de plataforma.
