@@ -371,7 +371,7 @@ Patrón: igual que `JWT_SECRET`/`MINIO_*` — definidos en Pulumi, inyectados co
 - [x] Detector de dispositivo (`wallet-platform.ts`): muestra solo el botón de Wallet que
       corresponde (iPhone→Apple, Android→Google, desktop→ambos; cubre iPadOS).
 - [x] Web service de Apple (registrar/desregistrar/serials/pase/log).
-- [x] Endpoint de scan + UI de escáner QR en panel (html5-qrcode).
+- [x] Endpoint de scan + UI de escáner QR en panel (motor propio lib/qr-engine.ts: BarcodeDetector + jsQR).
 - [x] Push Apple + PATCH Google en background dentro del API (Opción A, sin worker).
 - [x] Campañas de oferta con rate limiting + notificaciones (Apple changeMessage / Google
       addMessage). El mensaje de oferta se envía tal cual, sin prefijo.
@@ -423,7 +423,7 @@ El logo del programa es OBLIGATORIO en la clase de Google; si el programa no tie
    (`loyalty.scan`/`loyalty.manage`). Mismo `/admin/login`, navegación filtrada por permiso.
 4. **Dominio del web service**: dominio de plataforma (NO los custom por tenant). Config
    `loyaltyWebServiceUrl` (staging: `https://storehub-staging.barreramelchorf.top`).
-5. **QR scanner**: cámara del navegador en el panel (`html5-qrcode`), import dinámico client-side.
+5. **QR scanner**: cámara del navegador en el panel (`lib/qr-engine.ts`, ver TECH_DEBT B4), import dinámico client-side.
 
 ## Activación del módulo — ADD-ON COMERCIAL (no auto-servicio del tenant)
 La lealtad NO es un toggle en la Configuración del tenant (como `cashSessions`). Es un

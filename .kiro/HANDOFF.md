@@ -120,7 +120,7 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
   (programs CRUD + alias singular compat / cards + filtro ?program / scan/redeem/adjust / campaigns).
 - **Web**: público `/t/:slug/loyalty?program=:id` (enrollment por programa) +
   `/loyalty/recover/:token` + `/loyalty-qr?program=:id` (cartel QR imprimible, lib qrcode);
-  admin `/t/:slug/admin/loyalty` (tabs: Escáner html5-qrcode / Tarjetas [filtro+badge por
+  admin `/t/:slug/admin/loyalty` (tabs: Escáner (lib/qr-engine.ts, sin html5-qrcode) / Tarjetas [filtro+badge por
   programa] / Campañas [selector de programa] / Programas [lista CRUD + link QR por programa]).
 - **Múltiples programas (Opción A)**: un QR/link por programa (`?program=:id`). Un correo por
   PROGRAMA (no por tenant). Enrollment sin `?program`: usa el único activo si hay 1, si hay
@@ -170,7 +170,7 @@ proyecto, para retomar sin perder contexto. Para el arranque rápido ver
     durante un deploy.
   - Bug corregido en este lote (solo staging): el escaneo daba 500 por un `Date` en SQL crudo;
     ver "Lección" en TECH_DEBT. Prod (v0.38.0) nunca lo tuvo.
-  - Pendientes abiertos: B4 webcam, B5 logo/favicon, B7 cerrado en staging (IP real + límites por IP; ver TECH_DEBT B7), date
+  - Pendientes abiertos: B4 webcam (arreglada en staging; falta probar con la UGREEN real y promover), B5 logo/favicon, B7 cerrado en staging (IP real + límites por IP; ver TECH_DEBT B7), date
     picker de nacimiento, campañas programadas (cumpleaños) con CronJobs + purga de anuladas.
 - **Notificaciones Google**: AddMessage `TEXT_AND_NOTIFY` (PATCH normal NO notifica), máx
   3/24h → degrada a `TEXT`. Logo obligatorio en la clase (fallback a default-logo.png absoluto).

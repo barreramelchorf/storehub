@@ -250,16 +250,25 @@ Pendientes a resolver en siguientes iteraciones.
   teléfono no es secreto, así que registrar en la transacción que fue manual
   (`note: 'Visita por teléfono'`) para auditar abuso.
 
-### B4 — Webcam de escritorio no lee el QR (investigar, lote independiente)
-- Síntoma: una webcam comprada no logra leer el QR en el escáner del panel.
-- Hipótesis a descartar (no confirmadas): (a) el escáner pide `facingMode: environment`,
-  pensado para celulares; (b) región de escaneo fija de 240px y 10 fps; (c) webcams de foco
-  fijo que no enfocan a corta distancia; (d) el QR del pase en la pantalla del teléfono es
-  pequeño o con brillo/reflejo; (e) resolución solicitada baja.
-- Opciones a evaluar: selector de cámara (`Html5Qrcode.getCameras()`), pedir mayor
-  resolución, quitar/ajustar `qrbox`, usar la API nativa `BarcodeDetector` donde exista,
-  y siempre dejar el fallback manual (B3) y/o lector USB de códigos (actúa como teclado).
-- Pedir al usuario: modelo de webcam, navegador y si lee un QR impreso en papel.
+### B4 — Webcam de escritorio no lee el QR  ✅ ARREGLADO en staging (2026-11-15, f57816f; falta prod y probar con la webcam real)
+- Caso: webcam UGREEN 2K, Chrome. El QR del celular salía pequeño en el cuadro y no se leía; con una
+  captura agrandada sí.
+- Causa raíz (reproducida con cámara falsa de Chrome): `html5-qrcode` dibuja la región de escaneo en un
+  canvas del tamaño del visor en pantalla (~240 px, `qrRegion` en su código) y decodifica ESO, así que
+  el cuadro de la cámara se reducía antes de decodificar. Un QR de 134 px en un cuadro 1080p (4.6 px
+  por módulo, legible para cualquier decodificador) quedaba en ~20 px. Además se pedía la cámara sin
+  resolución (Chrome suele dar 640x480) y sin enfoque continuo.
+- Arreglo: motor propio `apps/web/src/lib/qr-engine.ts` (sin html5-qrcode, con `jsqr` 1.4.0 de
+  respaldo): pide 1080p, enfoque continuo si la cámara lo expone, decodifica el cuadro completo con
+  `BarcodeDetector` nativo (jsQR si no existe o falla), selector de cámara que se recuerda
+  (`localStorage storehub.scanner.camera`) y una línea con cámara y resolución en uso.
+- Antes/después en laboratorio (QR de 7 % del ancho): escáner viejo 0 de 4 videos (1080p, 720p, 480p,
+  1080p con desenfoque leve); nuevo lee todos con nativo y con jsQR. Con desenfoque fuerte (núcleo de
+  7 px sobre módulos de 4.6 px) nada lee: si la cámara no enfoca, el software no lo arregla.
+- Límites conocidos: el laboratorio es optimista (video nítido, sin ruido); no se probó con la UGREEN
+  real. Zoom óptico no se usa (Chrome pide un permiso extra de PTZ). Si aún falla con la webcam real:
+  revisar la línea "cámara · resolución" que muestra el escáner (¿1920x1080?) y la distancia de enfoque
+  mínima de la cámara. Siguen el respaldo por teléfono (B3) y un lector USB (actúa como teclado).
 
 ### B5 — Logo de tienda / favicon / logo por programa (diseño a futuro)
 - Hoy no existe carga de logo: `ImageUpload` es solo de productos y `config.branding.logoUrl`
