@@ -273,6 +273,31 @@ Pendientes a resolver en siguientes iteraciones.
   chico más ícono cuadrado obligatorio; Google: logo cuadrado que se recorta en círculo).
   Conviene validar o generar variantes al subir (el API ya usa `sharp`).
 
+### B6 — Recuperación de tarjeta: incidente 2026-11-14 y endurecimiento (por decidir)
+- Incidente: el usuario abrió el enlace de recuperación y vio "Application error: a client-side
+  exception". El token quedó consumido (el API sí respondió). Reproducido con Chrome headless
+  (UA iPhone) sobre el despliegue actual: la página se dibuja bien. El intento coincidió con el
+  reemplazo de pods web/api de staging (pods viejos detenidos 05:37:04 y 05:37:18 UTC; intento
+  05:37:15 UTC), por lo que la causa más probable es un desfase de versión durante el deploy
+  (el navegador pide archivos de un build que acaba de desaparecer). No confirmado.
+- Debilidad real: el enlace se consume con un GET. Si algo falla después de la respuesta
+  (render, red, cierre de pestaña) o un escáner de correo lo abre antes, el cliente ve "ya fue
+  usado" y debe empezar de nuevo. Práctica estándar (Stytch, Supabase, better-auth): el enlace
+  solo muestra una página de confirmación y el token se gasta con un POST al presionar un botón.
+- Abuso del correo de recuperación (OWASP Forgot Password): limitar por cuenta, no crear más de
+  un token activo por ventana, y respuestas genéricas para no enumerar cuentas.
+- Opciones a implementar: (a) consumir el token con POST tras un botón "Recuperar mi tarjeta";
+  (b) cooldown: si ya hay un token vigente enviado hace < ~5 min, no generar/enviar otro;
+  (c) límite por tarjeta (ej. 3 correos/hora) y por IP en el endpoint de registro;
+  (d) `error.tsx` en las rutas de lealtad para mostrar un mensaje amable con "Reintentar" en
+  lugar de la pantalla genérica de Next.
+- Tarjetas anuladas y veto: plataformas de lealtad (Incentivio, LoyaltyPlant) usan un estado
+  "bloqueado" que conserva el historial, restringe el canje y marca las cuentas recreadas
+  ("linked"), en vez de borrar. Propuesta: separar "Anular" (pase inválido, puede volver a
+  registrarse) de "Bloquear cliente" (usa el estado `blocked` existente, cuenta como duplicado
+  por correo/celular y rechaza el re-registro con un mensaje neutro), y no repetir los puntos de
+  bienvenida si ya existió una tarjeta anulada con el mismo correo/celular en el programa.
+
 ### Lealtad — dominio dedicado para el web service de passes
 - Hoy `loyaltyWebServiceUrl` = `https://storehub.barreramelchorf.top` (prod) y
   `https://storehub-staging.barreramelchorf.top` (staging). Es el host de plataforma.

@@ -89,6 +89,9 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
   }
 
   // Enrollment form
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())
+  const phoneOk = !!normalizeMxPhone(customerPhone)
+  const canSubmit = customerName.trim().length > 0 && emailOk && phoneOk
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
       <h2 className="text-lg font-bold text-gray-800">Únete al programa</h2>
@@ -99,7 +102,7 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
         <input
           type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
-          placeholder="Tu nombre" autoComplete="name"
+          placeholder="Tu nombre" autoComplete="name" required
         />
       </div>
 
@@ -108,8 +111,9 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
         <input
           type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
-          placeholder="tucorreo@ejemplo.com" autoComplete="email"
+          placeholder="tucorreo@ejemplo.com" autoComplete="email" required
         />
+        {customerEmail.trim() && !emailOk && <p className="text-xs text-red-600 mt-1">Escribe un correo válido.</p>}
       </div>
 
       <div>
@@ -117,9 +121,11 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
         <input
           type="tel" inputMode="numeric" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
-          placeholder="55 1234 5678" autoComplete="tel" maxLength={16}
+          placeholder="55 1234 5678" autoComplete="tel" maxLength={16} required
         />
-        <p className="text-xs text-gray-400 mt-1">Con tu celular podemos sumarte puntos si algún día olvidas tu teléfono.</p>
+        {customerPhone.trim() && !phoneOk
+          ? <p className="text-xs text-red-600 mt-1">El celular debe tener 10 dígitos.</p>
+          : <p className="text-xs text-gray-400 mt-1">Con tu celular podemos sumarte puntos si algún día olvidas tu teléfono.</p>}
       </div>
 
       <div>
@@ -134,10 +140,13 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
       <p className="text-xs text-gray-400">El correo es necesario para recuperar tu tarjeta si cambias de teléfono.</p>
 
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      {!canSubmit && !submitting && (
+        <p className="text-xs text-gray-400 text-center">Completa tu nombre, correo y celular para continuar.</p>
+      )}
 
       <button
-        type="submit" disabled={submitting}
-        className="w-full bg-gray-900 text-white rounded-xl py-3 font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
+        type="submit" disabled={submitting || !canSubmit}
+        className="w-full bg-gray-900 text-white rounded-xl py-3 font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {submitting ? 'Creando tu tarjeta…' : 'Crear mi tarjeta'}
       </button>
