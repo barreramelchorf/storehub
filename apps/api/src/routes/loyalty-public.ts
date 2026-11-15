@@ -154,7 +154,7 @@ export async function loyaltyPublicRoutes(app: FastifyInstance) {
       programId: program.id,
       customerName,
       customerEmail: email,
-      customerPhone: customerPhone && customerPhone !== '' ? customerPhone : null,
+      customerPhone,
       birthDate: birthDate && birthDate !== '' ? birthDate : null,
       points: welcome,
       totalVisits: welcome > 0 ? 1 : 0,

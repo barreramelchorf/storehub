@@ -170,6 +170,12 @@ Pendientes a resolver en siguientes iteraciones.
 ## 📌 BACKLOG PRIORITARIO (pedido 2026-11-14, antes del motor de campañas programadas)
 
 ### B1 — Reactivar usuarios desactivados
+- Verificado en DB (2026-11-14): hoy SOLO el rol `administrador` tiene `users.manage` en
+  todos los tenants (demo-cafe en staging; xalli y chickenstore en prod). Por lo tanto solo
+  el administrador puede desactivar usuarios. El gerente no ve ni la página Usuarios.
+- ⚠️ `DELETE /api/admin/users/:id` no tiene guardas: un admin puede desactivarse a sí mismo
+  o desactivar al último admin del tenant y dejarlo sin acceso. Agregar la protección junto
+  con la reactivación.
 - Hoy desactivar = `DELETE /api/admin/users/:id` (active=false) y no hay forma de revertirlo;
   la UI muestra el botón "Inactivo" deshabilitado (`admin/users/page.tsx`).
 - Falta: endpoint de reactivación (o aceptar `active` en el PUT) + botón "Reactivar" con
@@ -196,7 +202,22 @@ Pendientes a resolver en siguientes iteraciones.
 - Es un render aproximado en HTML/CSS (no el .pkpass real). Aclarar en la UI que es
   referencial.
 
-### B3 — Segundo camino para acumular puntos: búsqueda por teléfono
+### B3 — Segundo camino para acumular puntos: búsqueda por teléfono  ✅ HECHO (staging, 2026-11-14)
+- Decisiones del usuario: teléfono OBLIGATORIO en el registro, solo México (10 dígitos),
+  coincidencia por número completo normalizado, validado en el formulario.
+- Implementado: `normalizeMxPhone` (packages/schemas; acepta +52/52/521, espacios, guiones),
+  teléfono obligatorio en `loyaltyEnrollSchema` (se guarda normalizado), endpoint
+  `GET /api/admin/loyalty/cards/by-phone` (`loyalty.scan`, solo tarjetas activas, devuelve
+  nombre/puntos/programa), campo `via: 'qr'|'phone'` en el scan (la transacción queda con
+  nota "Visita por teléfono"), y búsqueda en la pestaña Escáner con lista si hay varias.
+- La búsqueda compara los últimos 10 dígitos del teléfono guardado, así que números viejos
+  con formato libre ("55 4578 3005") también coinciden sin migración.
+- ⚠️ Tarjetas existentes sin teléfono (era opcional) no se pueden encontrar por este camino.
+- Edge case abierto: dos tarjetas del mismo programa con el mismo teléfono y distinto correo
+  (posible doble acumulación). Hoy el cajero ve ambas y elige. Si se vuelve un problema:
+  detectar teléfono duplicado por programa al registrarse.
+- Pendiente: reportes/auditoría de visitas "por teléfono" (hoy solo queda la nota).
+- Texto original del pedido:
 - Caso: el cliente olvidó su teléfono/tarjeta. El cajero captura el número celular y el
   sistema devuelve la tarjeta para sumar la visita.
 - Requiere: endpoint de búsqueda por teléfono (tenant-scoped, `loyalty.scan`) + UI en la
@@ -219,6 +240,18 @@ Pendientes a resolver en siguientes iteraciones.
   resolución, quitar/ajustar `qrbox`, usar la API nativa `BarcodeDetector` donde exista,
   y siempre dejar el fallback manual (B3) y/o lector USB de códigos (actúa como teclado).
 - Pedir al usuario: modelo de webcam, navegador y si lee un QR impreso en papel.
+
+### B5 — Logo de tienda / favicon / logo por programa (diseño a futuro)
+- Hoy no existe carga de logo: `ImageUpload` es solo de productos y `config.branding.logoUrl`
+  no tiene pantalla. Por eso los pases salen solo con el nombre del negocio como texto
+  (Apple usa un ícono transparente de 1x1; Google, `default-logo.png`).
+- Cadena de resolución acordada: logo del programa → logo de la tienda → solo texto con el
+  nombre del negocio. El backend (`pass-builder.ts`) y el preview ya la implementan; falta
+  la carga de imágenes (tienda y programa) y el favicon, junto con el tema pendiente de
+  logo/favicon de la tienda.
+- Cuidado al diseñarlo: Apple y Google piden formatos distintos (Apple: logo horizontal
+  chico más ícono cuadrado obligatorio; Google: logo cuadrado que se recorta en círculo).
+  Conviene validar o generar variantes al subir (el API ya usa `sharp`).
 
 ### Lealtad — dominio dedicado para el web service de passes
 - Hoy `loyaltyWebServiceUrl` = `https://storehub.barreramelchorf.top` (prod) y

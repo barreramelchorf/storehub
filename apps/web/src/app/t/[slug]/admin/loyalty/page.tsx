@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { QrScanner } from './QrScanner'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { PassPreview } from './PassPreview'
+import { normalizeMxPhone } from '@storehub/schemas'
 
 type Tab = 'program' | 'cards' | 'scanner' | 'campaigns'
 
@@ -53,21 +54,45 @@ function ScannerTab({ token }: { token: string }) {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [matches, setMatches] = useState<any[] | null>(null)
+  const [searching, setSearching] = useState(false)
 
-  async function handleScan(cardId: string) {
+  async function handleScan(cardId: string, via: 'qr' | 'phone' = 'qr') {
     if (busy) return
     setBusy(true)
     setScanning(false)
     setError(null)
     try {
       const res = await api('/api/admin/loyalty/scan', {
-        method: 'POST', token, body: JSON.stringify({ cardId }),
+        method: 'POST', token, body: JSON.stringify({ cardId, via }),
       })
       setResult(res)
+      setMatches(null)
+      if (via === 'phone') setPhone('')
     } catch (err: any) {
       setError(err.message ?? 'No se pudo registrar el escaneo')
     } finally {
       setBusy(false)
+    }
+  }
+
+  // Fallback when the customer forgot their phone: find the card by cell number.
+  async function searchByPhone() {
+    const normalized = normalizeMxPhone(phone)
+    if (!normalized) { setError('Escribe el celular a 10 dígitos'); return }
+    setSearching(true)
+    setError(null)
+    setResult(null)
+    setMatches(null)
+    try {
+      const res = await api(`/api/admin/loyalty/cards/by-phone?phone=${normalized}`, { token })
+      if (!res.items?.length) setError('No hay ninguna tarjeta activa con ese número')
+      else setMatches(res.items)
+    } catch (err: any) {
+      setError(err.message ?? 'No se pudo buscar')
+    } finally {
+      setSearching(false)
     }
   }
 
@@ -88,6 +113,40 @@ function ScannerTab({ token }: { token: string }) {
         </div>
       )}
 
+      <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <p className="text-sm font-medium text-gray-700 mb-1">¿No trae su teléfono?</p>
+        <p className="text-xs text-gray-400 mb-3">Busca la tarjeta con su número de celular (10 dígitos).</p>
+        <div className="flex gap-2">
+          <input
+            type="tel" inputMode="numeric" value={phone} maxLength={16}
+            onChange={(e) => setPhone(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') searchByPhone() }}
+            placeholder="55 1234 5678"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
+          />
+          <button onClick={searchByPhone} disabled={searching || !phone.trim()}
+            className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
+            {searching ? 'Buscando…' : 'Buscar'}
+          </button>
+        </div>
+        {matches && (
+          <div className="mt-3 space-y-2">
+            {matches.map((m: any) => (
+              <div key={m.id} className="flex items-center justify-between border border-gray-100 rounded-lg p-3">
+                <div>
+                  <p className="font-medium text-gray-800">{m.customerName}</p>
+                  <p className="text-xs text-gray-400">{m.program?.name ? `${m.program.name} · ` : ''}{m.points} pts</p>
+                </div>
+                <button onClick={() => handleScan(m.id, 'phone')} disabled={busy}
+                  className="text-sm bg-green-600 text-white rounded-lg px-3 py-1.5 hover:bg-green-700 disabled:opacity-50">
+                  Registrar visita
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {busy && <p className="text-center text-gray-500">Registrando…</p>}
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
@@ -96,7 +155,7 @@ function ScannerTab({ token }: { token: string }) {
           <div className="text-3xl mb-2">{result.alreadyScannedToday ? '🕐' : '✅'}</div>
           <h3 className="font-bold text-gray-800">{result.card.customerName}</h3>
           {result.alreadyScannedToday ? (
-            <p className="text-amber-600 text-sm mt-1">Ya se registró una visita hoy</p>
+            <p className="text-amber-600 text-sm mt-1">{result.message ?? 'Ya se registró una visita hoy'}</p>
           ) : (
             <p className="text-green-600 text-sm mt-1">+{result.earned} punto(s)</p>
           )}
@@ -501,7 +560,7 @@ function ProgramForm({ token, program, onDone, onCancel }: { token: string; prog
       </div>
     </div>
 
-    <div className="hidden lg:block sticky top-4 bg-white rounded-xl border border-gray-100 p-5">{preview}</div>
+    <div className="hidden lg:block sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto bg-white rounded-xl border border-gray-100 p-5">{preview}</div>
     </div>
   )
 }

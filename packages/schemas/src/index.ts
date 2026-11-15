@@ -142,12 +142,30 @@ export const slugSchema = z.string().regex(/^[a-z0-9-]+$/).min(2).max(63)
 
 // ─── Loyalty (Apple/Google Wallet) ──────────────────────────────────────────
 
+// Mexican mobile numbers: the system is MX-only, so a valid phone is exactly 10
+// digits. Accepts common pasted formats (spaces, dashes, parentheses, +52, 52, 521)
+// and returns the bare 10 digits, or null when it isn't a valid number.
+export function normalizeMxPhone(input: string | null | undefined): string | null {
+  let d = String(input ?? '').replace(/\D/g, '')
+  if (d.length === 13 && d.startsWith('521')) d = d.slice(3)
+  else if (d.length === 12 && d.startsWith('52')) d = d.slice(2)
+  return /^\d{10}$/.test(d) ? d : null
+}
+
 // Public self-enrollment (cliente se auto-registra en la página pública)
-// Correo OBLIGATORIO: es el canal de recuperación de tarjeta. birthDate opcional (analítica).
+// Correo y teléfono OBLIGATORIOS: el correo es el canal de recuperación y el teléfono
+// permite acumular puntos sin tarjeta. El teléfono se guarda normalizado (10 dígitos).
 export const loyaltyEnrollSchema = z.object({
   customerName: z.string().min(1, 'El nombre es requerido').max(120),
   customerEmail: z.string().email('Correo inválido'),
-  customerPhone: z.string().min(7, 'Teléfono inválido').max(20).optional().or(z.literal('')),
+  customerPhone: z.string().min(1, 'El teléfono es requerido').transform((v, ctx) => {
+    const n = normalizeMxPhone(v)
+    if (!n) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Teléfono inválido: deben ser 10 dígitos' })
+      return z.NEVER
+    }
+    return n
+  }),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)').optional().or(z.literal('')),
   programId: z.string().uuid().optional(),
 })
@@ -172,6 +190,8 @@ export const loyaltyProgramSchema = z.object({
 // Scan a card (cajero) — the QR payload is the card id
 export const loyaltyScanSchema = z.object({
   cardId: z.string().uuid('cardId inválido'),
+  // 'phone' = el cajero encontró la tarjeta por número celular (queda marcado en la transacción).
+  via: z.enum(['qr', 'phone']).default('qr'),
 })
 
 // Manual points adjustment (admin) — note required for auditability

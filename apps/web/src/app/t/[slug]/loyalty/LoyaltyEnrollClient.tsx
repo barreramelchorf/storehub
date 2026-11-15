@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { api } from '@/lib/api'
+import { normalizeMxPhone } from '@storehub/schemas'
 import { WalletButtons } from '@/components/WalletButtons'
 
 interface EnrollResult {
@@ -24,6 +25,7 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
     setError(null)
     if (!customerName.trim()) { setError('El nombre es requerido'); return }
     if (!customerEmail.trim()) { setError('El correo es requerido'); return }
+    if (!normalizeMxPhone(customerPhone)) { setError('Escribe tu celular a 10 dígitos (ej. 55 1234 5678)'); return }
     setSubmitting(true)
     try {
       const res = await api<EnrollResult & { recovery?: boolean }>('/api/public/loyalty/enroll', {
@@ -109,12 +111,13 @@ export function LoyaltyEnrollClient({ slug, programId }: { slug: string; program
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Celular (10 dígitos) *</label>
         <input
-          type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)}
+          type="tel" inputMode="numeric" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
-          placeholder="55 1234 5678" autoComplete="tel"
+          placeholder="55 1234 5678" autoComplete="tel" maxLength={16}
         />
+        <p className="text-xs text-gray-400 mt-1">Con tu celular podemos sumarte puntos si algún día olvidas tu teléfono.</p>
       </div>
 
       <div>

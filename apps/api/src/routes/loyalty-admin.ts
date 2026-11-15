@@ -12,7 +12,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db, loyaltyPrograms, loyaltyCards, loyaltyTransactions, loyaltyCampaigns, applePassRegistrations, loyaltyRecoveryTokens } from '@storehub/db'
 import { eq, and, sql } from 'drizzle-orm'
-import { loyaltyProgramSchema, loyaltyScanSchema, loyaltyAdjustSchema, loyaltyCampaignSchema } from '@storehub/schemas'
+import { loyaltyProgramSchema, loyaltyScanSchema, loyaltyAdjustSchema, loyaltyCampaignSchema, normalizeMxPhone } from '@storehub/schemas'
 import { authenticate } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/permissions.js'
 import { canEarnToday, hasReachedReward, pointsToReward, businessDate } from '../lib/loyalty/scan-logic.js'
@@ -155,6 +155,27 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     return { items, page: Number(page), pageSize: limit }
   })
 
+  // Find active cards by phone number (cashier fallback when the customer forgot
+  // their phone/pass). Matches on the normalized 10 digits so legacy free-format
+  // numbers ("55 4578 3005") still match. Returns minimal data (no email/birthdate).
+  // Registered before /cards/:id; Fastify gives static routes priority anyway.
+  app.get('/api/admin/loyalty/cards/by-phone', { preHandler: requirePermission('loyalty.scan') }, async (request, reply) => {
+    const { phone } = request.query as { phone?: string }
+    const normalized = normalizeMxPhone(phone)
+    if (!normalized) return reply.code(400).send({ error: 'Teléfono inválido: deben ser 10 dígitos' })
+    const items = await db.query.loyaltyCards.findMany({
+      where: (c, { eq, and, sql }) => and(
+        eq(c.tenantId, request.tenant.id),
+        eq(c.status, 'active'),
+        sql`right(regexp_replace(coalesce(${c.customerPhone}, ''), '[^0-9]', '', 'g'), 10) = ${normalized}`,
+      ),
+      columns: { id: true, customerName: true, points: true },
+      with: { program: { columns: { id: true, name: true } } },
+      limit: 10,
+    })
+    return { items }
+  })
+
   app.get('/api/admin/loyalty/cards/:id', { preHandler: requirePermission('loyalty.manage') }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const card = await db.query.loyaltyCards.findFirst({
@@ -266,6 +287,8 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     await db.insert(loyaltyTransactions).values({
       tenantId, cardId: card.id, type: 'earn', points: earned, balanceAfter: newPoints,
       performedBy: request.user.id,
+      // Audit: visits registered by phone lookup (no QR) are flagged.
+      note: parsed.data.via === 'phone' ? 'Visita por teléfono' : null,
     })
 
     // Immediate pass update (background, non-blocking).

@@ -6,6 +6,7 @@ import {
   pointsToReward,
 } from '../lib/loyalty/scan-logic.js'
 import { hexToRgb } from '../lib/loyalty/pass-data.js'
+import { normalizeMxPhone, loyaltyEnrollSchema, loyaltyScanSchema } from '@storehub/schemas'
 
 // Pure-function tests mirroring the project style (no DB/HTTP). These guard the
 // loyalty earning rules (1 scan/day), reward math, and color conversion.
@@ -99,5 +100,57 @@ describe('Loyalty — Google Wallet payloads', () => {
     expect(o.messages[0].body).toBe('2x1')
     const silent = buildObjectPayload({ ...data, offer: '2x1' } as any, 'ISS', 'p1', { omitMessages: true }) as any
     expect(silent.messages).toBeUndefined()
+  })
+})
+
+describe('Loyalty — normalizeMxPhone (10 dígitos, solo México)', () => {
+  it('acepta 10 dígitos limpios', () => {
+    expect(normalizeMxPhone('5545783005')).toBe('5545783005')
+  })
+  it('limpia espacios, guiones y paréntesis', () => {
+    expect(normalizeMxPhone('55 4578 3005')).toBe('5545783005')
+    expect(normalizeMxPhone('(55) 4578-3005')).toBe('5545783005')
+  })
+  it('quita el prefijo de país +52 / 52 / 521', () => {
+    expect(normalizeMxPhone('+52 55 4578 3005')).toBe('5545783005')
+    expect(normalizeMxPhone('525545783005')).toBe('5545783005')
+    expect(normalizeMxPhone('5215545783005')).toBe('5545783005')
+  })
+  it('rechaza números con longitud incorrecta o vacíos', () => {
+    expect(normalizeMxPhone('554578300')).toBeNull()      // 9
+    expect(normalizeMxPhone('55457830055')).toBeNull()    // 11
+    expect(normalizeMxPhone('abcdefghij')).toBeNull()
+    expect(normalizeMxPhone('')).toBeNull()
+    expect(normalizeMxPhone(null)).toBeNull()
+  })
+})
+
+describe('Loyalty — loyaltyEnrollSchema (correo y teléfono obligatorios)', () => {
+  const base = { customerName: 'Ana', customerEmail: 'ana@ejemplo.com' }
+  it('guarda el teléfono normalizado', () => {
+    const r = loyaltyEnrollSchema.safeParse({ ...base, customerPhone: '55 4578 3005' })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.customerPhone).toBe('5545783005')
+  })
+  it('rechaza si falta el teléfono', () => {
+    expect(loyaltyEnrollSchema.safeParse(base).success).toBe(false)
+    expect(loyaltyEnrollSchema.safeParse({ ...base, customerPhone: '' }).success).toBe(false)
+  })
+  it('rechaza teléfonos que no son de 10 dígitos', () => {
+    const r = loyaltyEnrollSchema.safeParse({ ...base, customerPhone: '12345' })
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.error.errors[0].message).toMatch(/10 dígitos/)
+  })
+})
+
+describe('Loyalty — loyaltyScanSchema (via)', () => {
+  const id = '123e4567-e89b-12d3-a456-426614174000'
+  it("por defecto via = 'qr'", () => {
+    const r = loyaltyScanSchema.parse({ cardId: id })
+    expect(r.via).toBe('qr')
+  })
+  it("acepta via = 'phone' y rechaza otros valores", () => {
+    expect(loyaltyScanSchema.parse({ cardId: id, via: 'phone' }).via).toBe('phone')
+    expect(loyaltyScanSchema.safeParse({ cardId: id, via: 'otro' }).success).toBe(false)
   })
 })
