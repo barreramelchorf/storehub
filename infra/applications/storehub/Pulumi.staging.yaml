@@ -2,8 +2,8 @@ config:
   kubernetes:context: default
   storehub:platformDomain: barreramelchorf.top
   storehub:ingressHost: storehub-staging.barreramelchorf.top
-  storehub:version: 44e6e0b
-  storehub:migrationsVersion: 44e6e0b
+  storehub:version: c842c8d
+  storehub:migrationsVersion: c842c8d
   storehub:defaultTenantSlug: ""
   storehub:nextPublicApiUrl: ""
   storehub:logLevel: debug
