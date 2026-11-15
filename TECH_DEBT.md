@@ -180,7 +180,15 @@ Pendientes a resolver en siguientes iteraciones.
   admin+gerente (no abre el resto de la gestión de usuarios), (b) dar `users.manage` al
   gerente (cambia el modelo de roles). Recomendado: (a).
 
-### B2 — Previsualizador de la tarjeta de lealtad
+### B2 — Previsualizador de la tarjeta de lealtad  ✅ HECHO (staging, 2026-11-14)
+- Implementado en `admin/loyalty/PassPreview.tsx`, usado en el form de programa (crear y
+  editar): vista Apple/Google, herencia de colores programa → tenant → defaults, y puntos de
+  muestra = puntos de bienvenida. Es una vista aproximada, no el .pkpass real.
+- Hallazgo: en Google solo se aplica el color de fondo de la clase (el código no envía color
+  de texto ni de etiquetas); texto y etiquetas solo aplican a Apple. La UI lo indica.
+- Pendiente menor: no hay campo de logo por programa en el form (el preview usa el logo de
+  la tienda).
+- Texto original del pedido:
 - Los selectores de color (fondo/texto/etiquetas) no muestran cómo queda el pase.
 - Falta: preview en vivo en el form de programa, tanto al crear como al editar. Debe
   reflejar la herencia de branding (programa → tenant → defaults), nombre del negocio,

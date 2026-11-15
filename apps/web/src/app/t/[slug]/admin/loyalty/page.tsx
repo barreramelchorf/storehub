@@ -6,6 +6,7 @@ import { getAuthStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { QrScanner } from './QrScanner'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { PassPreview } from './PassPreview'
 
 type Tab = 'program' | 'cards' | 'scanner' | 'campaigns'
 
@@ -392,6 +393,24 @@ function ProgramForm({ token, program, onDone, onCancel }: { token: string; prog
   } : { name: '', active: true, pointsPerVisit: 1, welcomePoints: 1, maxScansPerDay: 1, rewardThreshold: '', rewardDescription: '', branding: {} })
   const set = (patch: any) => setCurrent({ ...current, ...patch })
 
+  // Store branding (for color inheritance in the preview). Same query key as the
+  // admin layout, so it is normally already cached.
+  const { data: info } = useQuery({
+    queryKey: ['tenant-config'],
+    queryFn: () => api('/api/public/info', { token }),
+  })
+  const preview = (
+    <PassPreview
+      businessName={info?.config?.meta?.title || info?.name || ''}
+      programName={current.name}
+      programBranding={current.branding ?? {}}
+      tenantBranding={info?.config?.branding ?? {}}
+      samplePoints={Number(current.welcomePoints) || 0}
+      rewardThreshold={current.rewardThreshold === '' ? null : Number(current.rewardThreshold) || null}
+      rewardDescription={current.rewardDescription === '' ? null : current.rewardDescription}
+    />
+  )
+
   const save = useMutation({
     mutationFn: () => api(
       program ? `/api/admin/loyalty/programs/${program.id}` : '/api/admin/loyalty/programs',
@@ -413,6 +432,7 @@ function ProgramForm({ token, program, onDone, onCancel }: { token: string; prog
   })
 
   return (
+    <div className="grid lg:grid-cols-[32rem_300px] gap-6 items-start">
     <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4 max-w-lg">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-gray-800">{program ? 'Editar programa' : 'Nuevo programa'}</h3>
@@ -470,6 +490,8 @@ function ProgramForm({ token, program, onDone, onCancel }: { token: string; prog
         </div>
       </div>
 
+      <div className="lg:hidden border-t border-gray-100 pt-4">{preview}</div>
+
       <div className="flex items-center gap-3 pt-2">
         <button onClick={() => save.mutate()} disabled={save.isPending || !current.name.trim()}
           className="bg-gray-900 text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
@@ -477,6 +499,9 @@ function ProgramForm({ token, program, onDone, onCancel }: { token: string; prog
         </button>
         {save.isError && <span className="text-sm text-red-600">{(save.error as Error).message}</span>}
       </div>
+    </div>
+
+    <div className="hidden lg:block sticky top-4 bg-white rounded-xl border border-gray-100 p-5">{preview}</div>
     </div>
   )
 }
