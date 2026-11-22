@@ -450,3 +450,58 @@ Pendientes a resolver en siguientes iteraciones.
 - **Staging platform key**: `0015b865c1f407686f34f72485e8952cb59631541f1e0e78`
 - **GitHub Actions**: build en push a main o tags `v*`
 - **Dominio Xalli**: `xalli.top` → `5.189.172.140`
+
+
+## Seguridad e infraestructura del VPS (2026-11-22)
+
+### VPS-1 — Endurecimiento hecho (Contabo 5.189.172.140, Ubuntu 24.04, un solo nodo k3s)
+- SSH: entrada SOLO con llave. Llave en la Mac: `~/.ssh/storehub_contabo` (alias `ssh contabo`, sin
+  passphrase; HAY QUE RESPALDARLA: la llave anterior se perdió). `PasswordAuthentication no` y
+  `PermitRootLogin prohibit-password` en `/etc/ssh/sshd_config.d/00-hardening.conf` (el archivo
+  `50-cloud-init.conf` decía `yes`; el `00-` gana). Si se pierde la llave: consola VNC del panel de
+  Contabo, entrar con la contraseña de root y borrar ese archivo o agregar una llave nueva.
+- fail2ban 1.0.2 (jail sshd, nftables, 5 fallos en 10 min = baneo 1 h creciente hasta 1 semana; ignora
+  la IP de la oficina). Antes: ~9,000 intentos fallidos/día desde ~258 IPs; ningún acceso ajeno en el
+  historial (wtmp desde enero + auth.log).
+- Disco: de 118 GB (82 %) a 8.6 GB (6 %). Causa: 733 imágenes de storehub acumuladas (una por despliegue
+  a staging) en containerd + 4 GB de journal. Se hizo `crictl rmi --prune` (necesita `--timeout 1200s`;
+  con el default de 2 s se corta pero containerd sigue en segundo plano) y se limitó el journal a 1 GB
+  (`/etc/systemd/journald.conf.d/size.conf`). Umbral de GC de imágenes del kubelet a 70 %/60 % en
+  `/etc/rancher/k3s/config.yaml` (se aplica al reiniciar k3s). Las imágenes se acumularán otra vez con
+  cada push a staging; con el umbral nuevo el kubelet limpia solo.
+- No hay PHP ni servidores web en el host (PHP2Shell no aplica).
+
+### VPS-2 — Pendiente: reinicio por kernel/libc6
+- Corre el kernel 6.8.0-147; ya está instalado el -149 y un `libc6` nuevo (`/var/run/reboot-required`).
+  Con un nodo, el reinicio tira TODOS los sitios ~2-3 min. Hacer con `kubectl drain` + `reboot` +
+  `kubectl uncordon`, verificar sitios, pods y migraciones después.
+- También pendientes (no urgentes): 88 paquetes de noble-updates; k3s v1.34.3 -> v1.34.13 (última de la
+  línea 1.34; stable actual v1.37.2; no se verificó el soporte de la 1.34).
+
+### VPS-3 — Pendiente: firewall
+- No hay firewall en el host (`ufw` inactivo, INPUT ACCEPT). Desde Internet se ven 22, 80, 443, 6443,
+  10250 (kubelet, responde 401) y 32467 (health check de Traefik, creado por `externalTrafficPolicy=Local`).
+  Recomendado: firewall del panel de Contabo permitiendo solo 22, 80, 443 y 6443 (idealmente 22 y 6443
+  solo desde IPs conocidas). No usar `ufw` en el host sin reglas para las redes de pods (10.42.0.0/16,
+  10.43.0.0/16), puede romper el networking de k3s.
+
+### VPS-4 — Pendiente: respaldos de Postgres
+- No hay ningún CronJob de respaldo. El 2026-11-22 se hizo un `pg_dump` manual previo al reinicio en
+  `/root/backups/pre-reboot-2026-11-22/` (prod y staging, solo en el mismo disco del VPS). Falta un
+  respaldo automático (CronJob `pg_dump` + copia FUERA del VPS) y una prueba de restauración. Encaja
+  con el motor de CronJobs planeado para campañas programadas.
+
+### SEC-1 — Pendiente: Node 20 (EOL) -> Node 22 LTS (Node2Shell, CVE-2026-111497)
+- API y web corren Node 20.20.2 (`node:20-alpine` en `docker/*.Dockerfile`; CI en `build.yml`
+  `node-version: '20'`; `engines >=20`). Node 20 no recibe parche del decodificador Brotli. Corregidos
+  en 22.23.4 / 24.22.1 / 26.12.1.
+- Exposición verificada: los cuerpos entrantes con `Content-Encoding: br` no se decodifican (Fastify 4.28
+  y Next 14.2 no lo hacen; no hay express/body-parser ni @fastify/compress). `fetch()` saliente: solo
+  destinos fijos de confianza, EXCEPTO la descarga de `branding.logoUrl` en `apple-pass.ts`
+  (`fetchImageBuffer`), cuya URL cualquier administrador de tienda con lealtad puede fijar
+  (`z.string().url()`). Eso además es SSRF.
+- Hacer: (1) Node 22 en los 3 Dockerfiles + CI + `engines`, probar en staging y verificar
+  `node -v >= 22.23.4` en los pods; (2) limitar `logoUrl` al almacenamiento propio o a https público.
+
+### SEC-2 — Pendiente: imágenes `bitnamilegacy/*` (postgres 17.1, redis 7.4.1, minio 2024-10) sin actualizaciones
+- Evaluar migrar a imágenes oficiales mantenidas o a charts vigentes. También cert-manager v1.15.3.

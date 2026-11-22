@@ -10,6 +10,10 @@ staging y **PROMOVIDO A PROD en v0.38.0** (migración 0018–0024 aplicada, secr
 Google cargados en el stack prod). Apple y Google funcionando, múltiples programas, detector
 de dispositivo, recuperación por email, campañas con notificaciones en ambas plataformas.
 Los add-ons arrancan OFF: ningún tenant de prod tiene lealtad hasta activarla en `/platform`.
+Operación del VPS (2026-11-22): acceso SSH solo con llave (`ssh contabo`, llave `~/.ssh/storehub_contabo`),
+fail2ban activo, disco limpiado (6 %), respaldo manual previo al reinicio en `/root/backups` del VPS.
+Pendientes (detalle en TECH_DEBT, secciones VPS-2..4 y SEC-1..2): reinicio por kernel, firewall en el
+panel de Contabo, respaldos automáticos de Postgres, migrar Node 20 -> 22 y limitar `logoUrl`.
 
 Este documento resume TODO lo avanzado, las reglas aprendidas, y el estado del
 proyecto, para retomar sin perder contexto. Para el arranque rápido ver
