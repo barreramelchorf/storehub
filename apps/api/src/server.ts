@@ -29,6 +29,7 @@ import { storageRoutes } from './routes/storage.js'
 import { loyaltyPublicRoutes, loyaltyPassRoutes } from './routes/loyalty-public.js'
 import { loyaltyAdminRoutes } from './routes/loyalty-admin.js'
 import { loyaltyAppleWsRoutes } from './routes/loyalty-apple-ws.js'
+import { syncAllGoogleClasses } from './lib/loyalty/google-pass.js'
 import { resolveTenant } from './middleware/tenant.js'
 import { GENERAL_LIMIT, TRUST_PROXY, formatWait } from './lib/rate-limits.js'
 
@@ -130,6 +131,9 @@ await app.register(async (tenantApp) => {
 
 const port = Number(process.env.PORT ?? 3001)
 await app.listen({ port, host: '0.0.0.0' })
+
+// Bring Google Wallet classes in line with their programs (idempotent; never blocks startup).
+void syncAllGoogleClasses(app.log).catch((err) => app.log.error({ err }, 'google wallet: sync inicial falló'))
 
 const shutdown = async () => { await app.close(); process.exit(0) }
 process.on('SIGTERM', shutdown)

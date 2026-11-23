@@ -12,6 +12,7 @@
 import type { FastifyInstance } from 'fastify'
 import { getWebServiceBaseUrl } from '../lib/loyalty/config.js'
 import { logoUrlProblem } from '../lib/loyalty/logo-url.js'
+import { syncGoogleClassSafely } from '../lib/loyalty/google-pass.js'
 import { db, loyaltyPrograms, loyaltyCards, loyaltyTransactions, loyaltyCampaigns, applePassRegistrations, loyaltyRecoveryTokens } from '@storehub/db'
 import { eq, and, sql, gte, isNotNull } from 'drizzle-orm'
 import { loyaltyProgramSchema, loyaltyScanSchema, loyaltyAdjustSchema, loyaltyCampaignSchema, normalizeMxPhone } from '@storehub/schemas'
@@ -64,6 +65,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
       rewardDescription: data.rewardDescription ?? null,
       branding: data.branding,
     }).returning()
+    void syncGoogleClassSafely(created.id, request.log)
     return reply.code(201).send(created)
   })
 
@@ -86,6 +88,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
       branding: data.branding,
     }).where(and(eq(loyaltyPrograms.id, id), eq(loyaltyPrograms.tenantId, request.tenant.id))).returning()
     if (!updated) return reply.code(404).send({ error: 'Programa no encontrado' })
+    void syncGoogleClassSafely(updated.id, request.log)
     return updated
   })
 
@@ -122,6 +125,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
         rewardDescription: data.rewardDescription ?? null,
         branding: data.branding,
       }).where(eq(loyaltyPrograms.id, existing.id)).returning()
+      void syncGoogleClassSafely(updated.id, request.log)
       return updated
     }
     const [created] = await db.insert(loyaltyPrograms).values({
@@ -135,6 +139,7 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
       rewardDescription: data.rewardDescription ?? null,
       branding: data.branding,
     }).returning()
+    void syncGoogleClassSafely(created.id, request.log)
     return reply.code(201).send(created)
   })
 

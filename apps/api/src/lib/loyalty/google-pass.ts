@@ -2,7 +2,8 @@
  * Google Wallet loyalty pass generation and updates.
  *
  * Model:
- *  - One LoyaltyClass per program/tenant (created/updated lazily).
+ *  - One LoyaltyClass per program. Created on first "Add to Google Wallet"; updated only by
+ *    syncGoogleClass (program save + API startup), never while a customer saves a card.
  *  - One LoyaltyObject per card.
  *  - "Add to Google Wallet" is a signed JWT (RS256) referencing the object.
  *  - Updates are done via REST PATCH on the object — Google propagates to
@@ -15,6 +16,10 @@
 import { SignJWT, importPKCS8 } from 'jose'
 import { getGoogleConfig, getWebServiceBaseUrl } from './config.js'
 import { type PassData, DEFAULT_BRANDING } from './pass-data.js'
+import type { ProgramPassData } from './pass-builder.js'
+
+/** What the class needs: program-level content only (no card). */
+type ClassData = Pick<ProgramPassData, 'programName' | 'businessName' | 'branding'>
 
 const WALLET_API = 'https://walletobjects.googleapis.com/walletobjects/v1'
 const SAVE_ORIGIN_AUDIENCE = 'google'
@@ -70,7 +75,7 @@ export function absoluteImageUrl(url: string | undefined | null): string {
   return `${base}${url.startsWith('/') ? '' : '/'}${url}`
 }
 
-export function buildClassPayload(data: PassData, issuerId: string, programId: string) {
+export function buildClassPayload(data: ClassData, issuerId: string, programId: string) {
   return {
     id: classId(issuerId, programId),
     issuerName: data.businessName,
@@ -133,25 +138,108 @@ async function failIfNotOk(res: Response, what: string) {
   throw new Error(`Google Wallet: ${what} falló (${res.status}) ${text.slice(0, 300)}`)
 }
 
-/** Ensure the LoyaltyClass exists and is up to date (create or PATCH). */
-async function ensureClass(data: PassData, issuerId: string, programId: string, token: string) {
+/**
+ * Make sure the LoyaltyClass exists. Used by "Add to Google Wallet": it creates the class
+ * when missing and NEVER updates an existing one (Google's samples do the same), so a
+ * class-sync problem can't stop a customer from saving a card. Updates live in
+ * syncGoogleClass, run when a program is saved and at API startup.
+ */
+async function ensureClassExists(data: ClassData, issuerId: string, programId: string, token: string) {
   const payload = buildClassPayload(data, issuerId, programId)
   const getRes = await apiRequest('GET', `/loyaltyClass/${payload.id}`, token)
   if (getRes.status === 404) {
     await failIfNotOk(await apiRequest('POST', '/loyaltyClass', token, payload), 'crear clase')
-  } else {
-    await failIfNotOk(getRes, 'consultar clase')
-    // Keep branding in sync. The PATCH must carry reviewStatus=UNDER_REVIEW: omitting it
-    // makes Google re-validate the stored "APPROVED" and reject the request with
-    // 400 "Invalid review status APPROVED. Use UNDER_REVIEW instead." (seen once the class
-    // was approved). Sending UNDER_REVIEW is what Google expects for updates.
-    await failIfNotOk(await apiRequest('PATCH', `/loyaltyClass/${payload.id}`, token, buildClassPatch(payload)), 'actualizar clase')
+    return
+  }
+  await failIfNotOk(getRes, 'consultar clase')
+}
+
+/**
+ * Body for updating an existing class. Google requires reviewStatus UNDER_REVIEW (or
+ * DRAFT) on every update; omitting it re-validates the stored APPROVED and fails with
+ * 400 "Invalid review status APPROVED. Use UNDER_REVIEW instead."
+ * (see google-wallet/rest-samples, demo-loyalty.js: updateClass / patchClass).
+ */
+export function buildClassPatch(payload: ReturnType<typeof buildClassPayload>) {
+  return { ...payload, reviewStatus: 'UNDER_REVIEW' as const }
+}
+
+/** Fields of the class we own; anything else in Google's copy is left alone. */
+export function classFieldsDiffer(
+  current: { issuerName?: string; programName?: string; hexBackgroundColor?: string; programLogo?: { sourceUri?: { uri?: string } } },
+  desired: ReturnType<typeof buildClassPayload>,
+): string[] {
+  const diffs: string[] = []
+  if ((current.issuerName ?? '') !== desired.issuerName) diffs.push('issuerName')
+  if ((current.programName ?? '') !== desired.programName) diffs.push('programName')
+  if ((current.hexBackgroundColor ?? '').toLowerCase() !== desired.hexBackgroundColor.toLowerCase()) diffs.push('hexBackgroundColor')
+  if ((current.programLogo?.sourceUri?.uri ?? '') !== desired.programLogo.sourceUri.uri) diffs.push('programLogo')
+  return diffs
+}
+
+export type ClassSyncResult =
+  | { status: 'skipped'; reason: string }
+  | { status: 'created' }
+  | { status: 'unchanged' }
+  | { status: 'updated'; fields: string[] }
+
+/**
+ * Bring the program's LoyaltyClass in line with the program: GET it, create it if
+ * missing, PATCH (with UNDER_REVIEW) only the fields that changed. Throws on Google errors;
+ * callers decide whether that matters (program save does not fail because of it).
+ */
+export async function syncGoogleClass(programId: string): Promise<ClassSyncResult> {
+  const cfg = getGoogleConfig()
+  if (!cfg) return { status: 'skipped', reason: 'Google Wallet no configurado' }
+  // Lazy: keep this module loadable without a database (payload builders are unit-tested).
+  const { loadProgramPassData } = await import('./pass-builder.js')
+  const data = await loadProgramPassData(programId)
+  if (!data) return { status: 'skipped', reason: 'programa no encontrado' }
+  const token = await getAccessToken()
+  if (!token) throw new Error('Google Wallet: no se pudo obtener access token (revisar service account)')
+
+  const desired = buildClassPayload(data, cfg.issuerId, programId)
+  const getRes = await apiRequest('GET', `/loyaltyClass/${desired.id}`, token)
+  if (getRes.status === 404) {
+    await failIfNotOk(await apiRequest('POST', '/loyaltyClass', token, desired), 'crear clase')
+    return { status: 'created' }
+  }
+  await failIfNotOk(getRes, 'consultar clase')
+  const fields = classFieldsDiffer(await getRes.json(), desired)
+  if (fields.length === 0) return { status: 'unchanged' }
+  await failIfNotOk(await apiRequest('PATCH', `/loyaltyClass/${desired.id}`, token, buildClassPatch(desired)), 'actualizar clase')
+  return { status: 'updated', fields }
+}
+
+type Logger = { info: (obj: object, msg: string) => void; error: (obj: object, msg: string) => void }
+
+/** Sync one program's class, logging the outcome. Never throws (program save must not fail). */
+export async function syncGoogleClassSafely(programId: string, log: Logger): Promise<void> {
+  try {
+    const result = await syncGoogleClass(programId)
+    if (result.status !== 'skipped' && result.status !== 'unchanged') {
+      log.info({ programId, ...result }, 'google wallet: clase sincronizada')
+    }
+  } catch (err) {
+    log.error({ err, programId }, 'google wallet: no se pudo sincronizar la clase')
   }
 }
 
-/** Body for updating an existing class (always UNDER_REVIEW, see ensureClass). */
-export function buildClassPatch(payload: ReturnType<typeof buildClassPayload>) {
-  return { ...payload, reviewStatus: 'UNDER_REVIEW' as const }
+/**
+ * Sync the classes of every program of tenants with the loyalty add-on on. Run once at
+ * API startup so changes made outside the program form (store name/colors) or while
+ * Google was down get applied. Idempotent: unchanged classes are not touched.
+ */
+export async function syncAllGoogleClasses(log: Logger): Promise<void> {
+  if (!getGoogleConfig()) return
+  const { db } = await import('@storehub/db')
+  const tenants = await db.query.tenants.findMany({ columns: { id: true, config: true } })
+  const enabled = new Set(tenants.filter((t) => (t.config as any)?.modules?.loyalty === true).map((t) => t.id))
+  if (enabled.size === 0) return
+  const programs = await db.query.loyaltyPrograms.findMany({ columns: { id: true, tenantId: true } })
+  for (const p of programs) {
+    if (enabled.has(p.tenantId)) await syncGoogleClassSafely(p.id, log)
+  }
 }
 
 /**
@@ -164,7 +252,7 @@ export async function buildGoogleSaveUrl(data: PassData, programId: string): Pro
 
   const token = await getAccessToken()
   if (!token) throw new Error('Google Wallet: no se pudo obtener access token (revisar service account)')
-  await ensureClass(data, cfg.issuerId, programId, token)
+  await ensureClassExists(data, cfg.issuerId, programId, token)
   const obj = buildObjectPayload(data, cfg.issuerId, programId)
   const getRes = await apiRequest('GET', `/loyaltyObject/${obj.id}`, token)
   if (getRes.status === 404) {
