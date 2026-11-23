@@ -10,6 +10,8 @@
  *  - GET      /api/admin/loyalty/campaigns/:id      loyalty.manage
  */
 import type { FastifyInstance } from 'fastify'
+import { getWebServiceBaseUrl } from '../lib/loyalty/config.js'
+import { logoUrlProblem } from '../lib/loyalty/logo-url.js'
 import { db, loyaltyPrograms, loyaltyCards, loyaltyTransactions, loyaltyCampaigns, applePassRegistrations, loyaltyRecoveryTokens } from '@storehub/db'
 import { eq, and, sql, gte, isNotNull } from 'drizzle-orm'
 import { loyaltyProgramSchema, loyaltyScanSchema, loyaltyAdjustSchema, loyaltyCampaignSchema, normalizeMxPhone } from '@storehub/schemas'
@@ -35,6 +37,8 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     const parsed = loyaltyProgramSchema.safeParse(request.body)
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
     const data = parsed.data
+    const logoProblem = logoUrlProblem(data.branding?.logoUrl, getWebServiceBaseUrl())
+    if (logoProblem) return reply.code(400).send({ error: logoProblem })
 
     // Multi-program is a separate add-on. Without it, a tenant may have at most
     // one program. Editing the existing one is always allowed (PUT); only
@@ -69,6 +73,8 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     const parsed = loyaltyProgramSchema.safeParse(request.body)
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
     const data = parsed.data
+    const logoProblem = logoUrlProblem(data.branding?.logoUrl, getWebServiceBaseUrl())
+    if (logoProblem) return reply.code(400).send({ error: logoProblem })
     const [updated] = await db.update(loyaltyPrograms).set({
       name: data.name,
       active: data.active,
@@ -98,6 +104,8 @@ export async function loyaltyAdminRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
     const tenantId = request.tenant.id
     const data = parsed.data
+    const logoProblem = logoUrlProblem(data.branding?.logoUrl, getWebServiceBaseUrl())
+    if (logoProblem) return reply.code(400).send({ error: logoProblem })
 
     const existing = await db.query.loyaltyPrograms.findFirst({
       where: (p, { eq }) => eq(p.tenantId, tenantId),

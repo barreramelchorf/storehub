@@ -15,6 +15,7 @@
  */
 import { PKPass } from 'passkit-generator'
 import { getAppleConfig, getWebServiceBaseUrl } from './config.js'
+import { fetchLogoBuffer } from './logo-url.js'
 import { type PassData, DEFAULT_BRANDING, hexToRgb } from './pass-data.js'
 
 /**
@@ -25,18 +26,6 @@ export const PLACEHOLDER_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64',
 )
-
-async function fetchImageBuffer(url?: string): Promise<Buffer | null> {
-  if (!url) return null
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const arr = await res.arrayBuffer()
-    return Buffer.from(arr)
-  } catch {
-    return null
-  }
-}
 
 /**
  * Build a signed .pkpass buffer for a loyalty card.
@@ -51,7 +40,7 @@ export async function buildApplePass(data: PassData): Promise<Buffer> {
   const label = hexToRgb(data.branding.labelColor ?? DEFAULT_BRANDING.labelColor)
 
   // Logo/icon: use program logo if available, else placeholder.
-  const logo = (await fetchImageBuffer(data.branding.logoUrl)) ?? PLACEHOLDER_PNG
+  const logo = (await fetchLogoBuffer(data.branding.logoUrl, { baseUrl: getWebServiceBaseUrl() })) ?? PLACEHOLDER_PNG
 
   const pass = new PKPass(
     {
