@@ -471,6 +471,15 @@ Pendientes a resolver en siguientes iteraciones.
   cada push a staging; con el umbral nuevo el kubelet limpia solo.
 - No hay PHP ni servidores web en el host (PHP2Shell no aplica).
 
+- Acceso SSH desde otro dispositivo (la contraseña está desactivada a propósito): en el dispositivo nuevo
+  `ssh-keygen -t ed25519 -C "nombre-del-dispositivo"`; pasar SOLO el `.pub` a alguien con acceso y agregarlo
+  como una línea en `/root/.ssh/authorized_keys` (desde la Mac: `ssh contabo`). Una llave por dispositivo,
+  para poder revocar una sola borrando su línea. Sin acceso: consola VNC del panel de Contabo.
+- fail2ban ignora 189.203.27.249 y 177.245.177.73 (IPs de la oficina; son dinámicas). Si la IP cambia y se
+  falla 5 veces (p. ej. intentar sin la llave), se bloquea 1 h y SSH da "Connection refused". Desbloquear
+  sin SSH: `kubectl debug node/vmi3052253 --profile=sysadmin --image=busybox:1.36 -- chroot /host
+  fail2ban-client set sshd unbanip <IP>`.
+
 ### VPS-2 — Reinicio por kernel/libc6  ✅ HECHO (2026-11-22 20:56 hora de México)
 - `kubectl drain` + reboot + `uncordon`. Kernel 6.8.0-147 -> 6.8.0-149, sin `reboot-required`. Caída medida
   por monitor cada 2 s: ~42 s por sitio (todos los pods listos a los ~30 s del uncordon). Después: 0 pods

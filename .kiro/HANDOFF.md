@@ -1,6 +1,7 @@
 # HANDOFF — StoreHub (sesión previa)
 
-Fecha de corte: 2026-11-15. Prod en **v0.39.0** (promovido el 2026-11-15; migraciones 0025–0027,
+Fecha de corte: 2026-11-22. Prod en **v0.40.0** (2026-11-22: Node 22, logo solo del origen propio, clases de Google
+solo se crean al agregar y se sincronizan al guardar/arrancar, escáner de webcam). Antes: v0.39.0
 verificadas en la BD de prod). Rama: `main`. Lo que trae v0.39.0 sobre v0.38.0 está en la sección
 "CAMBIOS EN STAGING POSTERIORES A v0.38.0" (ya en prod). Pendiente de probar en prod con un iPhone real:
 "Desbloquear" (que el pass instalado vuelva a ser válido). Prod: 5 tarjetas, 1 programa, 1 tarjeta
@@ -12,8 +13,7 @@ de dispositivo, recuperación por email, campañas con notificaciones en ambas p
 Los add-ons arrancan OFF: ningún tenant de prod tiene lealtad hasta activarla en `/platform`.
 Operación del VPS (2026-11-22): acceso SSH solo con llave (`ssh contabo`, llave `~/.ssh/storehub_contabo`),
 fail2ban activo, disco limpiado (6 %), respaldo manual previo al reinicio en `/root/backups` del VPS.
-Reinicio por kernel hecho el 2026-11-22. En staging (falta promover): Node 22, logo solo del origen propio y
-arreglo del 500 de Google Wallet con clases aprobadas. Pendientes: firewall en el panel de Contabo, respaldos
+Reinicio por kernel hecho el 2026-11-22. Node 22, logo seguro y arreglo de Google Wallet ya en prod (v0.40.0). Pendientes: firewall en el panel de Contabo, respaldos
 automáticos de Postgres, imágenes bitnamilegacy (detalle en TECH_DEBT VPS-3, VPS-4, SEC-1, SEC-2).
 
 Este documento resume TODO lo avanzado, las reglas aprendidas, y el estado del
