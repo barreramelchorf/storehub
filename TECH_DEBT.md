@@ -471,12 +471,13 @@ Pendientes a resolver en siguientes iteraciones.
   cada push a staging; con el umbral nuevo el kubelet limpia solo.
 - No hay PHP ni servidores web en el host (PHP2Shell no aplica).
 
-### VPS-2 — Pendiente: reinicio por kernel/libc6
-- Corre el kernel 6.8.0-147; ya está instalado el -149 y un `libc6` nuevo (`/var/run/reboot-required`).
-  Con un nodo, el reinicio tira TODOS los sitios ~2-3 min. Hacer con `kubectl drain` + `reboot` +
-  `kubectl uncordon`, verificar sitios, pods y migraciones después.
-- También pendientes (no urgentes): 88 paquetes de noble-updates; k3s v1.34.3 -> v1.34.13 (última de la
-  línea 1.34; stable actual v1.37.2; no se verificó el soporte de la 1.34).
+### VPS-2 — Reinicio por kernel/libc6  ✅ HECHO (2026-11-22 20:56 hora de México)
+- `kubectl drain` + reboot + `uncordon`. Kernel 6.8.0-147 -> 6.8.0-149, sin `reboot-required`. Caída medida
+  por monitor cada 2 s: ~42 s por sitio (todos los pods listos a los ~30 s del uncordon). Después: 0 pods
+  fallando, datos de prod intactos (5 tarjetas, 1 programa, 2 tenants, 28 migraciones), certificados
+  válidos, Traefik sigue en `Local` e IP real llegando al API, fail2ban y SSH por llave activos, umbral GC
+  del kubelet 70/60 aplicado (verificado en configz). Respaldo previo en `/root/backups/pre-reboot-2026-11-22/`.
+- Sigue pendiente (no urgente): 88 paquetes de noble-updates; k3s v1.34.3 -> v1.34.13.
 
 ### VPS-3 — Pendiente: firewall
 - No hay firewall en el host (`ufw` inactivo, INPUT ACCEPT). Desde Internet se ven 22, 80, 443, 6443,
@@ -491,17 +492,22 @@ Pendientes a resolver en siguientes iteraciones.
   respaldo automático (CronJob `pg_dump` + copia FUERA del VPS) y una prueba de restauración. Encaja
   con el motor de CronJobs planeado para campañas programadas.
 
-### SEC-1 — Pendiente: Node 20 (EOL) -> Node 22 LTS (Node2Shell, CVE-2026-111497)
-- API y web corren Node 20.20.2 (`node:20-alpine` en `docker/*.Dockerfile`; CI en `build.yml`
-  `node-version: '20'`; `engines >=20`). Node 20 no recibe parche del decodificador Brotli. Corregidos
-  en 22.23.4 / 24.22.1 / 26.12.1.
-- Exposición verificada: los cuerpos entrantes con `Content-Encoding: br` no se decodifican (Fastify 4.28
-  y Next 14.2 no lo hacen; no hay express/body-parser ni @fastify/compress). `fetch()` saliente: solo
-  destinos fijos de confianza, EXCEPTO la descarga de `branding.logoUrl` en `apple-pass.ts`
-  (`fetchImageBuffer`), cuya URL cualquier administrador de tienda con lealtad puede fijar
-  (`z.string().url()`). Eso además es SSRF.
-- Hacer: (1) Node 22 en los 3 Dockerfiles + CI + `engines`, probar en staging y verificar
-  `node -v >= 22.23.4` en los pods; (2) limitar `logoUrl` al almacenamiento propio o a https público.
+### SEC-1 — Node 20 (EOL) -> Node 22 LTS (Node2Shell, CVE-2026-111497)  ✅ en staging (2026-11-22) / ⏳ falta prod
+- Hecho: `node:22-alpine` en los 3 Dockerfiles, CI `node-version: '22'`, `engines >=22.23.4`, docs. Pods
+  de staging (api y web) en Node 22.23.5; migración OK. Probado: tsc, API 213, web 24, build del web, y en
+  staging login, programas, tarjetas, productos, tienda, registro, pkpass y Google.
+- `branding.logoUrl`: el API solo descarga logos del origen de la plataforma (`lib/loyalty/logo-url.ts`):
+  mismo esquema/host/puerto que LOYALTY_WEB_SERVICE_URL, sin redirecciones, `accept-encoding: identity`,
+  5 s, solo `image/*`, máx 2 MB. Las rutas de programa rechazan logos externos con 400. Probado en staging:
+  externo, metadatos de nube y servicio interno -> 400; imagen del storage propio -> 200 y el logo del
+  pase es byte a byte esa imagen. Nota: el schema exige URL absoluta (`z.string().url()`), las rutas
+  relativas dan "Invalid url".
+- Hallado y corregido al verificar: "Agregar a Google Wallet" daba 500 en cualquier clase ya aprobada
+  (el PATCH omitía `reviewStatus`; Google pedía `UNDER_REVIEW`). La clase de prod está APPROVED: muy
+  probablemente prod falla hoy al agregar tarjetas a Google. No se probó en prod (regla: probar en staging).
+  En staging ahora responde 302 y la clase sigue aprobada.
+- Pendiente aparte (B5): el pase de Apple mete la imagen tal cual como `logo.png`; si es WebP (las imágenes
+  de productos lo son) Apple podría no mostrarla. Convertir a PNG con sharp al construir el pase.
 
 ### SEC-2 — Pendiente: imágenes `bitnamilegacy/*` (postgres 17.1, redis 7.4.1, minio 2024-10) sin actualizaciones
 - Evaluar migrar a imágenes oficiales mantenidas o a charts vigentes. También cert-manager v1.15.3.

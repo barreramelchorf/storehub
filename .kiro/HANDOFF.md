@@ -12,8 +12,9 @@ de dispositivo, recuperación por email, campañas con notificaciones en ambas p
 Los add-ons arrancan OFF: ningún tenant de prod tiene lealtad hasta activarla en `/platform`.
 Operación del VPS (2026-11-22): acceso SSH solo con llave (`ssh contabo`, llave `~/.ssh/storehub_contabo`),
 fail2ban activo, disco limpiado (6 %), respaldo manual previo al reinicio en `/root/backups` del VPS.
-Pendientes (detalle en TECH_DEBT, secciones VPS-2..4 y SEC-1..2): reinicio por kernel, firewall en el
-panel de Contabo, respaldos automáticos de Postgres, migrar Node 20 -> 22 y limitar `logoUrl`.
+Reinicio por kernel hecho el 2026-11-22. En staging (falta promover): Node 22, logo solo del origen propio y
+arreglo del 500 de Google Wallet con clases aprobadas. Pendientes: firewall en el panel de Contabo, respaldos
+automáticos de Postgres, imágenes bitnamilegacy (detalle en TECH_DEBT VPS-3, VPS-4, SEC-1, SEC-2).
 
 Este documento resume TODO lo avanzado, las reglas aprendidas, y el estado del
 proyecto, para retomar sin perder contexto. Para el arranque rápido ver
