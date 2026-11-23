@@ -123,7 +123,7 @@ pulumi cancel && pulumi up --yes --skip-preview
 - **Resources/config are in Pulumi YAML** — not in TypeScript code
 - **Never branch on stack name in infra code** (`pulumi.getStack() === "prod"`, `=== "staging"`, etc.). Per-environment behavior must be a config value read from the stack's `Pulumi.<stack>.yaml` with a sensible default in code (e.g. `config.getBoolean("pointMock") ?? false`). This keeps new stacks (qa, dev, review apps) working by adding a YAML only — zero code changes. Using `getStack()` purely for **naming** resources (e.g. `storehub-${stack}` namespaces, per-stack secret names) is fine.
 - **Seed must be idempotent** — safe to run multiple times
-- Dockerfiles use `node:20-alpine`, tsx for runtime (API), standalone for web
+- Dockerfiles use `node:22-alpine`, tsx for runtime (API), standalone for web
 - `imagePullPolicy: Always` on all deployments
 
 ## Pending Work (see TECH_DEBT.md for full list)

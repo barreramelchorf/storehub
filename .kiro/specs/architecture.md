@@ -46,7 +46,7 @@ atiende a múltiples tenants, aislados por `tenant_id` en base de datos con Row-
 ### Backend (API)
 | Decisión | Tecnología | Justificación |
 |----------|-----------|---------------|
-| Runtime | **Node.js 20** | Ecosistema, facilidad de contratación |
+| Runtime | **Node.js 22 LTS** | Ecosistema, facilidad de contratación |
 | Framework | **Fastify** | Más rápido que Express, schema-first, plugins |
 | Lenguaje | TypeScript | Compartir tipos con frontend (monorepo) |
 | ORM | **Drizzle ORM** | Type-safe, cercano a SQL, soporte RLS, migraciones simples |
