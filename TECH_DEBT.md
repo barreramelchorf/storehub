@@ -502,10 +502,22 @@ Pendientes a resolver en siguientes iteraciones.
   externo, metadatos de nube y servicio interno -> 400; imagen del storage propio -> 200 y el logo del
   pase es byte a byte esa imagen. Nota: el schema exige URL absoluta (`z.string().url()`), las rutas
   relativas dan "Invalid url".
-- Hallado y corregido al verificar: "Agregar a Google Wallet" daba 500 en cualquier clase ya aprobada
-  (el PATCH omitía `reviewStatus`; Google pedía `UNDER_REVIEW`). La clase de prod está APPROVED: muy
-  probablemente prod falla hoy al agregar tarjetas a Google. No se probó en prod (regla: probar en staging).
-  En staging ahora responde 302 y la clase sigue aprobada.
+- Hallado y corregido al verificar: "Agregar a Google Wallet" daba 500 en cualquier clase ya aprobada.
+  Causa: cada alta hacía PATCH a la clase sin `reviewStatus`; Google exige `UNDER_REVIEW` (o `DRAFT`) en
+  toda actualización (lo dicen los ejemplos oficiales google-wallet/rest-samples, demo-loyalty.js). Mientras
+  la clase estaba en revisión funcionaba; al aprobarse, todas las altas nuevas fallaban. Las tarjetas ya
+  guardadas no se afectaron. La clase de prod está APPROVED: prod muy probablemente falla hoy; no se probó
+  en prod. Arreglo definitivo (patrón de Google), en staging desde de0c782:
+  - El alta solo CREA la clase si falta; nunca la actualiza (`ensureClassExists`).
+  - `syncGoogleClass`: GET, crear si falta, comparar nombre/programa/color/logo y PATCH con `UNDER_REVIEW`
+    solo si cambió algo. Se ejecuta al guardar un programa (sin bloquear la respuesta; si Google falla, el
+    programa se guarda igual y queda en el log) y al arrancar el API (todas las tiendas con lealtad).
+  - Verificado en staging: al arrancar creó la clase que faltaba (boba gratis; Google la aprobó sola);
+    cambiar el color en el panel actualizó solo ese campo y la clase siguió aprobada; el alta da 302.
+- Siguiente (pendiente): prueba automática diaria (CronJob) que pida los enlaces de Apple y Google para una
+  tarjeta de prueba en staging y prod y avise por correo (Resend) si fallan. Hoy no hay alertas: este fallo
+  se encontró por casualidad. Ojo al separar el Issuer de staging: sus clases nuevas pueden empezar en
+  revisión y esconder fallos que solo pasan con clases aprobadas (como este).
 - Pendiente aparte (B5): el pase de Apple mete la imagen tal cual como `logo.png`; si es WebP (las imágenes
   de productos lo son) Apple podría no mostrarla. Convertir a PNG con sharp al construir el pase.
 
