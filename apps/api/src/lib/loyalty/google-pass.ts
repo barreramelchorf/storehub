@@ -141,10 +141,17 @@ async function ensureClass(data: PassData, issuerId: string, programId: string, 
     await failIfNotOk(await apiRequest('POST', '/loyaltyClass', token, payload), 'crear clase')
   } else {
     await failIfNotOk(getRes, 'consultar clase')
-    // Keep branding in sync (reviewStatus is left untouched on update).
-    const { reviewStatus: _omit, ...patch } = payload
-    await failIfNotOk(await apiRequest('PATCH', `/loyaltyClass/${payload.id}`, token, patch), 'actualizar clase')
+    // Keep branding in sync. The PATCH must carry reviewStatus=UNDER_REVIEW: omitting it
+    // makes Google re-validate the stored "APPROVED" and reject the request with
+    // 400 "Invalid review status APPROVED. Use UNDER_REVIEW instead." (seen once the class
+    // was approved). Sending UNDER_REVIEW is what Google expects for updates.
+    await failIfNotOk(await apiRequest('PATCH', `/loyaltyClass/${payload.id}`, token, buildClassPatch(payload)), 'actualizar clase')
   }
+}
+
+/** Body for updating an existing class (always UNDER_REVIEW, see ensureClass). */
+export function buildClassPatch(payload: ReturnType<typeof buildClassPayload>) {
+  return { ...payload, reviewStatus: 'UNDER_REVIEW' as const }
 }
 
 /**

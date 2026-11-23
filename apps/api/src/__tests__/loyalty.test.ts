@@ -100,6 +100,13 @@ describe('Loyalty — Google Wallet payloads', () => {
     const noLogo = buildClassPayload({ ...data, branding: {} } as any, 'ISS', 'p1')
     expect(noLogo.programLogo.sourceUri.uri).toMatch(/default-logo\.png$/)
   })
+  it('class PATCH: siempre manda reviewStatus UNDER_REVIEW (Google rechaza el PATCH de una clase aprobada sin él)', async () => {
+    const { buildClassPayload, buildClassPatch } = await import('../lib/loyalty/google-pass.js')
+    const patch = buildClassPatch(buildClassPayload(data as any, 'ISS', 'p1'))
+    expect(patch.reviewStatus).toBe('UNDER_REVIEW')
+    expect(patch.id).toBe('ISS.program_p1')
+    expect(patch.programLogo.sourceUri.uri).toBeTruthy()
+  })
   it('object: puntos, recompensa y oferta', async () => {
     const { buildObjectPayload } = await import('../lib/loyalty/google-pass.js')
     const o = buildObjectPayload({ ...data, offer: '2x1' } as any, 'ISS', 'p1') as any
