@@ -530,5 +530,25 @@ Pendientes a resolver en siguientes iteraciones.
 - Pendiente aparte (B5): el pase de Apple mete la imagen tal cual como `logo.png`; si es WebP (las imágenes
   de productos lo son) Apple podría no mostrarla. Convertir a PNG con sharp al construir el pase.
 
-### SEC-2 — Pendiente: imágenes `bitnamilegacy/*` (postgres 17.1, redis 7.4.1, minio 2024-10) sin actualizaciones
-- Evaluar migrar a imágenes oficiales mantenidas o a charts vigentes. También cert-manager v1.15.3.
+### SEC-2 — Dejar las imágenes `bitnamilegacy/*` (PRIORIDAD 1)  🔬 probado en aislado (2026-11-22), falta decidir y migrar
+- Hoy: `infra/applications/storehub/helm/index.ts` instala con `k8s.helm.v3.Chart` los charts Bitnami postgresql 16.2.1
+  (img 17.1.0), redis 20.3.0 (7.4.1) y minio 14.8.3 (2024.10.29), con imágenes `docker.io/bitnamilegacy/*` que ya no
+  reciben parches y pueden desaparecer. Las imágenes gratis de `bitnami/*` hoy solo publican `latest` (sin versiones
+  fijas): por eso no funcionaba cambiar a "latest". Versiones nuevas requieren la suscripción Bitnami Secure Images.
+- MinIO: el proyecto comunitario está archivado (abril 2026) y no publica imágenes (`minio/minio` ya no existe en
+  Docker Hub). No basta con cambiar de imagen: hay que cambiar de servidor S3.
+- Redis: el código NO lo usa (ioredis está en dependencias sin importarse; 0 llaves; solo un cliente local).
+- Prueba aislada en el namespace `datatest` (sin tocar staging/prod), manifiestos en
+  `infra/applications/storehub/data-next/datatest-postgres-garage.yaml`:
+  - Postgres OFICIAL `postgres:17.12-alpine` (misma versión mayor), sin root. Dump de staging restaurado: 25 tablas con
+    conteos idénticos, `unaccent` OK; el migrador real dijo "migrations applied successfully".
+  - Garage `dxflrs/garage:v2.5.0` (S3, un nodo, `--single-node --default-bucket`), sin root y disco de solo lectura.
+    `rclone copy` + `rclone check`: 4/4 objetos, 0 diferencias, content-type intacto.
+  - La imagen REAL del API de staging contra ambos, sin credenciales externas: health, login, lecturas (productos,
+    categorías, programas, tarjetas, ventas, usuarios), imagen pública idéntica byte a byte, subida con sharp
+    (putObject), reemplazo (removeObject), borrado, INSERT/DELETE de producto. Datos intactos tras borrar los pods.
+    No requiere cambios de código: solo cambian MINIO_ENDPOINT y la llave.
+  - Consumo: Garage ~5 MiB vs MinIO ~100 MiB; Postgres igual (~36 MiB).
+- Pendiente: decisiones (Postgres oficial vs CloudNativePG; quitar Redis), luego migrar staging y después prod en
+  ventana corta (ver plan en la conversación del 2026-11-22). Borrar `datatest` al terminar:
+  `kubectl delete namespace datatest`.
